@@ -1,7 +1,20 @@
 # 真机验证 checklist（敲定 3 个未验证接缝）
 
-> 当前 M1 框架 + M2 逻辑已就绪、29/29 逻辑自检通过、lint 干净。剩 3 个接缝只能在 NEKO 宿主 + 数据层 + 游戏环境里验证。
+> 当前 M1 框架 + M2 逻辑已就绪、T1A/T1B Hosted UI 已完成，29/29 逻辑自检通过、lint 干净。Hosted UI surface/context/action smoke 已通过。剩余仍需在 NEKO 宿主 + 数据层 + 游戏环境里验证真实接缝。
 > 按顺序走，每步标了"失败改哪个文件"。
+
+## 已完成的 Hosted UI smoke
+
+- 宿主可发现 `neko_warthunder` 的 Hosted UI surface `main`。
+- `dashboard` context 可返回面板状态。
+- `set_dry_run` / `pause` / `resume` / `test_say` 可通过 Hosted UI action 调用，且状态刷新符合预期。
+- 未发现 `PLUGIN_UI_ACTION_FAILED`。
+
+## 剩余接缝
+
+- 真机/数据层 `/api/telemetry` 字段与 flag 名验证。
+- 真实 `push_message` 开口验证。
+- dry_run 关掉后的端到端真机验证。
 
 ## 接缝① 插件能否被 NEKO 加载（不用开游戏）
 

@@ -8,12 +8,12 @@
 
 ## 实现状态（v0.2 已落地 · 2026-06-20）
 
-**M1 框架 ✅ + M2 逻辑 ✅ 已实现；逻辑单测 29/29 过、lint 0、`py_compile` 过；已过一轮 Bugbot 评审并修复 6 项（窗口 flush 漏门控 / COMBAT_STRESS 卡死 / critical 升级不重报 / 瞬断误报 spawn / 配置重载重放击杀 / 击杀去重非确定）。** 真机/宿主验证未做（见文末 3 接缝）。
+**M1 框架 ✅ + M2 逻辑 ✅ 已实现；T1A Hosted UI Integration ✅ + T1B Minimal Panel ✅ 已完成；逻辑单测 29/29 过、lint 0、`py_compile` 过；已过一轮 Bugbot 评审并修复 6 项（窗口 flush 漏门控 / COMBAT_STRESS 卡死 / critical 升级不重报 / 瞬断误报 spawn / 配置重载重放击杀 / 击杀去重非确定）。** Hosted UI surface/context/action smoke 已通过；真机/数据层/真实开口接缝未验证（见文末 3 接缝）。
 
 分层状态：
 - L0 脚手架+契约骨架 ✅（`plugin.toml` / `__init__.py` / `core/contracts.py`；`contract/telemetry_sample.json` ⏳ 待真机抓）
 - L1 telemetry_client ✅ ・ L2 BattleState ✅ ・ L3 scenario ✅ ・ L4 detectors ✅（overspeed/you_killed 打桩；you_died 用 vehicle_valid 跳变已可触发）
-- L5 arbiter ✅ ・ L6 dispatcher+instructions ✅ ・ L7 safety_guard ✅（**ui/panel.tsx ⏳ 未建**）
+- L5 arbiter ✅ ・ L6 dispatcher+instructions ✅ ・ L7 safety_guard ✅ + Hosted UI 最小面板 ✅
 - L8 数据层并入 ✅（`data_layer/` 已并入；启动拉起 :8112 子进程编排 ⏳ 未做）・ L9 真机调参 ⏳
 
 自检入口：
@@ -22,7 +22,7 @@
 - 完整环境：`uv run pytest plugin/plugins/neko_warthunder/tests`
 - 接缝自检：`test_say` 动作（验①③）/ `tests/test_real_sample.py`（验②）/ `docs/真机验证-checklist.md`
 
-待办：① 3 个接缝真机验证（见 checklist）；② `ui/panel.tsx`；③ M3 去桩（overspeed/you_killed 需数据层 flag + player_name）→ M4 真机调参终验。
+待办：① T4 补集成测试；② 3 个接缝真机验证（见 checklist）；③ T3/L8 子进程编排；④ M3 去桩（overspeed/you_killed 需数据层 flag + player_name）→ M4 真机调参终验。
 
 ---
 
@@ -68,7 +68,7 @@ plugin/plugins/neko_warthunder/
 │  └─ discrete/           按 id/跳变去重：you_killed(待)/you_died(待)/spawn/battle_end
 ├─ data_layer/            ✅ 合作者数据层整包并入（内容不改）
 ├─ contract/              ⏳ telemetry_sample.json 待真机抓（test_real_sample 会用它）
-├─ ui/panel.tsx           ⏳ 未建（最小面板：开关 / dry_run / 状态灯 / 急停）
+├─ ui/panel.tsx           ✅ 最小 Hosted UI 面板（状态 / dry_run / 安全状态 / 急停 / 测试开口）
 ├─ i18n/zh-CN.json        ✅（占位；完整 8 locale 待面板落地）
 ├─ tests/                 ✅ test_{contract,scenario,detectors,arbiter,real_sample}.py + conftest + run_logic_tests.py
 └─ docs/                  ✅ D-B1~B5 + 本文件 + 待办事项 + 真机验证-checklist
@@ -170,9 +170,10 @@ plugin/plugins/neko_warthunder/
 
 1. **M1 框架可跑(dry_run)** ✅：L0→L1→L2→L6→L7（链路通）。
 2. **M2 非阻塞事件** ✅：L3→L4(stall/overheat/low_fuel/low_alt + spawn/death/battle_end)→L5；逻辑单测 29/29 过。
-3. **接缝验证** ⏳（下一步，需你真机/宿主）：按 `docs/真机验证-checklist.md` 敲定 ①加载 ②字段/flag ③push 开口。
-4. **M3 接阻塞事件** ⏳：合作者补 overspeed flag + hudmsg/击杀 + player_name 后去桩。
-5. **M4 终装** ⏳：ui/panel.tsx + L8 子进程编排 + L9 真机调参 + 关 dry_run 终验。
+3. **Hosted UI 接入与最小面板** ✅：T1A/T1B 已完成，surface/context/action smoke 已通过。
+4. **接缝验证** ⏳（需真机/数据层/真实开口）：按 `docs/真机验证-checklist.md` 敲定 ①加载 ②字段/flag ③push 开口。
+5. **M3 接阻塞事件** ⏳：合作者补 overspeed flag + hudmsg/击杀 + player_name 后去桩。
+6. **M4 终装** ⏳：L8 子进程编排 + L9 真机调参 + 关 dry_run 终验。
 
 > M1/M2 已在当前契约下完成（阻塞事件打桩）；正式去桩 + 终验需合作者补齐 + 真机验证。
 
@@ -182,11 +183,10 @@ plugin/plugins/neko_warthunder/
 
 ### Codex 现在就能做（不阻塞）
 
-- **T1 最小面板 `ui/panel.tsx`**（L7 收尾）：总开关(`enabled`) / `dry_run` 速开关 / 安全状态灯(running·paused·tripped，调 `status` 动作) / 一键急停(调 `pause`·`resume`) / 连接&场景显示。形态照 `neko_roast` 的 `ui/panel.tsx`。
-  - ⚠️ hosted-ui 约束：组件来自 `@neko/plugin-ui`、**无 useRef、SVG 渲不了、`data:` URL 会被剥**（用 CSS `background-image` 绕）；改 `panel.tsx` 不用 rebuild（运行时转译）。新增文案要同步 i18n（当前只 `zh-CN`，需补全 8 locale）。
+- **T1A Hosted UI Integration / T1B Minimal Panel ✅ 已完成**：`plugin.toml` surface、`dashboard` context、`set_dry_run`/`pause`/`resume`/`test_say` action、`ui/panel.tsx` 最小面板已接入；surface/context/action smoke 已通过。
+- **T4 补测试（下一步）**：`DetectorEngine.feed` 全链路 integration、`NekoDispatcher.build_prompt` 各事件、scenario 多 tick 序列。
 - **T2 recovery 事件**：把生死级 detector 的 `wants_recovery=True`（在 `detectors/condition/flight_safety.py` 给 `stall_risk`/`low_alt_danger`）。recovery 走限流通道、低优先级、可被丢（D-B4）；intent 已在 `neko_dispatcher._RECOVERY_INTENT`。
 - **T3 L8 子进程编排**：插件 `startup` 尽力 `subprocess` 拉起 `data_layer/data process/wt_server.py`（**路径含空格要加引号**，带 `--player-name`），或检测 `:8112` 已在跑；连不上降级 + `status` 提示。**只当外部进程，绝不 import 数据层。**
-- **T4 补测试**：`DetectorEngine.feed` 全链路 integration、`NekoDispatcher.build_prompt` 各事件、scenario 多 tick 序列。
 
 ### 需要人/真机（Codex 做不了，等）
 
