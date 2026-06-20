@@ -192,19 +192,19 @@ class NekoWarthunderPlugin(NekoPluginBase):
         description="开/关 dry_run（开=只跑链路不真投给猫娘）。",
         input_schema={"type": "object", "properties": {"value": {"type": "boolean", "default": True}}},
     )
-    def set_dry_run(self, value: bool = True, **_):
+    async def set_dry_run(self, value: bool = True, **_):
         self.cfg.dry_run = bool(value)
         return Ok({"dry_run": self.cfg.dry_run})
 
     @ui.action(id="pause", label="急停", tone="danger", group="runtime", order=20, refresh_context=True)
     @plugin_entry(id="pause", name="急停", description="暂停所有提醒输出。")
-    def pause(self, **_):
+    async def pause(self, **_):
         self.safety.pause()
         return Ok({"safety": self.safety.status()})
 
     @ui.action(id="resume", label="恢复", tone="success", group="runtime", order=30, refresh_context=True)
     @plugin_entry(id="resume", name="恢复", description="恢复提醒输出并清空安全计数。")
-    def resume(self, **_):
+    async def resume(self, **_):
         self.safety.resume()
         return Ok({"safety": self.safety.status()})
 
@@ -215,7 +215,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
         description="立即推一条测试消息给猫娘，验证 push 链路（不受 dry_run 短路；用于接缝①③自检）。",
         input_schema={"type": "object", "properties": {"text": {"type": "string", "default": "副驾驶测试：能听到我吗？"}}},
     )
-    def test_say(self, text: str = "副驾驶测试：能听到我吗？", **_):
+    async def test_say(self, text: str = "副驾驶测试：能听到我吗？", **_):
         try:
             self.push_message(
                 source="neko_warthunder",
