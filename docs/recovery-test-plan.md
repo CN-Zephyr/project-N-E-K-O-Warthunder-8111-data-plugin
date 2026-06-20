@@ -148,8 +148,8 @@ tick4-tick7: None
 输入序列：
 
 ```text
-tick1 flags={"overspeed_warning": true} 或 {"overspeed_critical": true}
-tick2 flags={"overspeed_warning": true} 或 {"overspeed_critical": true}
+tick1 flags={"overspeed_warn": true} 或 {"overspeed_critical": true}
+tick2 flags={"overspeed_warn": true} 或 {"overspeed_critical": true}
 tick3 flags={}
 tick4 flags={}
 tick5 flags={}
@@ -164,8 +164,8 @@ exit 阶段不产 BattleEvent(event_id="overspeed", edge="recovery")。
 
 覆盖点：
 
-- overspeed 仍是数据层 blocker。
-- 即使未来 flag 到位，v1 recovery 默认不开。
+- overspeed 已不是数据层字段缺口；数据层 v1.6 已提供 `overspeed_warn` / `overspeed_critical`。
+- 即使 flag 已到位，v1 recovery 默认不开。
 
 ### 1.6 `low_fuel` 不产 recovery
 

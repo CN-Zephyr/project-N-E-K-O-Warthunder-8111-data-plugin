@@ -17,7 +17,7 @@
 | 我们的事件 | 数据层来源 | 我们做什么 | payload 取值 |
 |---|---|---|---|
 | `stall_risk` | flags `stall_warning`/`stall_critical`（OR `aoa_high`/`aoa_critical`） | 边沿+debounce+迟滞+cooldown | ias_kmh, aoa_deg, altitude_m |
-| `overspeed` | flags `overspeed_warn`/`overspeed_critical`（**待合作者补**） | 同上 | ias_kmh, mach |
+| `overspeed` | flags `overspeed_warn` / `overspeed_critical`（数据层 v1.6 已提供，插件侧待验证） | 同上 | ias_kmh, mach |
 | `overheat` | flags `engine_overheat`/`engine_overheat_critical`（OR `oil_overheat*`） | 同上（不抢占） | water/head/turbine/oil temp_c |
 | `low_fuel` | flags `fuel_low`/`fuel_critical` | 同上（仅 IN_FLIGHT） | fuel_fraction, fuel_remaining_sec |
 | `low_alt_danger` | flags `altitude_low`/`altitude_critical`（MSL 非 AGL） | 同上 | altitude_m, climb_ms |
@@ -31,7 +31,7 @@
 - **steep_dive → v1 删除**（与 low_alt/overspeed 重叠、最弱、数据层也没做；留 v2）。
 
 ### 给合作者的 TODO（汇合产出）
-- 补 `overspeed_warn/critical`（逐机 never-exceed，入 `vehicle_profiles`）。
+- `overspeed_warn` / `overspeed_critical` 已由数据层 v1.6 提供；插件侧下一步是验证字段名、触发节奏和 Arbiter 优先级。
 - 完成 hudmsg/击杀解析（其待办：击杀/起火/重创/油温/非对称襟翼），保证 `combat.feed` 与 damage 流稳定——我们的 `you_killed/you_died` 依赖它。
 - 确认 `player_name` 注入方式（我们靠它判"关于我"）。
 

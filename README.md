@@ -1,34 +1,65 @@
 # neko_warthunder
 
-War Thunder 猫娘副驾驶插件（v1）。**只读 8111、不做外挂**：消费数据层遥测，把连续数据转成分立的战斗事件，按当前战场场景仲裁后让猫娘提醒/陪伴。
+War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:8112`，把连续遥测整理成 Battle Awareness 事件，再经 Scenario / Arbiter / Safety / Dispatcher 决定是否让猫娘开口。
 
-> 当前状态：**M1 框架 + M2 理解/决策逻辑已实现，T1A Hosted UI Integration + T1B Minimal Panel 已完成。** Hosted UI surface/context/action smoke 已通过；未做：真机/数据层/真实开口接缝验证（见 `docs/真机验证-checklist.md`）、M3 去桩（overspeed/击杀，待数据层）。详见 `docs/实现计划-codex.md` 的「实现状态」。
+## 当前状态
 
-## 给 Codex 的启动指令（直接复制）
+- M1 scaffold + M2 Battle Awareness 主链路已实现。
+- T1A Hosted UI Integration + T1B Minimal Panel 已完成，surface/context/action smoke 已通过。
+- T4 集成测试已完成；当前逻辑自检以 `32/32 passed` 为准。
+- 数据层 `v1.6` 已合并到当前独立插件仓库，包含 `overspeed_warn` / `overspeed_critical`、增强 `combat.feed`、`is_my_kill` / `is_my_death`、`/api/identity`、`replay: true` 降级、`hud_notices`、`awards`。
+- 数据层字段缺口不再是“等待字段补齐”，现在是插件侧待适配 `v1.6` DTO、待真机接缝验证。
+- `T-Safety: output text sanitizer` 已纳入计划但未实现。它阻塞 kill/death/hudmsg/combat.feed/awards 等自由文本真实播报，不阻塞 stall/low_alt/overheat/low_fuel/overspeed 等数值安全事件。
+- recovery 已评估并暂缓；当前不要打开 `wants_recovery`。
+
+## 给 Codex 的启动指令
 
 ```text
-你将接手 NEKO 插件 plugin/plugins/neko_warthunder/（War Thunder 猫娘副驾驶）。
+你将接手独立插件仓库 project-N-E-K-O-Warthunder-8111-data-plugin。
 
-先读：plugin/plugins/neko_warthunder/docs/实现计划-codex.md
-（重点：「实现状态」「§0 总则铁律」「§6 给 Codex 的下一步」「§7 已知坑/勿回退」）。
+先读：
+- PROJECT_STATUS.md
+- docs/实现计划-codex.md
+- docs/真机验证-checklist.md
+- docs/待办事项.md
+- docs/D-B1-scenario-model.md ~ docs/D-B5-event-field-requirements.md
+- data_layer/data process/后端接口文档.md
 
-现状：M1 框架 + M2 理解/决策逻辑已实现；T1A Hosted UI Integration + T1B Minimal Panel 已完成；Hosted UI surface/context/action smoke 已通过；逻辑单测 29/29 过；已过一轮 Bugbot 评审并修复 6 项。
+当前状态：
+- Hosted UI 完成。
+- T4 集成测试完成。
+- 逻辑自检 32/32 passed。
+- 数据层 v1.6 已合并，插件侧尚未完成 DTO 适配和真机接缝验证。
+- T-Safety 必须在 kill/death/hudmsg/combat.feed/awards 正式播报前完成。
+- recovery 暂缓。
 
-从 §6「Codex 现在就能做」开始，建议优先 T4（补集成测试）。T3/L8 子进程编排保留为后续。
+边界：
+- 不 import、不修改 data_layer/。
+- 与数据层唯一边界是 HTTP :8112。
+- 输出只走 adapters/neko_dispatcher.py。
+- dry_run 默认开启，真机确认前不要关闭。
+- Detector / Scenario / Arbiter 不承担文本过滤职责。
 
-铁律（§0，违反即返工）：
-- 只读 8111；与数据层唯一边界 = HTTP :8112；只消费、不重算阈值。
-- 输出只走 adapters/neko_dispatcher.py；每次仲裁至多 1 条；不拼最终台词（产出「事实行+要求行」，ai_behavior=respond）。
-- dry_run 默认开；真投前才关。
-- 绝不修改 / 不 import data_layer/（合作者代码，目录名 data process 带空格）。
-- 不要重新引入 §7 列出的 6 个 Bugbot 已修问题。
+优先顺序：
+1. T-Safety output text sanitizer。
+2. M3 适配数据层 v1.6 DTO。
+3. 真机 checklist 验证 v1.6 接缝。
+4. T3/L8 子进程编排后置。
+```
 
-验证：
-- 无依赖逻辑自检：uv run python plugin/plugins/neko_warthunder/tests/run_logic_tests.py（应 29/29）
-- 离线看行为/决策链路：uv run python plugin/plugins/neko_warthunder/tools/replay.py
-- 完整环境：uv run pytest plugin/plugins/neko_warthunder/tests
+## 验证入口
 
-做不了的（等人/真机/合作者，别硬做）：3 接缝真机验证（docs/真机验证-checklist.md）、M3 去桩（overspeed/击杀需数据层补 flag + player_name）。
+从独立插件仓库 root 运行：
+
+```powershell
+uv run python tests/run_logic_tests.py
+uv run pytest tests -q
+```
+
+从 N.E.K.O 宿主仓库内做插件检查时，使用宿主路径：
+
+```powershell
+uv run python -m plugin.neko_plugin_cli.cli check plugin/plugins/neko_warthunder
 ```
 
 ## 目录
@@ -36,26 +67,21 @@ War Thunder 猫娘副驾驶插件（v1）。**只读 8111、不做外挂**：消
 ```text
 neko_warthunder/
 ├─ core/         contracts / scenario / arbiter / safety_guard / instructions
-├─ adapters/     telemetry_client（拉 :8112）/ neko_dispatcher（唯一出口）
+├─ adapters/     telemetry_client（拉 :8112）/ neko_dispatcher（唯一输出口）
 ├─ detectors/    condition（flag 边沿 FSM）/ discrete（按 id/跳变去重）
-├─ contract/     真实 /api/telemetry 样本 + 契约版本（防 schema 漂移）
-├─ ui/           最小面板（Hosted UI：状态 / dry_run / 安全状态 / 急停 / 测试开口）
+├─ contract/     真实 /api/telemetry 样本与契约检查
+├─ ui/           Hosted UI 最小面板
 ├─ i18n/         zh-CN 占位；完整 8 locale 待后续 UI 文案扩展
-├─ tests/        契约/Detector/Arbiter/Scenario 测试 + run_logic_tests.py（无依赖自检）
-├─ docs/         D-B1~B5 / 实现计划-codex / 待办事项 / 真机验证-checklist
-└─ data_layer/   合作者数据层（整体并入，内容不改；独立 :8112 HTTP 服务，不当 Python 模块 import）
+├─ tests/        契约 / Detector / Arbiter / Scenario / integration 测试
+├─ docs/         D-B1~B5 / 实现计划 / 待办事项 / 真机验证 checklist / recovery 测试方案
+└─ data_layer/   合作者数据层，vendored，只通过 HTTP 消费
 ```
 
-## 关键约束（动手前必读 docs/）
+## 关键约束
 
-- 与数据层唯一边界 = HTTP `:8112`（`/api/telemetry`）；只消费、不重算阈值。
-- 不修改 `data_layer/` 任何内容（vendored，整包替换式更新）。其 `data process/` 目录名带空格，**绝不 import**。
-- 输出只走 `neko_dispatcher`；每次仲裁至多 1 条；dry_run 默认开。
-
-## 文档入口
-
-- 实现路线 + 当前状态（给开发者/Codex）：`docs/实现计划-codex.md`
-- 真机验证步骤（敲定 3 接缝）：`docs/真机验证-checklist.md`
-- 设计：`docs/D-B1`(Scenario) / `D-B2`(BattleEvent) / `D-B3`(Detector) / `D-B4`(Arbiter) / `D-B5`(事件→数据层映射)
-- 给数据层开发者的待办：`docs/待办事项.md`
-- 数据层接口契约：`data_layer/data process/后端接口文档.md`
+- 数据层代码只作为 vendored 目录保存，插件侧不要修改、不要 import。
+- `you_killed` / `you_died` 后续应消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`。
+- `overspeed` 后续应验证并适配 `processed.flags` 中的 `overspeed_warn` / `overspeed_critical`。
+- `replay: true` 需要插件侧降级或静默策略，避免回放数据触发真实播报。
+- `/api/identity` 是 player_name 的主路径，后续需要接 UI/config/runtime seam。
+- `hud_notices` / `awards` 来自自由文本解析，真实播报前受 T-Safety 阻塞。
