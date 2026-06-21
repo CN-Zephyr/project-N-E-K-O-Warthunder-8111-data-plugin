@@ -10,11 +10,25 @@
 - action 后 context 刷新符合预期。
 - 未发现 `PLUGIN_UI_ACTION_FAILED`。
 
+## 已完成的真机 dry_run Smoke（2026-06-21）
+
+- 三个 health 均正常：主后端 `48911`、Hosted UI `48916`、数据层 `8112`。
+- Hosted UI `dashboard` context 可持续返回 `dry_run`、连接状态、scenario、safety、observe last decision/output。
+- `pause` 已验证：`safety.status=paused`、`manual_paused=true`，风险事件被 Arbiter 以 `reason=paused` suppress。
+- `resume` 已验证：`safety.status=running`、`manual_paused=false`，恢复后 `low_alt_danger` 可被 Arbiter allowed 并进入 dry_run dispatcher。
+- `test_say` 已验证：宿主日志出现多条 `TRIGGER entry='test_say'`，未出现 `PLUGIN_UI_ACTION_FAILED`。
+- 数值安全链路已观察到：`stall_risk`、`low_alt_danger`，并保留此前 `overspeed`、`low_fuel`、`you_died` dry_run 观察结论。
+- 未发现 Traceback / ERROR / TTS push 报错。
+
+待复核：
+
+- 过热/炸缸：真机 UI 出现油温橙/红、发动机黄、炸缸现象，但插件未稳定观察到 `overheat` 输出。后续需要核对 `/api/telemetry` 中 `engine_overheat` / `oil_overheat` / failure 字段，以及插件侧 flag/event 映射。
+
 ## 剩余接缝
 
 - NEKO 宿主加载与插件生命周期。
 - 数据层 `:8112` v1.6 DTO 与插件解析。
-- `dry_run` 决策链路是否能解释每一步。
+- `dry_run` 决策链路是否能解释每一步（基础安全链路已通过一轮，剩余见下方待复核）。
 - `push_message` 真实开口链路。
 - T-Safety 已完成；kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前仍不做真实自由文本播报。
 
@@ -110,6 +124,7 @@
 注意：
 
 - overspeed 不再是数据层缺口，但插件侧仍需要验证 flag 是否能触发正确事件。
+- 2026-06-21 已验证低空 / 失速 / pause / resume / test_say 基础链路；过热/炸缸仍需字段映射复核。
 - kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前只做 dry_run / audit，不做正式播报。
 
 ## 接缝 5：dry_run=false 真实开口
