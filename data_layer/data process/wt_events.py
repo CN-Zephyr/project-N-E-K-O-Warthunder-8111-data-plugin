@@ -277,6 +277,11 @@ class KillTracker:
             # 污染击杀流与排行榜。不计入 _seen_ids，交给 NoticeTracker 自行去重。
             if parse_notice(msg) is not None:
                 continue
+            # 战斗嘉奖（先拔头筹/双杀/完成了最后一击 等）由 AwardTracker 独立处理；这里跳过，
+            # 否则像“X 完成了最后一击！”既非击杀也非已知动作，会以 action='other'(parsed=False)
+            # 漏进击杀流、污染 by_action。嘉奖绝不计入 K/D。不记 _seen_ids，交给 AwardTracker 去重。
+            if parse_award(msg) is not None:
+                continue
             # 系统噪声（掉线/连接/加入）不是战斗事件，直接忽略，不计入战绩与 feed。
             # 不记 _seen_ids：成本极低，重复投递时再次跳过即可。
             if is_system_noise(msg):

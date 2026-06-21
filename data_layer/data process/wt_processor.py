@@ -4,8 +4,10 @@
 例如燃油告急、失速、攻角过大、高度过低、加力时间过长等。
 
 设计要点：
-    - 阈值按机型配置：从 vehicle_profiles.json 读取，先 _default 再用机型条目覆盖；
-      识别不到机型时回退到 _default（profile_matched=false）。
+    - 阈值按机型配置：从 vehicle_profiles.json 读取，先 _default 再用机型条目覆盖。
+      匹配三级（命中即止）：精确机型(source=exact) -> 模糊家族(source=family，仅空军，按
+      _families 前缀最长优先) -> 回退默认(source=default)。模糊层用于覆盖未逐一录入的变体
+      （如 Fw 190 / Bf 109 各亚型按家族大类套阈值），profile_matched 在精确或家族命中时均为 true。
     - 处理器是有状态的（按时间累计加力时长、估算燃油消耗率），
       因此应由“同一个线程、按固定频率”调用（见 wt_server 的 fast 组）。
       切换载具或离开战局时调用 reset() 清空会话状态。
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -57,7 +60,9 @@ class ProcessedData:
     """加工后的关键信息，连同原始数据一起送往前端。"""
 
     vehicle_type: str | None = None
-    profile_matched: bool = False  # 是否在配置文件中匹配到该机型
+    profile_matched: bool = False  # 是否套用到了机型适配阈值（精确或家族模糊命中均为 true）
+    profile_source: str = "default"  # exact=精确命中 / family=模糊家族命中 / default=回退默认
+    profile_family: str | None = None  # 模糊命中的家族标签（如 "Fw 190"），仅 source=family 时有值
     army: str | None = None
     vehicle_class: str = "unknown"  # air / ground / naval / unknown
 
@@ -100,27 +105,74 @@ class ProcessedData:
         return asdict(self)
 
 
-def _merge_profile(
-    profiles: dict[str, Any], vehicle_type: str | None
-) -> tuple[dict[str, Any], bool]:
-    """合并出某机型的有效阈值配置，返回 (配置, 是否匹配到机型)。
+def _compact_name(s: str) -> str:
+    """归一化载具代号用于家族前缀比对：转小写、去掉所有分隔符/非字母数字。
 
-    合并优先级（后者覆盖前者）：
-        _default  <-  机型所属类别(_classes[class])  <-  机型自身的字段
+    例：'fw-190a-5'->'fw190a5'、'ki_61_1a_otsu_china'->'ki611aotsuchina'、'F-4EJ_Kai'->'f4ejkai'。
+    """
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _apply_entry(base: dict[str, Any], profiles: dict[str, Any],
+                 entry: dict[str, Any], skip: set[str]) -> None:
+    """把一条配置(精确机型或家族)按 class 模板 + 自身字段合并进 base。"""
+    cls = entry.get("class")
+    if cls:
+        template = profiles.get("_classes", {}).get(cls)
+        if isinstance(template, dict):
+            base.update(template)
+    base.update({k: v for k, v in entry.items() if k not in skip})
+
+
+def _match_family(family_rules: list[dict[str, Any]], compact: str) -> dict[str, Any] | None:
+    """模糊家族匹配：family_rules 已按前缀长度【降序】排好，最长前缀优先。
+
+    最长优先是消歧关键：可正确区分 'f4u'(海盗,螺旋桨) 与 'f4'(鬼怪,现代喷气)、
+    'ki100' 与 'ki10'、'yak15'(喷气) 与 'yak1'(螺旋桨) 等“短前缀是长前缀子串”的嵌套情形——
+    只要更具体的家族也在表中，就一定先于较短的家族被命中。
+    """
+    if not compact:
+        return None
+    for fam in family_rules:
+        pref = fam.get("_cprefix")
+        if pref and compact.startswith(pref):
+            return fam
+    return None
+
+
+def _merge_profile(
+    profiles: dict[str, Any],
+    vehicle_type: str | None,
+    army: str | None,
+    family_rules: list[dict[str, Any]],
+) -> tuple[dict[str, Any], bool, str, str | None]:
+    """合并出某机型的有效阈值配置。
+
+    返回 (配置, profile_matched, profile_source, profile_family)。
+    匹配顺序（命中即止）：
+        1) 精确命中 profiles[vehicle_type]            -> source='exact'
+        2) 模糊家族命中（仅空军）_families 前缀匹配     -> source='family'
+        3) 回退 _default                              -> source='default'
+    合并优先级（后者覆盖前者）：_default < 类别模板(_classes[class]) < 该条目自身字段。
+
+    模糊层动机：机型变体众多难以逐一录入，但同一家族(如 Fw 190 / Bf 109 各亚型)的失速/超速/
+    高度等阈值差异不大，可按家族大类套用。仅对空军启用——家族阈值都是固定翼类别，套到误判的
+    地面/海面载具上没有意义，故用 army 守卫降低误判面。
     """
     base = dict(profiles.get("_default", {}))
-    matched = False
-    if vehicle_type and not vehicle_type.startswith("_"):
-        entry = profiles.get(vehicle_type)
-        if isinstance(entry, dict):
-            matched = True
-            cls = entry.get("class")
-            if cls:
-                template = profiles.get("_classes", {}).get(cls)
-                if isinstance(template, dict):
-                    base.update(template)
-            base.update({k: v for k, v in entry.items() if k != "class"})
-    return base, matched
+    if not (vehicle_type and not vehicle_type.startswith("_")):
+        return base, False, "default", None
+    entry = profiles.get(vehicle_type)
+    if isinstance(entry, dict):
+        _apply_entry(base, profiles, entry, skip={"class"})
+        return base, True, "exact", None
+    if army == "air":
+        fam = _match_family(family_rules, _compact_name(vehicle_type))
+        if fam is not None:
+            _apply_entry(base, profiles, fam,
+                         skip={"class", "prefix", "label", "_cprefix"})
+            return base, True, "family", fam.get("label") or fam.get("prefix")
+    return base, False, "default", None
 
 
 class TelemetryProcessor:
@@ -141,6 +193,7 @@ class TelemetryProcessor:
                 data = json.load(fh)
             if isinstance(data, dict) and isinstance(data.get("_default"), dict):
                 self.profiles = data
+                self._build_family_rules()
                 return
         except (OSError, json.JSONDecodeError):
             pass
@@ -162,6 +215,24 @@ class TelemetryProcessor:
                 "suppress_when_gear_down": True,
             }
         }
+        self._build_family_rules()
+
+    def _build_family_rules(self) -> None:
+        """从 profiles['_families'] 预构建模糊家族规则表：compact 化前缀并按长度降序排序。
+
+        长度降序在加载期一次排好，匹配时按序首中即返回 -> 自动满足“最长前缀优先”消歧，
+        作者在 JSON 里的排列顺序无关紧要。"""
+        rules: list[dict[str, Any]] = []
+        fams = self.profiles.get("_families")
+        if isinstance(fams, list):
+            for f in fams:
+                if isinstance(f, dict) and f.get("prefix"):
+                    rule = dict(f)
+                    rule["_cprefix"] = _compact_name(str(f["prefix"]))
+                    if rule["_cprefix"]:
+                        rules.append(rule)
+        rules.sort(key=lambda r: len(r["_cprefix"]), reverse=True)
+        self._family_rules: list[dict[str, Any]] = rules
 
     # -- 会话状态 ----------------------------------------------------------
 
@@ -194,7 +265,9 @@ class TelemetryProcessor:
             self.reset()
             self._cur_type = vtype
 
-        cfg, matched = _merge_profile(self.profiles, vtype)
+        cfg, matched, source, family = _merge_profile(
+            self.profiles, vtype, army, self._family_rules
+        )
 
         dt = 0.0
         if self._last_ts is not None:
@@ -204,6 +277,8 @@ class TelemetryProcessor:
         result = ProcessedData(
             vehicle_type=vtype,
             profile_matched=matched,
+            profile_source=source,
+            profile_family=family,
             army=army,
             vehicle_class=vehicle_class,
             fuel_kg=getattr(vehicle, "fuel_kg", None),

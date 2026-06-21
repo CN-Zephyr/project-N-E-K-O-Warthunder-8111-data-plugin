@@ -21,6 +21,12 @@
 （game_time_sec 倒退 或 进局后 mission 始终非 running），一旦命中即整局降级：所有接口仅
 返回 {"replay": true, ...}，停掉告警/战绩/态势/嘉奖等全部派生上报，直到离开战局复位。
 
+阵亡待命态：玩家被击杀后（可重生模式重生前、或转观战他人直到终局），8111 座舱遥测会冻结
+在“死车残骸”上（速度 0/坠机/减员），processor 仍当活载具而持续刷失速/低高度/乘员损失等
+假警；观战他人时地图“自身”坐标还会漂到被观战者身上、令态势失真。fast 组据此识别阵亡待命
+（combat.my.deaths 增加进入；先见载具静止再恢复运动/满员退出），其间抑制告警、置空态势/接近，
+快照与 /health 带 dead 标志；战绩(K/D)不受影响照常上报。
+
 对外接口（GET）：
     /                  健康检查 + 各组刷新状态
     /api/telemetry     最新完整快照（JSON）
@@ -93,6 +99,18 @@ _SPAWN_SUPPRESS_SEC = 10.0
 #   2) 进局 grace 秒后 mission_status 始终未出现 'running'，却已是终局/未定义态。
 _REPLAY_TIME_BACK_SEC = 5.0
 _REPLAY_MISSION_GRACE_SEC = 8.0
+
+# 阵亡待命态检测（玩家被击杀后→重生/观战窗口）：实测玩家死亡后，8111 的座舱遥测会
+# 冻结在“死车残骸”上（速度=0、坠机后高度不变、乘员减员），而 processor 仍把它当活载具，
+# 于是持续刷失速/低高度/乘员损失等假警；观战他人时地图“自身”坐标还会漂到被观战者身上，
+# 令态势(敌距/方位/接近)失真。故一旦判定玩家阵亡待命，就抑制告警 + 标记态势不可靠。
+# 进入：combat.my.deaths 增加（解析到 is_my_death 新事件）。
+# 退出：必须先看到载具“静止/残骸化”(_dead_inert_seen)，再恢复运动或满员——以此区分
+#       “死亡俯冲(高速但已死)”与“重生起飞/行驶”。死亡俯冲时 inert 尚未出现，不会误退出。
+_DEAD_INERT_IAS_KMH = 40.0    # 视为静止(残骸)的 IAS 上限
+_DEAD_INERT_SPEED_MS = 3.0    # 视为静止(残骸)的地面速度上限
+_DEAD_ALIVE_IAS_KMH = 150.0   # 视为重新升空的 IAS 下限
+_DEAD_ALIVE_SPEED_MS = 5.0    # 视为重新行驶的地面速度下限
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +196,11 @@ class TelemetryService:
         self._replay = False
         self._last_game_time: float | None = None  # 上一帧游戏内时间(秒)，用于倒退检测
         self._mission_running_seen = False          # 本局 mission 是否曾出现 'running'
+        # 阵亡待命态：玩家被击杀后→重生/观战窗口（进/出战局复位）。
+        self._dead = False
+        self._dead_since: float | None = None
+        self._dead_inert_seen = False               # 死后是否已见载具静止(残骸/观战冻结)
+        self._last_deaths = 0                        # 上次见到的 combat.my.deaths（检测增量=新阵亡）
 
         self._running = False
         self._threads: list[threading.Thread] = []
@@ -261,13 +284,23 @@ class TelemetryService:
                 self._replay = False
                 self._last_game_time = None
                 self._mission_running_seen = False
+                self._dead = False
+                self._dead_since = None
+                self._dead_inert_seen = False
+                self._last_deaths = 0
             # 回放检测（仅战局内；锁定式，命中后保持到离开战局）
             if state is ConnectionState.IN_BATTLE and not self._replay:
                 self._detect_replay_locked(ind, now)
+            # 阵亡待命态检测（仅战局内）
+            if state is ConnectionState.IN_BATTLE:
+                self._update_dead_state_locked(ind, processed, now)
             # 开局抑制窗口：进局前 _SPAWN_SUPPRESS_SEC 秒清空告警（保留派生量/数值），
             # 压掉 air RB 空中生成的失速/低高度等瞬态假警。
-            if (processed is not None and self._battle_entry_ts is not None
-                    and now - self._battle_entry_ts < _SPAWN_SUPPRESS_SEC):
+            # 阵亡待命态同样抑制告警（死车残骸/观战冻结会刷失速/乘员损失等假警）。
+            if (processed is not None and (
+                    self._dead
+                    or (self._battle_entry_ts is not None
+                        and now - self._battle_entry_ts < _SPAWN_SUPPRESS_SEC))):
                 processed = {**processed, "alerts": [], "flags": {}}
             self._processed = processed
         # 录制（调试开关）：按记录间隔转存一帧快照；未开启录制时近乎零开销
@@ -284,9 +317,13 @@ class TelemetryService:
             self.processor.profiles, domain, getattr(ind, "vehicle_type", None)
         )
         now = time.time()
-        prox_events = self.proximity.update(
-            situation.get("enemies", []), thr_air, thr_ground, now
-        )
+        # 阵亡待命态：地图“自身”坐标会漂到被观战者身上，敌距/接近全部失真，不再生成接近告警。
+        if self._dead:
+            prox_events = []
+        else:
+            prox_events = self.proximity.update(
+                situation.get("enemies", []), thr_air, thr_ground, now
+            )
         with self._lock:
             self._map_objects = objs
             self._situation = situation
@@ -378,6 +415,44 @@ class TelemetryService:
                 and self._mission_status in ("success", "fail", "undefined")):
             self._replay = True
 
+    def _update_dead_state_locked(self, ind: Indicators, processed: dict[str, Any] | None,
+                                  now: float) -> None:
+        """更新阵亡待命态（调用方需已持锁，且仅在战局内调用）。
+
+        进入：combat.my.deaths 较上次增加（解析到本人新阵亡）。
+        退出：先见载具静止/残骸化（_dead_inert_seen），再满足以下任一“复活”信号：
+              - 恢复运动（空中 IAS>阈值 / 地面速度>阈值）= 重生起飞/行驶；
+              - 乘员恢复满员（地面坦克 crew_total>=2 且 crew_current>=crew_total）= 新车。
+        “先静止再活跃”的两段式可正确区分“死亡俯冲(高速但已死)”与“重生”，避免在
+        坠落途中误判复活而提前解除抑制。
+        """
+        combat = self._combat
+        deaths = 0
+        if isinstance(combat, dict):
+            deaths = (combat.get("my") or {}).get("deaths") or 0
+        if deaths > self._last_deaths:
+            self._dead = True
+            self._dead_since = now
+            self._dead_inert_seen = False
+        self._last_deaths = deaths
+        if not self._dead:
+            return
+        ias = processed.get("ias_kmh") if isinstance(processed, dict) else None
+        gspeed = getattr(ind, "speed", None)
+        inert = ((ias is None or ias < _DEAD_INERT_IAS_KMH)
+                 and (gspeed is None or abs(gspeed) < _DEAD_INERT_SPEED_MS))
+        if inert:
+            self._dead_inert_seen = True
+        moving = ((ias is not None and ias > _DEAD_ALIVE_IAS_KMH)
+                  or (gspeed is not None and abs(gspeed) > _DEAD_ALIVE_SPEED_MS))
+        crew = getattr(ind, "crew_current", None)
+        crew_total = getattr(ind, "crew_total", None)
+        crew_full = (crew is not None and crew_total is not None
+                     and crew_total >= 2 and crew >= crew_total)
+        if self._dead_inert_seen and (moving or crew_full):
+            self._dead = False
+            self._dead_since = None
+
     def _reset_battle_cache_locked(self) -> None:
         """离开战局时清空本局相关缓存（调用方需已持锁）。"""
         # 录制标记：一次会话可跨多局，靠此标记供离线工具按局切分
@@ -405,6 +480,10 @@ class TelemetryService:
         self._replay = False
         self._last_game_time = None
         self._mission_running_seen = False
+        self._dead = False
+        self._dead_since = None
+        self._dead_inert_seen = False
+        self._last_deaths = 0
 
     def _write_map(self, data: bytes, ext: str, gen: int | None) -> None:
         try:
@@ -445,14 +524,18 @@ class TelemetryService:
             )
             data = snap.to_dict()
             data["replay"] = False
+            # 阵亡待命态：玩家被击杀后→重生/观战窗口。告警已在 _poll_fast 抑制；这里再把
+            # 依赖“自身位置”的态势/接近置空（观战时坐标漂到被观战者，数据失真）。战绩保留
+            # （HUD 带全局名字戳，不会被污染，前端仍可展示最终 K/D / 谁击杀了你）。
+            data["dead"] = self._dead
             data["processed"] = self._processed
-            data["situation"] = self._situation
+            data["situation"] = None if self._dead else self._situation
             data["combat"] = self._combat
             data["hud_notices"] = self._notices
             data["awards"] = self._awards
             data["proximity"] = {
                 "thresholds_m": self._proximity_threshold,
-                "events": list(self._proximity_events),
+                "events": [] if self._dead else list(self._proximity_events),
             }
             data["meta"] = self._meta_locked()
         return data
@@ -503,6 +586,7 @@ class TelemetryService:
                 "service": "wt-telemetry",
                 "state": self._state.value,
                 "replay": self._replay,
+                "dead": self._dead,
                 "updated_at": self._fast_ts,
                 "has_map": self._map_bytes is not None,
                 "map_generation": self._map_gen,
