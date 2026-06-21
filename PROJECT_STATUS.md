@@ -24,13 +24,13 @@
 ## Not Done Yet
 
 - Real-machine `dry_run` seams are partially validated; real-speech `dry_run=false` seams still need validation.
-- Plugin-side M3 adaptation to data-layer `v1.6` DTO is in progress.
-- `you_killed` and `you_died` should be adapted to `combat.feed[].is_my_kill` and `combat.feed[].is_my_death`; the old `vehicle_valid` death path is not reliable enough as the main source.
+- Plugin-side M3 adaptation to data-layer `v1.6` DTO is partially implemented and awaiting real-machine validation.
+- `you_killed` and `you_died` now consume `combat.feed[].is_my_kill` and `combat.feed[].is_my_death`; the old `vehicle_valid` death path is not used as the main death source.
 - `overspeed` is no longer a data-layer gap; plugin-side dry-run validation has observed the event path, but DTO mapping should still be kept under M3 regression coverage.
 - Overheat HUD-notice seam is implemented for `hud_notices.feed[].code` values `engine_overheat` and `oil_overheat`, mapped to the existing `overheat` event with safe code-only payload. It still needs real-machine dry-run revalidation; `powertrain_failure` is intentionally not promoted to a speech event yet.
-- `replay: true` still needs a plugin degrade or silence policy.
+- `replay: true` telemetry is silenced at `DetectorEngine`: detectors reset and no battle events are emitted. Real replay samples still need validation.
 - `/api/identity` still needs a player-name seam through UI/config/runtime orchestration.
-- T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Formal kill/death/hudmsg/combat.feed/awards speech still needs M3 DTO adaptation and real-machine validation before dry_run=false rollout.
+- T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Formal kill/death/hudmsg/combat.feed/awards speech still needs real-machine dry-run validation before dry_run=false rollout.
 - Numeric flight-safety events such as stall, low altitude, overheat, low fuel, and overspeed are not blocked by T-Safety.
 - Data-layer subprocess orchestration is not implemented.
 - `contract/telemetry_sample.json` is still waiting for a real `/api/telemetry` capture.
@@ -54,8 +54,8 @@ Notes:
 
 ## Next Recommended Work
 
-1. Continue M3 adaptation to data-layer `v1.6` DTO: `combat.feed[].is_my_kill`, `combat.feed[].is_my_death`, `/api/identity`, `replay: true`, and the remaining failure-field strategy.
-2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, focusing on overheat HUD notice revalidation, identity, replay, and free-text event paths.
+1. Continue M3 seams that still need runtime integration or samples: `/api/identity`, replay real-sample validation, awards/free-text dry_run validation, and the remaining failure-field strategy.
+2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, focusing on overheat HUD notice revalidation, identity, replay, kill/death, and free-text event paths.
 3. Capture `contract/telemetry_sample.json` from a real `/api/telemetry` response.
 4. Only after M3 + real-machine dry_run pass, consider formal kill/death/hudmsg/combat.feed/awards speech through T-Safety.
 5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.

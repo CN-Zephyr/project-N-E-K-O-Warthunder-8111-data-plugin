@@ -30,7 +30,7 @@
 - 数据层 `:8112` v1.6 DTO 与插件解析。
 - `dry_run` 决策链路是否能解释每一步（基础安全链路已通过一轮，剩余见下方待复核）。
 - `push_message` 真实开口链路。
-- T-Safety 已完成；kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前仍不做真实自由文本播报。
+- T-Safety 已完成；kill/death/hudmsg/combat.feed/awards 在真机 dry_run 验证前仍不做真实自由文本播报。
 
 ## 接缝 1：插件能否被 NEKO 加载
 
@@ -125,14 +125,14 @@
 
 - overspeed 不再是数据层缺口，但插件侧仍需要验证 flag 是否能触发正确事件。
 - 2026-06-21 已验证低空 / 失速 / pause / resume / test_say 基础链路；过热/炸缸已补插件侧 `hud_notices` code 映射，仍需真机 dry_run 复测。
-- kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前只做 dry_run / audit，不做正式播报。
+- kill/death/hudmsg/combat.feed/awards 在真机 dry_run 验证前只做 dry_run / audit，不做正式播报。
 
 ## 接缝 5：dry_run=false 真实开口
 
 前置：
 
 - 数值安全事件接缝已在 dry_run 下通过。
-- T-Safety 已完成；还需要 M3 DTO 适配和真机 dry_run 验证后，才允许测试 kill/death/hudmsg/combat.feed/awards 的真实播报。
+- T-Safety 已完成；还需要真机 dry_run 验证后，才允许测试 kill/death/hudmsg/combat.feed/awards 的真实播报。
 
 步骤：
 

@@ -35,10 +35,10 @@
 ## 分层状态
 
 - L0 plugin scaffold / contracts：完成；`contract/telemetry_sample.json` 仍待真机抓取。
-- L1 telemetry client：完成基础解析；已纳入 `hud_notices.feed`，仍需要适配/验证 data-layer `v1.6` 其他新字段与 replay 降级。
+- L1 telemetry client：完成基础解析；已纳入 `hud_notices.feed` 与 `replay`，仍需要验证 data-layer `v1.6` 其他新字段。
 - L2 BattleState：完成基础装配；需要纳入 v1.6 DTO seam 验证。
-- L3 Scenario：完成；需要确认 `replay: true` 下的静默/降级策略，以及 `you_died` 不再依赖 `vehicle_valid` 作为主信号。
-- L4 Detector：已实现主链路；`overspeed` 现在不再等待数据层，下一步是对接/验证 `overspeed_warn` / `overspeed_critical`；`overheat` 已可消费 `hud_notices.feed[].code=engine_overheat/oil_overheat`；`you_killed` / `you_died` 下一步应消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`。
+- L3 Scenario：完成；`replay: true` 已在 DetectorEngine 静默并 reset，仍需真实 replay 样本验证。
+- L4 Detector：已实现主链路；`overspeed` 现在不再等待数据层，下一步是真机验证 `overspeed_warn` / `overspeed_critical`；`overheat` 已可消费 `hud_notices.feed[].code=engine_overheat/oil_overheat`；`you_killed` / `you_died` 已消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`。
 - L5 Arbiter：完成；后续 M3 适配时要保持 cooldown、优先级、Scenario 门控语义不变。
 - L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
 - L7 safety guard + Hosted UI：完成。
@@ -64,7 +64,7 @@
 当前阻塞关系：
 
 - T-Safety 本身不再阻塞；它已经作为输出安全前置层落地。
-- kill/death/hudmsg/combat.feed/awards 正式播报仍需 M3 DTO 适配、真机 dry_run 验证和对应去桩。
+- kill/death/hudmsg/combat.feed/awards 正式播报仍需真机 dry_run 验证和对应去桩。
 - 不阻塞 stall/low_alt/overheat/low_fuel/overspeed 等数值安全事件。
 
 已覆盖测试：
@@ -78,10 +78,10 @@
 旧定义“等待数据层补齐”已过期。新的 M3 是插件侧适配和验证：
 
 - `overspeed`：读取并验证 `processed.flags` 中的 `overspeed_warn` / `overspeed_critical`。
-- `you_killed`：监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重，多杀可在窗口内合并。
-- `you_died`：监听 `combat.feed[]` 中 `is_my_death == true` 的新 id。不要再把 `vehicle_valid` 跳变当作唯一可靠死亡信号。
+- `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；多杀合并仍可留后续调优。
+- `you_died`：已监听 `combat.feed[]` 中 `is_my_death == true` 的新 id，不再把 `vehicle_valid` 跳变当作唯一可靠死亡信号。
 - `player_name`：通过 `/api/identity` 或启动参数建立权威身份；UI/config/runtime seam 仍需设计。
-- `replay: true`：插件侧应进入降级或静默，避免回放触发真实播报。
+- `replay: true`：已在 DetectorEngine 静默并 reset，避免回放触发真实播报；仍需真实 replay 样本验证。
 - `overheat`：已接入 `hud_notices.feed[].code` 中的 `engine_overheat` / `oil_overheat`，以 code-only safe payload 生成现有 `overheat`；`powertrain_failure` 暂不直接播报。
 - `hud_notices` / `awards`：属于自由文本风险路径，真实播报前必须先过 T-Safety。
 
@@ -100,7 +100,7 @@
 ## 推进顺序
 
 1. 文档状态同步。
-2. M3 适配 data-layer `v1.6` DTO。
+2. M3 剩余接缝：identity UI/runtime、replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
 3. 真机 checklist 验证 v1.6 接缝。
 4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
 5. T3/L8 子进程编排。
