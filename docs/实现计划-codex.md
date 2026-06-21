@@ -10,7 +10,8 @@
 - T1B Minimal Panel 已完成。
 - T4 集成测试已完成。
 - Hosted UI surface/context/action smoke 已通过。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `32/32 passed` 为准。
+- T-Safety output text sanitizer 已完成。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `42/42 passed` 为准。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
   - enhanced `combat.feed`
@@ -39,14 +40,14 @@
 - L3 Scenario：完成；需要确认 `replay: true` 下的静默/降级策略，以及 `you_died` 不再依赖 `vehicle_valid` 作为主信号。
 - L4 Detector：已实现主链路；`overspeed` 现在不再等待数据层，下一步是对接/验证 `overspeed_warn` / `overspeed_critical`；`you_killed` / `you_died` 下一步应消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`。
 - L5 Arbiter：完成；后续 M3 适配时要保持 cooldown、优先级、Scenario 门控语义不变。
-- L6 Dispatcher / instructions：完成基础输出；T-Safety 未实现前，不允许正式播报 kill/death/hudmsg/combat.feed/awards 的 raw 文本。
+- L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
 - L7 safety guard + Hosted UI：完成。
 - L8 数据层并入：vendored 数据层已合并；插件侧子进程编排未做。
 - L9 真机调参：未完成。
 
 ## T-Safety：output text sanitizer
 
-状态：已纳入计划，未实现。
+状态：已完成。
 
 目标：防止猫娘复读不良玩家 ID、hudmsg、combat.feed、awards 原文，避免辱骂、涉政、擦边、仇恨、广告、联系方式、奇怪符号或 prompt injection 文本进入猫娘输出。
 
@@ -60,18 +61,17 @@
 - 不确定时宁可不读原文。
 - 不做复杂 NLP，不做大模型审核。
 
-阻塞关系：
+当前阻塞关系：
 
-- 阻塞 kill/death/hudmsg/combat.feed/awards 正式播报。
+- T-Safety 本身不再阻塞；它已经作为输出安全前置层落地。
+- kill/death/hudmsg/combat.feed/awards 正式播报仍需 M3 DTO 适配、真机 dry_run 验证和对应去桩。
 - 不阻塞 stall/low_alt/overheat/low_fuel/overspeed 等数值安全事件。
 
-实现前测试：
+已覆盖测试：
 
 - sanitizer 单测。
 - dispatcher prompt 测试。
-- integration 测试。
 - `push_message.parts[].text` 不包含 unsafe raw 的合同测试。
-- dry_run 能解释 `redacted_reason` / `text_safety_level`。
 
 ## M3：适配数据层 v1.6 DTO
 
@@ -99,9 +99,9 @@
 ## 推进顺序
 
 1. 文档状态同步。
-2. T-Safety output text sanitizer。
-3. M3 适配 data-layer `v1.6` DTO。
-4. 真机 checklist 验证 v1.6 接缝。
+2. M3 适配 data-layer `v1.6` DTO。
+3. 真机 checklist 验证 v1.6 接缝。
+4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
 5. T3/L8 子进程编排。
 6. L9 真机调参和 dry_run=false 终验。
 
@@ -111,5 +111,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T4 测试数量；当前逻辑自检应以 `32/32 passed` 为准。
+- 不要沿用旧的 pre-T-Safety 测试数量；当前逻辑自检应以 `42/42 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。
