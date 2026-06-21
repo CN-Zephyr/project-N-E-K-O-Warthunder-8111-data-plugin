@@ -8,6 +8,9 @@ import {
   KeyValue,
   Toolbar,
   ToolbarGroup,
+  Button,
+  Field,
+  Input,
   Switch,
   ActionButton,
   RefreshButton,
@@ -23,6 +26,17 @@ type SafetyState = {
   failures?: number
 }
 
+type IdentityState = {
+  player_name?: string | null
+  self?: {
+    name?: string | null
+    source?: string | null
+    confidence?: number | null
+  } | null
+  requested?: string | null
+  active_players_count?: number
+}
+
 type DashboardState = {
   enabled?: boolean
   dry_run?: boolean
@@ -33,6 +47,7 @@ type DashboardState = {
   vehicle_type?: string | null
   scenario?: string
   level?: string
+  identity?: IdentityState
   safety?: SafetyState
 }
 
@@ -62,15 +77,27 @@ function levelTone(level: string | undefined) {
   return "info"
 }
 
+function unwrapActionResult(envelope: any): Record<string, any> {
+  if (envelope && typeof envelope === "object") {
+    if (envelope.result && typeof envelope.result === "object") return envelope.result
+    return envelope
+  }
+  return {}
+}
+
 export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardState>) {
   const state = props.state || {}
   const safety = state.safety || {}
+  const identity = state.identity || {}
   const actions = Array.isArray(props.actions) ? props.actions : []
   const setDryRunAction = actionById(actions, "set_dry_run")
+  const setIdentityAction = actionById(actions, "set_identity")
   const pauseAction = actionById(actions, "pause")
   const resumeAction = actionById(actions, "resume")
   const testSayAction = actionById(actions, "test_say")
   const [dryRunError, setDryRunError] = useState("")
+  const [identityName, setIdentityName] = useState("")
+  const [identityError, setIdentityError] = useState("")
 
   async function setDryRun(value: boolean) {
     if (!setDryRunAction) {
@@ -83,6 +110,26 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
       await props.api.refresh()
     } catch (error) {
       setDryRunError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async function submitIdentity(clear = false) {
+    if (!setIdentityAction) {
+      setIdentityError("set_identity action 不可用")
+      return
+    }
+    try {
+      setIdentityError("")
+      const result = unwrapActionResult(await props.api.call("set_identity", { name: identityName, clear }))
+      const identityResult = result.identity && typeof result.identity === "object" ? result.identity : result
+      if (identityResult.ok === false) {
+        setIdentityError(String(identityResult.error || "identity request failed"))
+        return
+      }
+      if (clear) setIdentityName("")
+      await props.api.refresh()
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -134,6 +181,28 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
           />
         </Card>
       </Grid>
+
+      <Card title="身份识别">
+        <Stack>
+          <KeyValue
+            items={[
+              { key: "identity.player_name", label: "player_name", value: text(identity.player_name) },
+              { key: "identity.self.name", label: "self.name", value: text(identity.self?.name) },
+              { key: "identity.self.source", label: "self.source", value: text(identity.self?.source) },
+              { key: "identity.self.confidence", label: "self.confidence", value: text(identity.self?.confidence) },
+              { key: "identity.active_players_count", label: "active_players", value: text(identity.active_players_count) },
+            ]}
+          />
+          <Field label="玩家名">
+            <Input value={identityName} placeholder="输入你的游戏昵称" onChange={setIdentityName} />
+          </Field>
+          {identityError ? <Alert tone="danger">{identityError}</Alert> : null}
+          <Grid cols={2}>
+            <Button tone="primary" onClick={() => submitIdentity(false)}>设置玩家名</Button>
+            <Button tone="warning" onClick={() => submitIdentity(true)}>清除玩家名</Button>
+          </Grid>
+        </Stack>
+      </Card>
 
       <Card title="操作">
         <Stack>

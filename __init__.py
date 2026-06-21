@@ -24,6 +24,7 @@ from plugin.sdk.plugin import (
     SdkError,
 )
 
+from .adapters.identity_client import identity_summary_from_combat, set_identity as request_set_identity
 from .adapters.neko_dispatcher import NekoDispatcher
 from .adapters.runtime_timeline import RuntimeTimeline, arbiter_chain_to_observe_records
 from .adapters.telemetry_client import TelemetryClient
@@ -218,6 +219,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "vehicle_type": s.vehicle_type,
             "scenario": s.scenario,
             "level": s.level,
+            "identity": identity_summary_from_combat(s.combat),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),
         }
@@ -267,6 +269,35 @@ class NekoWarthunderPlugin(NekoPluginBase):
         except Exception as exc:  # noqa: BLE001
             return Err(SdkError(f"test_say push failed: {exc}"))
 
+    @ui.action(id="set_identity", label="设置玩家名", tone="primary", group="runtime", order=50, refresh_context=True)
+    @plugin_entry(
+        id="set_identity",
+        name="设置玩家名",
+        description="通过数据层 /api/identity 设置或清除本局自己的玩家名，用于 kill/death 归属。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "default": ""},
+                "clear": {"type": "boolean", "default": False},
+            },
+        },
+    )
+    async def set_identity(self, name: str = "", clear: bool = False, **_):
+        result = request_set_identity(
+            self.cfg.data_layer_url,
+            self.cfg.http_timeout_seconds,
+            name=name,
+            clear=bool(clear),
+        )
+        if result.get("ok"):
+            with self._state_lock:
+                combat = dict(self.state.combat or {})
+                for key in ("requested", "self", "player_name"):
+                    if key in result:
+                        combat[key] = result.get(key)
+                self.state.combat = combat
+        return Ok({"identity": result})
+
     @plugin_entry(id="status", name="状态", description="查看当前连接/场景/安全状态。")
     def status(self, **_):
         with self._state_lock:
@@ -281,6 +312,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "vehicle_type": s.vehicle_type,
             "scenario": s.scenario,
             "level": s.level,
+            "identity": identity_summary_from_combat(s.combat),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),
         })
