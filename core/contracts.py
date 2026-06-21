@@ -128,6 +128,9 @@ class WtConfig:
     safety_window_seconds: float = 60.0
     safety_failure_limit: int = 5
     player_name: str = ""
+    observability_enabled: bool = False
+    observability_max_events: int = 100
+    observability_include_prompt_preview: bool = False
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any] | None) -> "WtConfig":
@@ -146,6 +149,9 @@ class WtConfig:
             safety_window_seconds=_clamp(raw.get("safety_window_seconds"), 60.0, 5.0, 3600.0),
             safety_failure_limit=int(_clamp(raw.get("safety_failure_limit"), 5, 1, 100)),
             player_name=str(raw.get("player_name") or "").strip(),
+            observability_enabled=bool(raw.get("observability_enabled", False)),
+            observability_max_events=int(_clamp(raw.get("observability_max_events"), 100, 1, 1000)),
+            observability_include_prompt_preview=bool(raw.get("observability_include_prompt_preview", False)),
         )
 
     def to_dict(self) -> dict[str, Any]:

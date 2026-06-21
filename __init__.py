@@ -25,6 +25,7 @@ from plugin.sdk.plugin import (
 )
 
 from .adapters.neko_dispatcher import NekoDispatcher
+from .adapters.runtime_timeline import RuntimeTimeline, arbiter_chain_to_observe_records
 from .adapters.telemetry_client import TelemetryClient
 from .core.arbiter import Arbiter
 from .core.contracts import BattleState, WtConfig
@@ -50,7 +51,12 @@ class NekoWarthunderPlugin(NekoPluginBase):
         self.cfg = WtConfig()
         self.client = TelemetryClient(self.cfg.data_layer_url, self.cfg.http_timeout_seconds)
         self.safety = SafetyGuard(self.cfg)
-        self.dispatcher = NekoDispatcher(self)
+        self.timeline = RuntimeTimeline(
+            observability_enabled=self.cfg.observability_enabled,
+            max_events=self.cfg.observability_max_events,
+            include_prompt_preview=self.cfg.observability_include_prompt_preview,
+        )
+        self.dispatcher = NekoDispatcher(self, timeline=self.timeline)
         self.resolver = ScenarioResolver()
         self.arbiter = Arbiter(self.safety)
         self.engine = self._build_engine()
@@ -77,6 +83,11 @@ class NekoWarthunderPlugin(NekoPluginBase):
         self.cfg = cfg
         self.client = TelemetryClient(cfg.data_layer_url, cfg.http_timeout_seconds)
         self.safety.update(cfg)
+        self.timeline.configure(
+            observability_enabled=cfg.observability_enabled,
+            max_events=cfg.observability_max_events,
+            include_prompt_preview=cfg.observability_include_prompt_preview,
+        )
         # 仅 player_name 变才重建检测器：否则 dry_run 等配置切换会清零 FSM/_last_id，
         # 导致 combat.feed 里的历史击杀被当新事件重放（Bugbot 反馈）。
         if cfg.player_name != prev_player:
@@ -128,6 +139,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
         if not self.cfg.enabled:
             return
         new_state = self.client.poll()
+        self.timeline.mark_tick()
         with self._state_lock:
             prev = self.state
             self.state = new_state
@@ -139,7 +151,32 @@ class NekoWarthunderPlugin(NekoPluginBase):
         now = time.time()
         cur.scenario = self.resolver.resolve(cur, now, self.cfg.spawn_grace_seconds)
         candidates = self.engine.feed(prev, cur)
+        for candidate in candidates:
+            self.timeline.record_stage(
+                stage="detector_candidate",
+                outcome="candidate",
+                reason="detected",
+                event_id=candidate.event_id,
+                edge=candidate.edge,
+                level=candidate.level,
+                priority=candidate.priority,
+                scenario=cur.scenario,
+                in_battle=cur.in_battle,
+                replay=cur.replay,
+                safe_summary=f"{candidate.event_id}/{candidate.edge}/{candidate.level}",
+            )
         chosen, chain = self.arbiter.decide(candidates, cur.scenario, now)
+        for record in arbiter_chain_to_observe_records(chain, scenario=cur.scenario):
+            self.timeline.record_stage(**record)
+            self.timeline.record_decision(
+                event_id=record.get("event_id"),
+                stage=record.get("stage", "arbiter_dropped"),
+                outcome=record.get("outcome", "dropped"),
+                reason=record.get("reason", "unknown"),
+                scenario=cur.scenario,
+                safety_status=self.safety.status(),
+                dry_run=self.cfg.dry_run,
+            )
         if candidates or chosen is not None:
             self.logger.info(f"[arbiter] scenario={cur.scenario} chain={chain}")
         if chosen is not None:
@@ -182,6 +219,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "scenario": s.scenario,
             "level": s.level,
             "safety": self.safety.snapshot(),
+            "observe": self.timeline.snapshot(),
         }
 
     # ------------------------------------------------------------------ 动作
@@ -244,4 +282,5 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "scenario": s.scenario,
             "level": s.level,
             "safety": self.safety.snapshot(),
+            "observe": self.timeline.snapshot(),
         })

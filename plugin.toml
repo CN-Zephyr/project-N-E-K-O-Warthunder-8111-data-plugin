@@ -54,3 +54,6 @@ safety_window_seconds = 60
 safety_failure_limit = 5
 # 击杀归属（数据层 combat.player_name；留空=不判定击杀/死亡，等数据层补齐）
 player_name = ""
+observability_enabled = false
+observability_max_events = 100
+observability_include_prompt_preview = false

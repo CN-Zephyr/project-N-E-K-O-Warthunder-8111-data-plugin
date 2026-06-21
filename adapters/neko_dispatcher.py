@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..core.contracts import BattleEvent
+from .runtime_timeline import RuntimeTimeline
 from .text_safety import sanitize_event_payload
 
 # 每个事件的"要求行"意图（不写最终台词，台词归角色 LLM）。
@@ -53,8 +54,9 @@ def _fact_line(event: BattleEvent) -> str:
 
 
 class NekoDispatcher:
-    def __init__(self, plugin: Any) -> None:
+    def __init__(self, plugin: Any, *, timeline: RuntimeTimeline | None = None) -> None:
         self.plugin = plugin
+        self.timeline = timeline
         self.logger = getattr(plugin, "logger", None)
 
     def build_prompt(self, event: BattleEvent) -> str:
@@ -70,15 +72,53 @@ class NekoDispatcher:
         """把一个 BattleEvent 投给猫娘。dry_run 时只返回摘要、不真投。"""
         text = self.build_prompt(event)
         if dry_run:
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_dry_run",
+                    outcome="dry_run",
+                    reason="dry_run_enabled",
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=True,
+                    safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                )
             return f"dry_run(event={event.event_id}/{event.edge}/{event.level}, prio={event.priority}, preempt={event.preempt_eligible})"
-        self.plugin.push_message(
-            source="neko_warthunder",
-            visibility=[],
-            ai_behavior="respond",
-            parts=[{"type": "text", "text": text}],
-            priority=event.priority,
-            metadata={"plugin": "neko_warthunder", "event_id": event.event_id, "level": event.level},
-        )
+        try:
+            self.plugin.push_message(
+                source="neko_warthunder",
+                visibility=[],
+                ai_behavior="respond",
+                parts=[{"type": "text", "text": text}],
+                priority=event.priority,
+                metadata={"plugin": "neko_warthunder", "event_id": event.event_id, "level": event.level},
+            )
+        except Exception as exc:
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_failed",
+                    outcome="failed",
+                    reason=type(exc).__name__,
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=False,
+                )
+            raise
+        if self.timeline:
+            self.timeline.record_stage(
+                stage="dispatcher_pushed",
+                outcome="pushed",
+                reason="push_message_accepted",
+                event_id=event.event_id,
+                edge=event.edge,
+                level=event.level,
+                priority=event.priority,
+                dry_run=False,
+                safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+            )
         return f"pushed(event={event.event_id}/{event.edge})"
 
     def push_context(self, text: str) -> None:
