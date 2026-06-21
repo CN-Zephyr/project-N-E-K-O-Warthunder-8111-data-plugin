@@ -11,7 +11,7 @@
 - T4 集成测试已完成。
 - Hosted UI surface/context/action smoke 已通过。
 - T-Safety output text sanitizer 已完成。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `62/62 passed` 为准。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `66/66 passed` 为准。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
   - enhanced `combat.feed`
@@ -80,7 +80,7 @@
 - `overspeed`：读取并验证 `processed.flags` 中的 `overspeed_warn` / `overspeed_critical`。
 - `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；多杀合并仍可留后续调优。
 - `you_died`：已监听 `combat.feed[]` 中 `is_my_death == true` 的新 id，不再把 `vehicle_valid` 跳变当作唯一可靠死亡信号。
-- `player_name`：通过 `/api/identity` 或启动参数建立权威身份；UI/config/runtime seam 仍需设计。
+- `player_name`：通过 `/api/identity` 或启动参数建立权威身份；插件侧 Hosted UI/context/action seam 已完成，仍需真机验证 `combat.self` 与 `is_my_kill` / `is_my_death` 是否按手动昵称生效。
 - `replay: true`：已在 DetectorEngine 静默并 reset，避免回放触发真实播报；仍需真实 replay 样本验证。
 - `overheat`：已接入 `hud_notices.feed[].code` 中的 `engine_overheat` / `oil_overheat`，以 code-only safe payload 生成现有 `overheat`；`powertrain_failure` 暂不直接播报。
 - `hud_notices` / `awards`：属于自由文本风险路径，真实播报前必须先过 T-Safety。
@@ -94,13 +94,13 @@
 - `/api/telemetry` 是否返回 `replay`。
 - `/api/telemetry.processed.flags` 是否出现 `overspeed_warn` / `overspeed_critical`。
 - `/api/telemetry.combat.feed[]` 是否含稳定递增 id、`is_my_kill`、`is_my_death`。
-- `/api/identity` 是否能由前端/配置设置权威 player_name。
+- `/api/identity` 是否能由 Hosted UI 面板设置/清除权威 player_name，并反映到 `combat.self` 与 kill/death 归属标记。
 - `hud_notices` 中的技术 code 是否能触发安全事件；raw notice 文本、`awards` 是否只进入 debug/audit 或被 T-Safety 阻断，不直接进入 prompt。
 
 ## 推进顺序
 
 1. 文档状态同步。
-2. M3 剩余接缝：identity UI/runtime、replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
+2. M3 剩余验证：identity 真机验证、replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
 3. 真机 checklist 验证 v1.6 接缝。
 4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
 5. T3/L8 子进程编排。
@@ -112,5 +112,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety 测试数量；当前逻辑自检应以 `62/62 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-identity 测试数量；当前逻辑自检应以 `66/66 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。

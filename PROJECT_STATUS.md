@@ -8,7 +8,7 @@
 - Minimal Panel is complete.
 - T4 integration tests are complete.
 - `T-Safety: output text sanitizer` is complete.
-- Logic self-check currently passes: `62/62`.
+- Logic self-check currently passes: `66/66`.
 - Real-machine `dry_run` smoke passed on 2026-06-21 for Hosted UI context/actions, safety pause/resume, stall/low-altitude decision flow, and dry-run dispatcher output.
 - Default runtime mode is `dry_run = true`; the plugin runs the decision chain but does not push real catgirl speech until dry run is disabled.
 - The plugin boundary is HTTP `:8112` (`/api/telemetry`) only. It consumes the vendored data layer and must not import or modify `data_layer/` code.
@@ -29,7 +29,7 @@
 - `overspeed` is no longer a data-layer gap; plugin-side dry-run validation has observed the event path, but DTO mapping should still be kept under M3 regression coverage.
 - Overheat HUD-notice seam is implemented for `hud_notices.feed[].code` values `engine_overheat` and `oil_overheat`, mapped to the existing `overheat` event with safe code-only payload. It still needs real-machine dry-run revalidation; `powertrain_failure` is intentionally not promoted to a speech event yet.
 - `replay: true` telemetry is silenced at `DetectorEngine`: detectors reset and no battle events are emitted. Real replay samples still need validation.
-- `/api/identity` still needs a player-name seam through UI/config/runtime orchestration.
+- `/api/identity` now has a plugin-side player-name seam through Hosted UI context/action and the minimal panel. It still needs real-machine validation against `combat.self` and `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`.
 - T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Formal kill/death/hudmsg/combat.feed/awards speech still needs real-machine dry-run validation before dry_run=false rollout.
 - Numeric flight-safety events such as stall, low altitude, overheat, low fuel, and overspeed are not blocked by T-Safety.
 - Data-layer subprocess orchestration is not implemented.
@@ -48,14 +48,14 @@ uv run pytest tests -q
 
 Notes:
 
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `62/62 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `66/66 passed`.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result.
 
 ## Next Recommended Work
 
-1. Continue M3 seams that still need runtime integration or samples: `/api/identity`, replay real-sample validation, awards/free-text dry_run validation, and the remaining failure-field strategy.
-2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, focusing on overheat HUD notice revalidation, identity, replay, kill/death, and free-text event paths.
+1. Continue M3 seams that still need real-machine validation or samples: identity, replay real-sample validation, awards/free-text dry_run validation, and the remaining failure-field strategy.
+2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, focusing on setting identity from the panel, overheat HUD notice revalidation, replay, kill/death, and free-text event paths.
 3. Capture `contract/telemetry_sample.json` from a real `/api/telemetry` response.
 4. Only after M3 + real-machine dry_run pass, consider formal kill/death/hudmsg/combat.feed/awards speech through T-Safety.
 5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.

@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer 已完成；逻辑自检以 `62/62 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、identity Hosted UI/action 接缝已完成；逻辑自检以 `66/66 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -17,6 +17,7 @@
 - `pause` 已验证：`safety.status=paused`、`manual_paused=true`，风险事件被 Arbiter 以 `reason=paused` suppress。
 - `resume` 已验证：`safety.status=running`、`manual_paused=false`，恢复后 `low_alt_danger` 可被 Arbiter allowed 并进入 dry_run dispatcher。
 - `test_say` 已验证：宿主日志出现多条 `TRIGGER entry='test_say'`，未出现 `PLUGIN_UI_ACTION_FAILED`。
+- `set_identity` 已通过 Hosted UI/action 链路接入，但尚未做真机玩家名归属验证。
 - 数值安全链路已观察到：`stall_risk`、`low_alt_danger`，并保留此前 `overspeed`、`low_fuel`、`you_died` dry_run 观察结论。
 - 未发现 Traceback / ERROR / TTS push 报错。
 
@@ -48,7 +49,7 @@
    uv run python tests/run_logic_tests.py
    ```
 
-   预期：`62/62 passed`。
+   预期：`66/66 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -96,12 +97,12 @@
 4. identity seam：
 
    ```text
-   GET http://localhost:8112/api/identity?name=<你的游戏昵称>
+   Hosted UI 面板输入你的游戏昵称，点击“设置玩家名”
    GET http://localhost:8112/api/identity
-   GET http://localhost:8112/api/identity?clear=1
+   Hosted UI 面板点击“清除玩家名”
    ```
 
-   预期：设置后 `combat.feed[]` 的 `is_my_kill` / `is_my_death` 能围绕该昵称生效。前端后续应优先让用户从 active players 里点选自己。
+   预期：设置后 `combat.self.source=manual`，`combat.player_name` 等于面板输入昵称；后续 `combat.feed[]` 的 `is_my_kill` / `is_my_death` 能围绕该昵称生效。active players 点选自己仍可作为后续 UI 增强。
 
 5. replay seam：
 
