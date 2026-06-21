@@ -7,7 +7,8 @@
 - Hosted UI Integration is complete.
 - Minimal Panel is complete.
 - T4 integration tests are complete.
-- Logic self-check currently passes: `32/32`.
+- `T-Safety: output text sanitizer` is complete.
+- Logic self-check currently passes: `42/42`.
 - Default runtime mode is `dry_run = true`; the plugin runs the decision chain but does not push real catgirl speech until dry run is disabled.
 - The plugin boundary is HTTP `:8112` (`/api/telemetry`) only. It consumes the vendored data layer and must not import or modify `data_layer/` code.
 - Vendored data layer contract `v1.6` is merged. It includes `overspeed_warn` / `overspeed_critical`, enhanced `combat.feed`, `is_my_kill` / `is_my_death`, `/api/identity`, `replay: true` degrade mode, `hud_notices`, and `awards`.
@@ -27,8 +28,8 @@
 - `overspeed` is no longer a data-layer gap, but still needs plugin-side verification against `overspeed_warn` / `overspeed_critical`.
 - `replay: true` still needs a plugin degrade or silence policy.
 - `/api/identity` still needs a player-name seam through UI/config/runtime orchestration.
-- `T-Safety: output text sanitizer` is planned but not implemented yet.
-- T-Safety blocks formal kill/death/hudmsg/combat.feed/awards speech. It does not block numeric flight-safety events such as stall, low altitude, overheat, low fuel, or overspeed.
+- T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Formal kill/death/hudmsg/combat.feed/awards speech still needs M3 DTO adaptation and real-machine validation before dry_run=false rollout.
+- Numeric flight-safety events such as stall, low altitude, overheat, low fuel, and overspeed are not blocked by T-Safety.
 - Data-layer subprocess orchestration is not implemented.
 - `contract/telemetry_sample.json` is still waiting for a real `/api/telemetry` capture.
 - recovery remains deferred; do not open `wants_recovery` until real-machine samples justify it.
@@ -45,15 +46,14 @@ uv run pytest tests -q
 
 Notes:
 
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `32/32 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `42/42 passed`.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`.
 
 ## Next Recommended Work
 
-1. Keep code frozen until the docs-only status sync is committed.
-2. Implement `T-Safety: output text sanitizer` before formal kill/death/hudmsg/combat.feed/awards speech.
-3. Adapt M3 to data-layer `v1.6` DTO: `overspeed_warn` / `overspeed_critical`, `combat.feed[].is_my_kill`, `combat.feed[].is_my_death`, `/api/identity`, and `replay: true`.
-4. Run the remaining real-machine/data-layer/real-speech seams from `docs/真机验证-checklist.md`.
-5. Capture `contract/telemetry_sample.json` from a real `/api/telemetry` response.
-6. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.
+1. Audit and adapt M3 to data-layer `v1.6` DTO: `overspeed_warn` / `overspeed_critical`, `combat.feed[].is_my_kill`, `combat.feed[].is_my_death`, `/api/identity`, and `replay: true`.
+2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`.
+3. Capture `contract/telemetry_sample.json` from a real `/api/telemetry` response.
+4. Only after M3 + real-machine dry_run pass, consider formal kill/death/hudmsg/combat.feed/awards speech through T-Safety.
+5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.

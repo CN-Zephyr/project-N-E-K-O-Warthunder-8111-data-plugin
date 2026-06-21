@@ -6,10 +6,11 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 
 - M1 scaffold + M2 Battle Awareness 主链路已实现。
 - T1A Hosted UI Integration + T1B Minimal Panel 已完成，surface/context/action smoke 已通过。
-- T4 集成测试已完成；当前逻辑自检以 `32/32 passed` 为准。
+- T4 集成测试已完成；T-Safety output text sanitizer 已完成；当前逻辑自检以 `42/42 passed` 为准。
 - 数据层 `v1.6` 已合并到当前独立插件仓库，包含 `overspeed_warn` / `overspeed_critical`、增强 `combat.feed`、`is_my_kill` / `is_my_death`、`/api/identity`、`replay: true` 降级、`hud_notices`、`awards`。
 - 数据层字段缺口不再是“等待字段补齐”，现在是插件侧待适配 `v1.6` DTO、待真机接缝验证。
-- `T-Safety: output text sanitizer` 已纳入计划但未实现。它阻塞 kill/death/hudmsg/combat.feed/awards 等自由文本真实播报，不阻塞 stall/low_alt/overheat/low_fuel/overspeed 等数值安全事件。
+- `T-Safety: output text sanitizer` 已实现，位于 `NekoDispatcher` / prompt builder 前；prompt 和 `push_message.parts[].text` 只能使用 safe / generic 文案。
+- kill/death/hudmsg/combat.feed/awards 等自由文本真实播报仍需先完成 M3 DTO 适配和真机 dry_run 验证；stall/low_alt/overheat/low_fuel/overspeed 等数值安全事件不被 T-Safety 阻塞。
 - recovery 已评估并暂缓；当前不要打开 `wants_recovery`。
 
 ## 给 Codex 的启动指令
@@ -28,9 +29,9 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 当前状态：
 - Hosted UI 完成。
 - T4 集成测试完成。
-- 逻辑自检 32/32 passed。
+- 逻辑自检 42/42 passed。
 - 数据层 v1.6 已合并，插件侧尚未完成 DTO 适配和真机接缝验证。
-- T-Safety 必须在 kill/death/hudmsg/combat.feed/awards 正式播报前完成。
+- T-Safety 已完成；kill/death/hudmsg/combat.feed/awards 正式播报前还需要 M3 DTO 适配和真机 dry_run 验证。
 - recovery 暂缓。
 
 边界：
@@ -41,9 +42,9 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 - Detector / Scenario / Arbiter 不承担文本过滤职责。
 
 优先顺序：
-1. T-Safety output text sanitizer。
-2. M3 适配数据层 v1.6 DTO。
-3. 真机 checklist 验证 v1.6 接缝。
+1. M3 适配数据层 v1.6 DTO。
+2. 真机 checklist 验证 v1.6 接缝。
+3. kill/death/hudmsg/combat.feed/awards 去桩前确认 T-Safety 合同仍覆盖 prompt。
 4. T3/L8 子进程编排后置。
 ```
 

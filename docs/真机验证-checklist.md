@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试已完成；逻辑自检以 `32/32 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer 已完成；逻辑自检以 `42/42 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -16,7 +16,7 @@
 - 数据层 `:8112` v1.6 DTO 与插件解析。
 - `dry_run` 决策链路是否能解释每一步。
 - `push_message` 真实开口链路。
-- T-Safety 前，kill/death/hudmsg/combat.feed/awards 不做真实自由文本播报。
+- T-Safety 已完成；kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前仍不做真实自由文本播报。
 
 ## 接缝 1：插件能否被 NEKO 加载
 
@@ -34,7 +34,7 @@
    uv run python tests/run_logic_tests.py
    ```
 
-   预期：`32/32 passed`。
+   预期：`42/42 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -110,14 +110,14 @@
 注意：
 
 - overspeed 不再是数据层缺口，但插件侧仍需要验证 flag 是否能触发正确事件。
-- kill/death/hudmsg/combat.feed/awards 在 T-Safety 前只做 dry_run / audit，不做正式播报。
+- kill/death/hudmsg/combat.feed/awards 在 M3 DTO 适配和真机 dry_run 验证前只做 dry_run / audit，不做正式播报。
 
 ## 接缝 5：dry_run=false 真实开口
 
 前置：
 
 - 数值安全事件接缝已在 dry_run 下通过。
-- T-Safety 已完成，才允许测试 kill/death/hudmsg/combat.feed/awards 的真实播报。
+- T-Safety 已完成；还需要 M3 DTO 适配和真机 dry_run 验证后，才允许测试 kill/death/hudmsg/combat.feed/awards 的真实播报。
 
 步骤：
 
