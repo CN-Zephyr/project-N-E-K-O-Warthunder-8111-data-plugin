@@ -19,7 +19,7 @@
 
 | 数据源 | 边沿语义 | 我们怎么消费 | v1 例 |
 |---|---|---|---|
-| `processed.flags` / `alerts` | **电平型**（每帧出现） | ConditionDetector：**我们**做边沿+debounce+迟滞+re-arm | stall/aoa/altitude/fuel/overheat/overspeed(待补) |
+| `processed.flags` / `alerts` | **电平型**（每帧出现） | ConditionDetector：**我们**做边沿+debounce+迟滞+re-arm | stall/aoa/altitude/fuel/overheat/overspeed（数据层 v1.6 已给 flag，插件侧待验证） |
 | `hud_events` / `combat.feed` | **已边沿型**（带递增 id） | DiscreteDetector：**按 id 去重**，每个新 id 一次（fire-once） | you_killed / you_died |
 | `proximity.events` | **已边沿型**（首次进入触发一次，带 id/kind） | DiscreteDetector：按 id 去重（合作者的例子，**v2**，v1 不消费） | 敌机接近 |
 | `state` / `vehicle_type` / `mission_status` | **状态跳变型** | 检测跳变沿一次 | spawn / death / battle_end |

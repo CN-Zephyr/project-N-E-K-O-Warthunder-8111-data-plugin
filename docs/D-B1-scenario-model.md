@@ -7,7 +7,7 @@
 ## v0.2 边界更新（汇合后）
 
 - 模型不变；唯一变化是**危急/重要提醒 flag 改由数据层 `/api/processed` 提供**（我们消费，不自己算阈值，见 D-B5 v0.2）。
-- CRITICAL_RISK 危急集合 = 数据层 critical 级安全 flag 中我们的子集：`stall_critical`、`altitude_critical`、`overspeed_critical`（overspeed 待合作者补）。
+- CRITICAL_RISK 危急集合 = 数据层 critical 级安全 flag 中我们的子集：`stall_critical`、`altitude_critical`、`overspeed_critical`。数据层 v1.6 已提供 `overspeed_critical`，插件侧待适配/真机验证。
 - COMBAT_STRESS 的"最近受创"信号取数据层 `hud_events`（关于我的 damage）。
 
 ## 0. 设计约束（先钉死边界）
@@ -98,7 +98,7 @@ stateDiagram-v2
 
 ### CRITICAL_RISK
 - 定义：任一**危急**安全 flag 激活。**v1 危急集合 = `{stall_risk, low_alt_danger, overspeed}`**（濒临失速 / 危险低空 / 严重超速）。**overheat 不在此集合**——它归"安全·重要提醒"，不触发 CRITICAL_RISK、不抢占（见 D-B2）。
-- 进入：D-B3 中属于危急集合的 detector 进入沿（v0.2：signal = 数据层 critical 级 flag `stall_critical`/`altitude_critical`/`overspeed_critical`〔待补〕）。
+- 进入：D-B3 中属于危急集合的 detector 进入沿（signal = 数据层 critical 级 flag `stall_critical`/`altitude_critical`/`overspeed_critical`；`overspeed_critical` 已在数据层 v1.6 提供，插件侧待验证）。
 - 退出：危急 flag 全部解除并经迟滞 → 回 `IN_FLIGHT`（或 `COMBAT_STRESS`，按优先级重算）。
 - 依赖字段：由对应 detector 决定（`IAS/AoA/H/Vy/温度/...`），Scenario 本身只读 flag。
 - 对提示系统：**只放行当前危急告警及其恢复**，并**抢占限流立即开口**；压制其它一切（含击杀、闲聊、低油）。

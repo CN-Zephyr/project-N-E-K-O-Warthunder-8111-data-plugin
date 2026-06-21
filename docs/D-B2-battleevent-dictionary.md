@@ -8,7 +8,7 @@
 
 - 已重画边界：消费数据层 `/api/processed.flags` 作为"条件已成立"信号，详见 **D-B5 v0.2 映射表（权威）**。本字典的 severity/priority/cooldown/scenario/抢占/去重仍是**我们这层**的职责，不变。
 - **`steep_dive` 已删除**（v1 砍、留 v2）：本文相关条目作废。
-- **`overspeed` 来源改为数据层 flag `overspeed_warn/critical`（待合作者补）**，不再由我们算阈值。
+- **`overspeed` 来源改为数据层 flag `overspeed_warn` / `overspeed_critical`**，不再由我们算阈值。数据层 v1.6 已提供，插件侧待适配/真机验证。
 - 各连续事件"来源 Detector/信号"统一改读上游 flag（见 D-B3 v0.2 / D-B5 映射）；下方各条仍写原始字段，仅作 payload/语义参考。
 - **两级 severity（待你确认）**：数据层给 warning/critical；建议 critical→高 severity 可抢占、warning→中 severity，推翻早期"单级"暂定。
 
@@ -74,7 +74,7 @@
 
 #### `overspeed` 超速
 - 中文说明：表速超出安全包线，结构/操纵面损坏风险。
-- 来源信号：**数据层 flag `overspeed_warn`/`overspeed_critical`（待合作者补进 vehicle_profiles）**；我们读 flag 翻转，不自己算阈值。
+- 来源信号：**数据层 flag `overspeed_warn` / `overspeed_critical`**；我们读 flag 翻转，不自己算阈值。数据层 v1.6 已提供，后续需验证字段名和触发节奏。
 - 触发条件摘要：上游 overspeed flag 进入（false→true），经 confirm。
 - 允许 Scenario：IN_FLIGHT、COMBAT_STRESS（→CRITICAL_RISK）。
 - 被抑制 Scenario：SPAWNING、OUT_OF_BATTLE、DEAD、BATTLE_ENDED。
