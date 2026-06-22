@@ -36,7 +36,7 @@
 - T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Formal kill/death/hudmsg/combat.feed/awards speech still needs real-machine dry-run validation before dry_run=false rollout.
 - Numeric flight-safety events such as stall, low altitude, overheat, low fuel, and overspeed are not blocked by T-Safety.
 - Data-layer subprocess orchestration is not implemented.
-- `contract/telemetry_sample.json` now contains a sanitized v1.6-shaped telemetry sample derived from real capture structure. It intentionally excludes raw free text; live testing can still overwrite or add a fresh environment-specific capture when needed.
+- `contract/telemetry_sample.json` now contains a sanitized v1.6-shaped telemetry sample derived from real capture structure. It intentionally excludes raw free text; live testing should place raw captures under ignored `local_samples/` and only update `contract/telemetry_sample.json` with sanitized data.
 - recovery remains deferred; do not open `wants_recovery` until real-machine samples justify it.
 - i18n currently has only a `zh-CN` placeholder; full 8-locale coverage is expected when future panel copy expands.
 
@@ -62,6 +62,6 @@ Notes:
 
 1. Continue M3 seams that still need real-machine validation or samples: identity, replay real-sample validation, awards/free-text dry_run validation, and the remaining failure-field strategy.
 2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, using T-Observe to inspect `last_decision` / `last_output_status` while focusing on setting identity from the panel, overheat HUD notice revalidation, replay, kill/death, and free-text event paths.
-3. During live validation, capture a fresh real `/api/telemetry` response for comparison with the sanitized `contract/telemetry_sample.json`, then summarize the result with `docs/真机测试结果-template.md`.
+3. During live validation, capture a fresh real `/api/telemetry` response under ignored `local_samples/` for comparison with the sanitized `contract/telemetry_sample.json`, then summarize the result with `docs/真机测试结果-template.md`.
 4. Only after M3 + real-machine dry_run pass, consider formal kill/death/hudmsg/combat.feed/awards speech through T-Safety.
 5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.

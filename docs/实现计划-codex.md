@@ -35,7 +35,7 @@
 
 ## 分层状态
 
-- L0 plugin scaffold / contracts：完成；`contract/telemetry_sample.json` 已补脱敏 v1.6 形状样本，真机验证时仍可另抓当前环境帧做对照。
+- L0 plugin scaffold / contracts：完成；`contract/telemetry_sample.json` 已补脱敏 v1.6 形状样本，真机验证时仍可另抓当前环境帧到 `.gitignore` 忽略的 `local_samples/` 做对照。
 - L1 telemetry client：完成基础解析；已纳入 `hud_notices.feed` 与 `replay`，仍需要验证 data-layer `v1.6` 其他新字段。
 - L2 BattleState：完成基础装配；需要纳入 v1.6 DTO seam 验证。
 - L3 Scenario：完成；`replay: true` 已在 DetectorEngine 静默并 reset，仍需真实 replay 样本验证。

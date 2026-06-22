@@ -11,7 +11,7 @@
 - 游戏模式 / 机型：
 - `dry_run`：true / false
 - 是否使用 Hosted UI 设置玩家名：是 / 否
-- 样本留存位置：`local_samples/...` 或本地临时目录
+- 样本留存位置：`local_samples/...` 或本地临时目录（不要写入 tracked `contract/telemetry_sample.json`，除非已脱敏）
 
 ## 启动与健康检查
 

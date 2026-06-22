@@ -1,7 +1,8 @@
 """接缝②自检：把真实 /api/telemetry 样本喂 parse_telemetry，核对字段/flag。
 
 用法：
-- 抓样本：`curl http://localhost:8112/api/telemetry > plugin/plugins/neko_warthunder/contract/telemetry_sample.json`
+- 抓 raw 样本：`curl http://localhost:8112/api/telemetry > local_samples/live_current/telemetry_sample.json`
+- 只有脱敏后的样本才允许更新 `contract/telemetry_sample.json`。
 - 看报告：`uv run python plugin/plugins/neko_warthunder/tests/test_real_sample.py`
 - 或随单测一起跑（无样本则跳过，不报失败）。
 """

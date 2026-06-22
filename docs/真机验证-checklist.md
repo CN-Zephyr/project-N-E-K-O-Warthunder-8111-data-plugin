@@ -106,10 +106,11 @@
 2. 抓取样本：
 
    ```powershell
-   curl http://localhost:8112/api/telemetry > contract/telemetry_sample.json
+   New-Item -ItemType Directory -Force local_samples\live_current | Out-Null
+   curl http://localhost:8112/api/telemetry > local_samples\live_current\telemetry_sample.json
    ```
 
-   仓库内已有一份脱敏的 v1.6 形状样本 `contract/telemetry_sample.json`，用于合同测试；真机验证时仍建议另抓当前环境帧做对照，避免用旧样本替代现场结论。
+   仓库内已有一份脱敏的 v1.6 形状样本 `contract/telemetry_sample.json`，用于合同测试。真机验证时另抓当前环境帧到 `.gitignore` 覆盖的 `local_samples/` 做对照；不要把 raw 玩家名、raw HUD 文本、raw combat.feed 或 awards 原文写回 tracked contract 文件。
 
    已留存的本地样本可先做离线覆盖率审计：
 
