@@ -16,7 +16,6 @@ CONDITION_FLAG_GROUPS: dict[str, list[tuple[str, str]]] = {
     "overheat": [("engine_overheat", "engine_overheat_critical"), ("oil_overheat", "oil_overheat_critical")],
     "low_fuel": [("fuel_low", "fuel_critical")],
     "low_alt_danger": [("altitude_low", "altitude_critical")],
-    # overspeed：数据层尚未提供（待合作者补 vehicle_profiles + processor），先占位；
-    # 无对应 flag 时 detector 自然不触发。
+    # overspeed：数据层 v1.6 已提供 warning/critical flag；插件侧只消费，不自行算阈值。
     "overspeed": [("overspeed_warn", "overspeed_critical")],
 }

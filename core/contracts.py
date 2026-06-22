@@ -65,7 +65,7 @@ class EventSpec:
     cooldown_seconds: float          # <0 表示"每局/每次一次"，由 Detector/Arbiter 用语义去重
     severity_warning: int
     severity_critical: int
-    blocked: bool = False            # True = 依赖数据层未就绪项（overspeed / 击杀 / 死亡），先打桩
+    blocked: bool = False            # 历史兼容字段；v1.6 已接通的事件不得再标为 blocked
 
     def severity_for(self, level: str) -> int:
         return self.severity_critical if level == "critical" else self.severity_warning
@@ -75,10 +75,10 @@ class EventSpec:
 EVENT_CATALOG: dict[str, EventSpec] = {
     "stall_risk":     EventSpec("stall_risk", CAT_SAFETY_CRITICAL, 9, True, 15, SEV_WARNING, SEV_CRITICAL),
     "low_alt_danger": EventSpec("low_alt_danger", CAT_SAFETY_CRITICAL, 9, True, 10, 7, 9),
-    "overspeed":      EventSpec("overspeed", CAT_SAFETY_CRITICAL, 8, True, 15, 6, 7, blocked=True),
+    "overspeed":      EventSpec("overspeed", CAT_SAFETY_CRITICAL, 8, True, 15, 6, 7),
     "overheat":       EventSpec("overheat", CAT_SAFETY_IMPORTANT, 6, False, 30, 5, SEV_IMPORTANT),
     "low_fuel":       EventSpec("low_fuel", CAT_SAFETY_MINOR, 4, False, -1, 3, 4),
-    "you_killed":     EventSpec("you_killed", CAT_COMBAT_KILL, 5, False, 8, 3, 3, blocked=True),
+    "you_killed":     EventSpec("you_killed", CAT_COMBAT_KILL, 5, False, 8, 3, 3),
     "you_died":       EventSpec("you_died", CAT_LIFECYCLE, 10, True, -1, SEV_CRITICAL, SEV_CRITICAL),
     "spawn":          EventSpec("spawn", CAT_LIFECYCLE, 5, False, -1, SEV_LIFECYCLE, SEV_LIFECYCLE),
     "battle_end":     EventSpec("battle_end", CAT_LIFECYCLE, 6, False, -1, SEV_LIFECYCLE, SEV_LIFECYCLE),

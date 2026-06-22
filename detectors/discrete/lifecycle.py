@@ -1,9 +1,10 @@
 """离散/生命周期检测器：spawn / you_died / battle_end / you_killed。
 
 按"跳变 / 新 id"去重（D-B3 已边沿型）：
-- spawn / you_died：用 in_battle + vehicle_valid 跳变（不依赖 player_name，v1 启发式）。
+- spawn：用 in_battle + vehicle_valid 跳变。
+- you_died：消费数据层 combat.feed[].is_my_death，不再把 vehicle_valid 跳变作为主路径。
 - battle_end：mission_status 进入结束态的跳变。
-- you_killed：需 combat.player_name；为空时不产出（桩，待数据层补 hudmsg/击杀归属）。
+- you_killed：消费数据层 combat.feed[].is_my_kill，按 feed id 去重。
 """
 
 from __future__ import annotations

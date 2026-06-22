@@ -1,7 +1,7 @@
 """连续派生检测器（电平 flag → 边沿）：stall / overheat / low_fuel / low_alt / overspeed。
 
 flag 名来自 core/flag_codes.py（接缝集中）。payload 取数据层已派生的数值，仅作"事实行"上下文。
-overspeed 的 flag 数据层暂无 → 自然不触发（桩）。
+overspeed 消费数据层 v1.6 的 overspeed_warn / overspeed_critical，不在插件侧重算阈值。
 """
 
 from __future__ import annotations

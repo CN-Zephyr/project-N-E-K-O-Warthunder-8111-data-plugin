@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from neko_warthunder.adapters.telemetry_client import parse_telemetry
+from neko_warthunder.core.contracts import EVENT_CATALOG
 
 
 def _sample() -> dict:
@@ -67,3 +68,8 @@ def test_parse_hud_notices_feed_without_losing_raw_contract():
     s = parse_telemetry(payload)
     assert s.hud_notices == payload["hud_notices"]["feed"]
     assert s.raw["hud_notices"]["feed"][0]["text"] == "水温过高"
+
+
+def test_v16_event_catalog_entries_are_not_marked_blocked():
+    for event_id in ("overspeed", "you_killed", "you_died"):
+        assert EVENT_CATALOG[event_id].blocked is False
