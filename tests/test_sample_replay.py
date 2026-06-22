@@ -187,10 +187,13 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
 
     assert report["coverage_gaps"] == [
         "no_replay_true_frames",
+        "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
+        "no_oil_overheat_notice_codes",
         "hud_notice_severity_unknown",
     ]
-    assert "coverage_gaps: no_replay_true_frames, combat_feed_missing_ownership_fields, hud_notice_severity_unknown" in text
+    assert "no_overspeed_critical_flags" in text
+    assert "no_oil_overheat_notice_codes" in text
     assert "LegacyKiller" not in text
     assert "LegacyVictim" not in text
     assert "unsafe notice" not in text

@@ -182,14 +182,18 @@ def _plain_report(report: dict[str, Any]) -> dict[str, Any]:
     for key in ("states", "domains", "flags", "events", "chosen", "dry_run_outputs"):
         plain[key] = dict(report[key])
     plain["coverage"] = _plain_value(report["coverage"])
-    plain["coverage_gaps"] = _coverage_gaps(plain["coverage"])
+    plain["coverage_gaps"] = _coverage_gaps(plain)
     return plain
 
 
-def _coverage_gaps(coverage: dict[str, Any]) -> list[str]:
+def _coverage_gaps(report: dict[str, Any]) -> list[str]:
+    coverage = report.get("coverage") or {}
+    flags = report.get("flags") or {}
     gaps: list[str] = []
     if coverage.get("replay_true", 0) == 0:
         gaps.append("no_replay_true_frames")
+    if flags.get("overspeed_critical", 0) == 0:
+        gaps.append("no_overspeed_critical_flags")
     if coverage.get("combat_feed_items", 0) > 0 and (
         coverage.get("is_my_kill_field", 0) == 0
         and coverage.get("is_my_death_field", 0) == 0
@@ -197,6 +201,9 @@ def _coverage_gaps(coverage: dict[str, Any]) -> list[str]:
     ):
         gaps.append("combat_feed_missing_ownership_fields")
 
+    notice_codes = coverage.get("hud_notice_codes") or {}
+    if notice_codes and notice_codes.get("oil_overheat", 0) == 0:
+        gaps.append("no_oil_overheat_notice_codes")
     severities = coverage.get("hud_notice_severities") or {}
     if severities and set(severities) == {"unknown"}:
         gaps.append("hud_notice_severity_unknown")

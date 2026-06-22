@@ -91,7 +91,7 @@
    uv run python tools/sample_replay.py local_samples/data_process_20260620 tl0sr2
    ```
 
-   重点看输出 `coverage:` 行里的 `is_my_kill_field` / `is_my_death_field` / `involves_me_field`、`is_my_kill_true` / `is_my_death_true` / `involves_me_true`、`combat_self_source`、`hud_notice_codes`、`hud_notice_severities`、`awards_items`、`replay_true`，以及 `coverage_gaps:` 行。如果 `coverage_gaps` 含 `combat_feed_missing_ownership_fields`，说明样本里完全没有新归属字段；如果 `*_field` 有值但 `*_true` 为 0，说明字段存在但样本没有命中我方击杀/死亡。两种情况都不能关闭 kill/death identity 验证项。若 `coverage_gaps` 含 `hud_notice_severity_unknown`，说明当前样本还不能验证 notice 的 warning/critical 档位。
+   重点看输出 `coverage:` 行里的 `is_my_kill_field` / `is_my_death_field` / `involves_me_field`、`is_my_kill_true` / `is_my_death_true` / `involves_me_true`、`combat_self_source`、`hud_notice_codes`、`hud_notice_severities`、`awards_items`、`replay_true`，以及 `coverage_gaps:` 行。如果 `coverage_gaps` 含 `combat_feed_missing_ownership_fields`，说明样本里完全没有新归属字段；如果 `*_field` 有值但 `*_true` 为 0，说明字段存在但样本没有命中我方击杀/死亡。两种情况都不能关闭 kill/death identity 验证项。若 `coverage_gaps` 含 `no_overspeed_critical_flags`、`no_oil_overheat_notice_codes` 或 `hud_notice_severity_unknown`，说明当前样本还不能验证超速 critical、油温 notice 或 notice warning/critical 档位。
 
 3. 必查字段：
 
