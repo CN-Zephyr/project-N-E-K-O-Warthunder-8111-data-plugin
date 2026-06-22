@@ -84,6 +84,7 @@ def _coverage_gap_frame() -> dict:
         {"id": 20, "is_kill": True, "killer": "LegacyKiller", "victim": "LegacyVictim", "raw": "unsafe raw feed"},
     ]
     frame["hud_notices"] = {"feed": [{"id": 2, "code": "engine_overheat", "text": "unsafe notice"}]}
+    frame.pop("awards", None)
     return frame
 
 
@@ -189,11 +190,13 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
+        "no_awards_items",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",
     ]
     assert "no_overspeed_critical_flags" in text
+    assert "no_awards_items" in text
     assert "no_oil_overheat_notice_codes" in text
     assert "no_powertrain_failure_notice_codes" in text
     assert "LegacyKiller" not in text

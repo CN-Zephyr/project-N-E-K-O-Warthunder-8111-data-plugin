@@ -200,6 +200,8 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         and coverage.get("involves_me_field", 0) == 0
     ):
         gaps.append("combat_feed_missing_ownership_fields")
+    if coverage.get("awards_items", 0) == 0:
+        gaps.append("no_awards_items")
 
     notice_codes = coverage.get("hud_notice_codes") or {}
     if notice_codes and notice_codes.get("oil_overheat", 0) == 0:
