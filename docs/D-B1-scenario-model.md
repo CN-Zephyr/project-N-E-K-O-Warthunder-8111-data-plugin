@@ -45,9 +45,9 @@ stateDiagram-v2
     IN_FLIGHT --> CRITICAL_RISK: 任一危急 flag
     COMBAT_STRESS --> CRITICAL_RISK: 任一危急 flag
     CRITICAL_RISK --> IN_FLIGHT: 危急解除(迟滞)
-    IN_FLIGHT --> DEAD: you_died / valid 翻 false
-    COMBAT_STRESS --> DEAD: you_died / valid 翻 false
-    CRITICAL_RISK --> DEAD: you_died / valid 翻 false
+    IN_FLIGHT --> DEAD: is_my_death / vehicle_valid=false
+    COMBAT_STRESS --> DEAD: is_my_death / vehicle_valid=false
+    CRITICAL_RISK --> DEAD: is_my_death / vehicle_valid=false
     DEAD --> SPAWNING: 重生(valid 翻 true)
     DEAD --> BATTLE_ENDED: 对局结束
     IN_FLIGHT --> BATTLE_ENDED: 对局结束
