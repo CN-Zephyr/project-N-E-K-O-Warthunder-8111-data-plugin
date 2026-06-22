@@ -90,6 +90,9 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
         "coverage": {
             "replay_true": 0,
             "combat_feed_items": 0,
+            "is_my_kill_field": 0,
+            "is_my_death_field": 0,
+            "involves_me_field": 0,
             "is_my_kill_true": 0,
             "is_my_death_true": 0,
             "involves_me_true": 0,
@@ -141,6 +144,12 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
     for item in feed:
         if not isinstance(item, dict):
             continue
+        if "is_my_kill" in item:
+            coverage["is_my_kill_field"] += 1
+        if "is_my_death" in item:
+            coverage["is_my_death_field"] += 1
+        if "involves_me" in item:
+            coverage["involves_me_field"] += 1
         if item.get("is_my_kill") is True:
             coverage["is_my_kill_true"] += 1
         if item.get("is_my_death") is True:
@@ -205,6 +214,9 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
     for key in (
         "replay_true",
         "combat_feed_items",
+        "is_my_kill_field",
+        "is_my_death_field",
+        "involves_me_field",
         "is_my_kill_true",
         "is_my_death_true",
         "involves_me_true",

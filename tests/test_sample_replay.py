@@ -69,6 +69,7 @@ def _coverage_frame() -> dict:
             "feed": [
                 {"id": 10, "is_my_kill": True, "is_my_death": False, "involves_me": True, "victim": "RawVictim"},
                 {"id": 11, "is_my_kill": False, "is_my_death": True, "involves_me": True, "killer": "RawKiller"},
+                {"id": 12, "is_kill": True, "killer": "LegacyKiller", "victim": "LegacyVictim"},
             ],
         },
         "hud_notices": {"feed": [{"id": 1, "code": "engine_overheat", "text": "raw notice"}]},
@@ -145,7 +146,10 @@ def test_sample_replay_reports_safe_contract_coverage_without_raw_text():
 
     coverage = report["coverage"]
     assert coverage["replay_true"] == 1
-    assert coverage["combat_feed_items"] == 2
+    assert coverage["combat_feed_items"] == 3
+    assert coverage["is_my_kill_field"] == 2
+    assert coverage["is_my_death_field"] == 2
+    assert coverage["involves_me_field"] == 2
     assert coverage["is_my_kill_true"] == 1
     assert coverage["is_my_death_true"] == 1
     assert coverage["involves_me_true"] == 2
