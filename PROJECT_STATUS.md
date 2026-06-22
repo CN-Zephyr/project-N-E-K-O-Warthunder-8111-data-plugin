@@ -21,12 +21,12 @@
 - The offline replay tool's synthetic scenario now covers v1.6 `combat.feed[].is_my_kill` / `is_my_death` kill and death events.
 - Hosted UI surface, dashboard context, actions, and minimal panel have passed smoke validation.
 - Design docs are complete for the current v1 scope: D-B1 through D-B5, implementation plan, data-layer TODOs, recovery test plan, and real-machine validation checklist.
-- Data-layer blockers are no longer "waiting for fields"; the current work is plugin-side v1.6 DTO adaptation and real-machine seam validation.
+- Data-layer blockers are no longer "waiting for fields"; plugin-side v1.6 DTO seams are wired, and the current work is real-machine / sample validation.
 
 ## Not Done Yet
 
 - Real-machine `dry_run` seams are partially validated; real-speech `dry_run=false` seams still need validation.
-- Plugin-side M3 adaptation to data-layer `v1.6` DTO is partially implemented and awaiting real-machine validation.
+- Plugin-side M3 adaptation to data-layer `v1.6` DTO is implemented for the current v1 scope and awaiting real-machine / sample validation.
 - `you_killed` and `you_died` now consume `combat.feed[].is_my_kill` and `combat.feed[].is_my_death`; the old `vehicle_valid` death path is not used as the main death source.
 - `overspeed` is no longer a data-layer gap; plugin-side dry-run validation has observed the event path, but DTO mapping should still be kept under M3 regression coverage.
 - Overheat HUD-notice seam is implemented for `hud_notices.feed[].code` values `engine_overheat` and `oil_overheat`, mapped to the existing `overheat` event with safe code-only payload. It still needs real-machine dry-run revalidation; `powertrain_failure` is intentionally not promoted to a speech event yet.

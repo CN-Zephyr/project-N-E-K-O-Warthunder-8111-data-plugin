@@ -9,7 +9,7 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 - T4 集成测试已完成；T-Safety output text sanitizer 已完成；T-Observe runtime decision timeline 已完成轻量实现；`/api/identity` Hosted UI/action 接缝已完成；当前逻辑自检以 `78/78 passed` 为准。
 - 2026-06-21 真机 `dry_run` smoke 已通过：Hosted UI context/action、pause/resume 安全门、stall/low_alt 决策链路、dry_run dispatcher 输出均正常。
 - 数据层 `v1.6` 已合并到当前独立插件仓库，包含 `overspeed_warn` / `overspeed_critical`、增强 `combat.feed`、`is_my_kill` / `is_my_death`、`/api/identity`、`replay: true` 降级、`hud_notices`、`awards`。
-- 数据层字段缺口不再是“等待字段补齐”，现在是插件侧继续适配 `v1.6` DTO、待真机接缝验证。
+- 数据层字段缺口不再是“等待字段补齐”；插件侧已分项接入 `v1.6` DTO，剩余重点是真机 / 样本接缝验证。
 - 插件侧已按 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death` 生成 `you_killed` / `you_died`，已提供面板 `set_identity` action 调用数据层 `/api/identity` 设置/清除玩家名，并在 `replay=true` 时静默 Detector 输出。
 - 插件侧已接入 `hud_notices.feed[].code` 中的 `engine_overheat` / `oil_overheat`，可映射为现有 `overheat` 事件；raw HUD 文本不进入 prompt。
 - `T-Safety: output text sanitizer` 已实现，位于 `NekoDispatcher` / prompt builder 前；prompt 和 `push_message.parts[].text` 只能使用 safe / generic 文案。
