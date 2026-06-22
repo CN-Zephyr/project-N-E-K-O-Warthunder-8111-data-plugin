@@ -54,13 +54,14 @@ Notes:
 - `tests/run_logic_tests.py` is the no-host logic self-check and should report `75/75 passed`.
 - The standalone pytest entry uses `tests/pytest.ini` so pytest does not import the host SDK-dependent plugin entrypoint while collecting tests.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
-- The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result and links to the 2026-06-20 offline sample replay report in `docs/样本回放-20260620.md`.
+- The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result, the next unified live-test order, and links to the 2026-06-20 offline sample replay report in `docs/样本回放-20260620.md`.
+- After each live test, record the sanitized result summary with `docs/真机测试结果-template.md`; do not commit raw player names, HUD text, combat feed text, or awards text.
 - Before the next unified live test, run the offline gate in `docs/统一测试前-离线检查.md`.
 
 ## Next Recommended Work
 
 1. Continue M3 seams that still need real-machine validation or samples: identity, replay real-sample validation, awards/free-text dry_run validation, and the remaining failure-field strategy.
 2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, using T-Observe to inspect `last_decision` / `last_output_status` while focusing on setting identity from the panel, overheat HUD notice revalidation, replay, kill/death, and free-text event paths.
-3. During live validation, capture a fresh real `/api/telemetry` response for comparison with the sanitized `contract/telemetry_sample.json`.
+3. During live validation, capture a fresh real `/api/telemetry` response for comparison with the sanitized `contract/telemetry_sample.json`, then summarize the result with `docs/真机测试结果-template.md`.
 4. Only after M3 + real-machine dry_run pass, consider formal kill/death/hudmsg/combat.feed/awards speech through T-Safety.
 5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.
