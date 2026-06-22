@@ -9,7 +9,7 @@
 - T4 integration tests are complete.
 - `T-Safety: output text sanitizer` is complete.
 - `T-Observe: runtime decision timeline` is implemented in lightweight form: always-on last summaries plus an opt-in in-memory debug ring buffer.
-- Logic self-check currently passes: `69/69`.
+- Logic self-check currently passes: `71/71`.
 - Real-machine `dry_run` smoke passed on 2026-06-21 for Hosted UI context/actions, safety pause/resume, stall/low-altitude decision flow, and dry-run dispatcher output.
 - Default runtime mode is `dry_run = true`; the plugin runs the decision chain but does not push real catgirl speech until dry run is disabled.
 - The plugin boundary is HTTP `:8112` (`/api/telemetry`) only. It consumes the vendored data layer and must not import or modify `data_layer/` code.
@@ -50,7 +50,7 @@ uv run pytest tests -q
 
 Notes:
 
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `69/69 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `71/71 passed`.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result.
 
