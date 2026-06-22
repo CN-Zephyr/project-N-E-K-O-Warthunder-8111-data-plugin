@@ -39,7 +39,7 @@
 1. 在 N.E.K.O 宿主仓库运行插件检查：
 
    ```powershell
-   uv run python -m plugin.neko_plugin_cli.cli check plugin/plugins/neko_warthunder
+   uv run python -m plugin.neko_plugin_cli.cli check D:\Users\zheng\Documents\Code\N-E-K-O-Warthunder\project-N-E-K-O-Warthunder-8111-data-plugin
    ```
 
    预期：`0 error`。

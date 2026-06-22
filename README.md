@@ -69,7 +69,8 @@ uv run pytest -c tests\pytest.ini tests -q
 从 N.E.K.O 宿主仓库内做插件检查时，使用宿主路径：
 
 ```powershell
-uv run python -m plugin.neko_plugin_cli.cli check plugin/plugins/neko_warthunder
+cd D:\Users\zheng\Documents\Code\N-E-K-O-Warthunder\N.E.K.O
+uv run python -m plugin.neko_plugin_cli.cli check D:\Users\zheng\Documents\Code\N-E-K-O-Warthunder\project-N-E-K-O-Warthunder-8111-data-plugin
 ```
 
 ## 目录
