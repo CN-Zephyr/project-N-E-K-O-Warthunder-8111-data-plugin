@@ -21,7 +21,7 @@
   - `replay: true` 回放降级
   - `hud_notices`
   - `awards`
-- 真机/数据层/真实开口接缝仍未完整验证；2026-06-23 已完成数值安全与 owned kill/death smoke，覆盖超速 warning/critical、低空、失速、过热基础链路、手动 identity、air/ground owned combat.feed 归属、`you_killed` / `you_died` dry_run，以及 `dry_run=false` 真实 push 输出。
+- 真机/数据层/真实开口接缝仍未完整验证；2026-06-23 已完成数值安全与 owned kill/death smoke，覆盖超速 warning/critical、低油 warning/critical、低空 warning/critical、失速 warning/critical、过热 warning/critical、手动 identity、air/ground owned combat.feed 归属、`you_killed` / `you_died` dry_run，以及 `dry_run=false` 真实 push 输出。
 - recovery 仍暂缓，不打开 `wants_recovery`。
 
 ## 当前边界
@@ -39,7 +39,7 @@
 - L1 telemetry client：完成基础解析；已纳入 `hud_notices.feed` 与 `replay`，仍需要验证 data-layer `v1.6` 其他新字段。
 - L2 BattleState：完成基础装配；需要纳入 v1.6 DTO seam 验证。
 - L3 Scenario：完成；`replay: true` 已在 DetectorEngine 静默并 reset，仍需真实 replay 样本验证。
-- L4 Detector：已实现主链路；`overspeed` 已在真机 dry_run 中验证 `overspeed_warn` / `overspeed_critical`；`overheat` 已可消费 `hud_notices.feed[].code=engine_overheat/oil_overheat` 并已观察到基础 dry_run 链路；`you_killed` / `you_died` 已消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`，离线 replay 合成场景也已覆盖该形状。
+- L4 Detector：已实现主链路；`overspeed` 已在真机 dry_run 中验证 `overspeed_warn` / `overspeed_critical`；`low_fuel` 已在真机 dry_run 中验证 warning / critical；`low_alt_danger`、`stall_risk`、`overheat` 均已观察到 warning / critical 基础链路；`you_killed` / `you_died` 已消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`，离线 replay 合成场景也已覆盖该形状。
 - L5 Arbiter：完成；`SPAWNING` 仍压制飞行安全误报，但已允许 owned combat kill 事件通过，避免真实击杀在出生 grace 内被误压。后续 M3 适配时要保持 cooldown、优先级、Scenario 门控语义不变。
 - L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
 - L7 safety guard + Hosted UI：完成。
@@ -102,7 +102,7 @@
 
 ## 推进顺序
 
-1. M3 剩余验证：replay 样本验证、`low_fuel` 独立慢速验证、awards/free-text dry_run 验证、failure 字段策略。
+1. M3 剩余验证：replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
 2. 真机 checklist 验证 v1.6 接缝，同时用 T-Observe 辅助解释决策链路。
 3. 如 T-Observe 在真机里信息不足，再补 debug timeline 展示/字段。
 4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。

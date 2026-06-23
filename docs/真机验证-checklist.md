@@ -28,13 +28,14 @@
 - Hosted UI context 持续返回 `dry_run=true`、`conn_state=in_battle`、scenario、safety、`observe.last_event`、`observe.last_decision`、`observe.last_output_status`。
 - `spawn` 已进入 Arbiter allowed，并由 Dispatcher 走 dry_run。
 - `overspeed_warn` / `overspeed_critical` 已由数据层 `processed.flags` 触发；插件生成 `overspeed/enter`，Arbiter allowed，Dispatcher dry_run 输出。
-- `low_alt_danger` 已观察到 warning/critical 场景下的 dry_run；重复 critical 命中时可被 cooldown 丢弃。
-- `stall_risk` 已观察到 `critical` 事件；Arbiter 以 `reason=preempt` 放行，Dispatcher dry_run 输出。
-- `overheat` 已观察到 warning dry_run 输出；后续 critical 命中在 cooldown 内被丢弃，说明基础链路和 cooldown 都可解释。
+- `low_fuel` 已观察到 warning / critical dry_run 输出；后续重复低油在 `COMBAT_STRESS` / `CRITICAL_RISK` 下可被 scenario gate 丢弃。
+- `low_alt_danger` 已观察到 warning / critical dry_run；重复 critical 命中时可被 cooldown 丢弃。
+- `stall_risk` 已观察到 warning / critical dry_run；critical 可由 Arbiter 以 `reason=preempt` 放行。
+- `overheat` 已观察到 warning / critical dry_run；后续重复 critical 命中可被 cooldown 丢弃，说明基础链路和 cooldown 都可解释。
 - `you_died` 已观察到 `critical` 事件并 dry_run 输出；不把 `vehicle_valid` 跳变作为主路径。
 - 手动 identity 接缝已验证：Hosted UI 设置玩家名后，数据层返回 `combat.self.source=manual`，并观察到 owned `combat.feed[].is_my_kill=true` / `is_my_death=true` 路径。
-- `you_killed` 候选已由 owned combat.feed 产生，但当时处于 `SPAWNING`，被 Arbiter 以 `scenario_gated(SPAWNING)` 丢弃；commit `0ae2ff4` 已修复为出生 grace 内允许 owned combat kill、继续压制飞行安全事件，下一轮需要复测 `you_killed` dry_run 输出。
-- `low_fuel` 未关闭验证项：现场确认 `fuel_fraction=0.0` / `fuel_kg=0.0` / `fuel_remaining_sec=0.0`，但未观测到独立 `low_fuel` 事件，且该瞬间被坠毁/死亡状态覆盖；需要单独慢速低油验证。
+- `you_killed` 已由 owned combat.feed 产生并 dry_run 输出；此前 `SPAWNING` 门控问题已修复。
+- identity 设置时机已确认：若死亡 feed 在手动 identity 设置前已被 Detector 按 id 消费，后续同一 feed id 变为 `is_my_death=true` 不会补发；应在进战局前或死亡前设置 `/api/identity`。
 - T-Observe 普通模式已能解释 allow / preempt / cooldown / dry_run 输出；debug timeline 仍默认关闭。
 - 未发现 `PLUGIN_UI_ACTION_FAILED`、后端 Traceback、TTS/push 报错。
 - 已知数据层问题：`/api/telemetry.telemetry` 字段为空，但 `processed.*` 可用；map/profile 轮询持续出现 `_merge_profile() missing ... army and family_rules`，需数据层侧后续修复或确认影响范围。
@@ -51,7 +52,6 @@
 待复核：
 
 - replay 降级：仍需真实 `replay=true` 样本验证 Detector 静默。
-- `low_fuel`：需要不混入坠毁/低空/死亡的慢速单项验证。
 - 油温/发动机细项：过热基础链路已过；油温 / 发动机温度数据库和 `powertrain_failure` 策略仍后置，`powertrain_failure` 暂不直接播报。
 
 ## 下一轮统一测试现场顺序
@@ -73,14 +73,14 @@
 
 现场优先级：
 
-- 第一优先：replay=true、`low_fuel` 独立慢速验证。
-- 第二优先：awards/free-text dry_run 安全合同、油温/发动机数据库补齐后的细项复测、powertrain_failure 是否继续不播。
+- 第一优先：replay=true、awards/free-text dry_run 安全合同。
+- 第二优先：油温/发动机数据库补齐后的细项复测、powertrain_failure 是否继续不播。
 - 第三优先：`dry_run=false` 数值安全事件真实开口延迟和刷屏情况。
 
 ## 剩余接缝
 
 - NEKO 宿主加载与插件生命周期。
-- 数据层 `:8112` v1.6 DTO 与插件解析（基础数值安全链路、identity/ownership、`you_killed` / `you_died` 已通过，剩余 replay/free-text/low_fuel 单项）。
+- 数据层 `:8112` v1.6 DTO 与插件解析（基础数值安全链路、identity/ownership、`you_killed` / `you_died` 已通过，剩余 replay/free-text 单项）。
 - `dry_run` 决策链路是否能解释每一步（2026-06-23 已证明 always-on observe 摘要足够解释主要安全事件）。
 - `push_message` 真实开口链路（generic kill/death 已通过，其他事件仍需按项验证）。
 - T-Safety 已完成；generic kill/death 已通过真实输出 smoke，hudmsg / awards / 其他 free-text 在真机 dry_run 验证前仍不做真实播报。
