@@ -26,6 +26,7 @@
 ## Not Done Yet
 
 - Real-machine `dry_run` seams are validated for numeric flight-safety basics and owned kill/death. `dry_run=false` push output is validated for `test_say`, `you_killed`, and `you_died`; additional hudmsg / awards free-text paths still need dry-run safety validation before real output.
+- The later 2026-06-23 air dry-run monitor independently confirmed the `:8111` native telemetry -> `:8112` data layer -> plugin log chain for `spawn`, `stall_risk`, `low_alt_danger`, `overspeed`, owned `you_killed`, and crash-style owned `you_died`. In that boot the Hosted UI HTTP ports were not listening, so the result is counted as runtime chain evidence rather than a fresh Hosted UI smoke.
 - Plugin-side M3 adaptation to data-layer `v1.6` DTO is implemented for the current v1 scope. Owned kill/death, identity, overspeed, overheat, low altitude, stall, and low_fuel have real-machine evidence; replay samples, awards/free-text paths, and oil/engine profile calibration remain open.
 - `you_killed` and `you_died` now consume `combat.feed[].is_my_kill` and `combat.feed[].is_my_death`; the old `vehicle_valid` death path is not used as the main death source.
 - `overspeed` is no longer a data-layer gap; 2026-06-23 real-machine dry-run observed `overspeed_warn` and `overspeed_critical` flowing through Detector -> Arbiter -> Dispatcher dry_run. DTO mapping should still be kept under M3 regression coverage.
@@ -35,6 +36,7 @@
 - T-Observe exposes `observe.last_event`, `observe.last_decision`, `observe.last_output_status`, and debug-only `recent_timeline` through Hosted UI context. 2026-06-23 real-machine dry-run confirmed the always-on summaries explain allowed, preempted, cooldown-dropped, and dry-run dispatcher outcomes.
 - T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. Generic kill/death speech has passed real-machine `dry_run=false` smoke; hudmsg / awards / other free-text speech still needs real-machine dry-run validation before rollout.
 - Numeric flight-safety events such as stall, low altitude, overheat, overspeed, and low_fuel are not blocked by T-Safety. 2026-06-23 air dry-run observed low_fuel warning and critical output; later low_fuel repeats could be scenario-gated under combat stress as expected.
+- Known data-layer runtime issue from the 2026-06-23 live monitor: map/profile polling repeatedly logs `_merge_profile()` missing `army` and `family_rules`. Fast telemetry and `processed.*` stayed usable during the test, but the data-layer side should confirm impact and fix the polling path.
 - Data-layer subprocess orchestration is not implemented.
 - `contract/telemetry_sample.json` now contains a sanitized v1.6-shaped telemetry sample derived from real capture structure. It intentionally excludes raw free text; live testing should place raw captures under ignored `local_samples/` and only update `contract/telemetry_sample.json` with sanitized data.
 - recovery remains deferred; do not open `wants_recovery` until real-machine samples justify it.

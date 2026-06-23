@@ -25,6 +25,7 @@
 ## 已完成的真机 dry_run Smoke（2026-06-23）
 
 - 三个 health 均正常：主后端 `48911`、Hosted UI `48916`、数据层 `8112`；测试结束后端口已关闭。
+- 同日追加空战 dry_run 监控中，`:8111` 原生遥测和 `:8112` 数据层正常，插件日志链路正常；该轮 `48911` / `48916` 未监听，因此只作为运行主链路证据，不替代 Hosted UI smoke。
 - Hosted UI context 持续返回 `dry_run=true`、`conn_state=in_battle`、scenario、safety、`observe.last_event`、`observe.last_decision`、`observe.last_output_status`。
 - `spawn` 已进入 Arbiter allowed，并由 Dispatcher 走 dry_run。
 - `overspeed_warn` / `overspeed_critical` 已由数据层 `processed.flags` 触发；插件生成 `overspeed/enter`，Arbiter allowed，Dispatcher dry_run 输出。
@@ -33,6 +34,7 @@
 - `stall_risk` 已观察到 warning / critical dry_run；critical 可由 Arbiter 以 `reason=preempt` 放行。
 - `overheat` 已观察到 warning / critical dry_run；后续重复 critical 命中可被 cooldown 丢弃，说明基础链路和 cooldown 都可解释。
 - `you_died` 已观察到 `critical` 事件并 dry_run 输出；不把 `vehicle_valid` 跳变作为主路径。
+- 追加空战监控确认坠毁类 `combat.feed` 可产生 `is_my_death=true`，插件生成 `you_died/enter/critical`，Arbiter 以 `preempt` 放行，Dispatcher 输出 dry_run。
 - 手动 identity 接缝已验证：Hosted UI 设置玩家名后，数据层返回 `combat.self.source=manual`，并观察到 owned `combat.feed[].is_my_kill=true` / `is_my_death=true` 路径。
 - `you_killed` 已由 owned combat.feed 产生并 dry_run 输出；此前 `SPAWNING` 门控问题已修复。
 - identity 设置时机已确认：若死亡 feed 在手动 identity 设置前已被 Detector 按 id 消费，后续同一 feed id 变为 `is_my_death=true` 不会补发；应在进战局前或死亡前设置 `/api/identity`。
@@ -43,6 +45,7 @@
 ## 已完成的 kill/death 与真实 push Smoke（2026-06-23）
 
 - 空战 owned kill：数据层返回 `domain=air`，`combat.feed` 出现 `is_my_kill=true`；用于确认 air combat.feed ownership 字段可用。
+- 空战 owned death：数据层返回 `domain=air` 且新 `combat.feed` 出现 `is_my_death=true`；插件生成 `you_died`，Arbiter preempt，Dispatcher dry_run 输出。
 - 陆战 owned kill：数据层返回 `domain=ground`，`combat.feed` 多条 `is_my_kill=true`；插件生成 `you_killed`，Arbiter allowed，Dispatcher dry_run 输出。
 - 陆战 owned death：数据层返回 `combat.feed` 中 `is_my_death=true`；插件生成 `you_died`，Arbiter allowed，Dispatcher dry_run 输出。
 - `dry_run=false` 真实 push：关闭 dry_run 后，`test_say`、`you_killed`、`you_died` 均进入 proactive bridge / `push_message` 链路；Hosted UI `observe.last_output_status` 显示 `dispatcher_pushed` / `push_message_accepted`。
