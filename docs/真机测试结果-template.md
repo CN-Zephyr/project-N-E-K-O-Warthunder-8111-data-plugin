@@ -23,6 +23,19 @@
 - `PLUGIN_UI_ACTION_FAILED`：有 / 无
 - Traceback / ERROR：有 / 无
 
+## T-Live 现场摘要
+
+> 建议用 `uv run python tools\live_monitor.py` 或 `uv run python tools\live_monitor.py --json` 记录聚合结论；不要复制 raw 玩家名、raw HUD、raw combat.feed 或 awards 原文。
+
+- `live_monitor` health 结论：
+- `live_monitor` runtime 结论：
+- `live_monitor` telemetry flags：
+- `live_monitor` ownership kill/death 计数：
+- `live_monitor` `free_text_safety.status`：
+- `live_monitor` `free_text_safety.observed_sources`：
+- `live_monitor` `free_text_safety.raw_text_fields_present`：
+- `live_monitor` 日志异常计数：
+
 ## 面板与 action
 
 - `set_identity`：
@@ -79,6 +92,7 @@
 - prompt / dry_run 输出是否出现 raw HUD 文本：是 / 否
 - prompt / dry_run 输出是否出现 raw combat.feed 文本：是 / 否
 - prompt / dry_run 输出是否出现 raw awards 原文：是 / 否
+- `free_text=dry_run_only(...)` 是否在出现自由文本源时被 `live_monitor` 标出：是 / 否 / 未观察到自由文本源
 - 被替换成 generic 文案的例子：
 - 需要新增 sanitizer 规则吗：
 
