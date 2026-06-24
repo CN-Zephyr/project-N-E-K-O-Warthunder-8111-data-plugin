@@ -148,6 +148,11 @@ class DetectorEngine:
             return []
         out: list[BattleEvent] = []
         for det in self.detectors:
+            if cur.dead:
+                reset = getattr(det, "reset", None)
+                if callable(reset):
+                    reset()
+                    continue
             ev = det.feed(prev, cur)
             if ev is not None:
                 out.append(ev)

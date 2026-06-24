@@ -19,7 +19,7 @@ _END_STATUSES = frozenset({"win", "won", "victory", "fail", "failed", "lost", "d
 
 
 def _alive(s: BattleState) -> bool:
-    return bool(s.in_battle and s.vehicle_valid)
+    return bool(s.in_battle and s.vehicle_valid and not s.dead)
 
 
 class SpawnDetector(DiscreteDetector):

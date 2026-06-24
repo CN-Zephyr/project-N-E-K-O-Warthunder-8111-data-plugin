@@ -237,6 +237,47 @@ def test_hud_notice_powertrain_failure_is_not_promoted_to_speech_event_yet():
     assert det.feed(C.BattleState(in_battle=True, vehicle_valid=True), cur) is None
 
 
+def test_dead_state_suppresses_overheat_candidates():
+    engine = DetectorEngine(list(build_condition_detectors()) + [HudNoticeDetector()])
+    prev = C.BattleState(in_battle=True, vehicle_valid=True)
+    dead = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        dead=True,
+        flags={"engine_overheat_critical": True},
+        hud_notices=[{"id": 11, "code": "engine_overheat", "severity": "critical", "text": "raw overheat"}],
+    )
+
+    assert engine.feed(prev, dead) == []
+    assert engine.feed(dead, dead) == []
+
+
+def test_dead_state_allows_death_event_and_blocks_overheat_same_tick():
+    engine = DetectorEngine(list(build_condition_detectors()) + [DeathDetector(), HudNoticeDetector()])
+    prev = C.BattleState(in_battle=True, vehicle_valid=True)
+    dead = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        dead=True,
+        flags={"engine_overheat_critical": True},
+        combat={"feed": [{"id": 30, "is_my_death": True, "killer": "Opponent", "action": "crashed"}]},
+        hud_notices=[{"id": 12, "code": "engine_overheat", "severity": "critical", "text": "raw overheat"}],
+    )
+
+    events = engine.feed(prev, dead)
+
+    assert [ev.event_id for ev in events] == ["you_died"]
+    assert events[0].payload.get("cause") == "crashed"
+
+
+def test_spawn_detector_ignores_dead_state_with_stale_vehicle_valid():
+    det = SpawnDetector()
+    prev = C.BattleState(connected=True, in_battle=True, vehicle_valid=False, dead=True)
+    cur = C.BattleState(connected=True, in_battle=True, vehicle_valid=True, dead=True, vehicle_type="bf-109f-4")
+
+    assert det.feed(prev, cur) is None
+
+
 def test_hud_notice_overheat_requires_live_vehicle():
     det = HudNoticeDetector()
     cur = C.BattleState(
