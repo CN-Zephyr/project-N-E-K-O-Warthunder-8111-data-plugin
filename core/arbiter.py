@@ -15,7 +15,7 @@ from .safety_guard import SafetyGuard
 class Arbiter:
     def __init__(self, safety: SafetyGuard) -> None:
         self.safety = safety
-        self._last_fired: dict[str, float] = {}
+        self._last_fired: dict[str, tuple[float, str]] = {}
         self._window_best: BattleEvent | None = None
         self._kill_window: BattleEvent | None = None
         self._kill_window_started_at: float = 0.0
@@ -41,7 +41,9 @@ class Arbiter:
                 chain.append(_rec(c, "dropped", f"scenario_gated({scenario})"))
                 continue
             cd = c.spec.cooldown_seconds
-            if cd > 0 and (now - self._last_fired.get(c.event_id, -1e9)) < cd:
+            last_at, last_level = self._last_fired.get(c.event_id, (-1e9, ""))
+            critical_upgrade = c.level == "critical" and last_level != "critical"
+            if cd > 0 and (now - last_at) < cd and not critical_upgrade:
                 chain.append(_rec(c, "dropped", "cooldown"))
                 continue
             survivors.append(c)
@@ -118,7 +120,7 @@ class Arbiter:
         return None, chain
 
     def _fire(self, event: BattleEvent, now: float, *, critical: bool) -> None:
-        self._last_fired[event.event_id] = now
+        self._last_fired[event.event_id] = (now, event.level)
         self.safety.mark_output(critical=critical, now=now)
 
     def _buffer_kill(self, event: BattleEvent, now: float) -> None:

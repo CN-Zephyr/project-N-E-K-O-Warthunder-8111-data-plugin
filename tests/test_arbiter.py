@@ -80,6 +80,16 @@ def test_cooldown_drops_repeat():
     assert any(c["result"] == "dropped" and c["reason"] == "cooldown" for c in chain)
 
 
+def test_critical_upgrade_is_not_blocked_by_warning_cooldown():
+    arb = _arb()
+    first, _ = arb.decide([BattleEvent("overspeed", level="warning")], IN_FLIGHT, 1000.0)
+    chosen, chain = arb.decide([BattleEvent("overspeed", level="critical")], CRITICAL_RISK, 1003.0)
+    assert first is not None and first.event_id == "overspeed"
+    assert chosen is not None and chosen.event_id == "overspeed" and chosen.level == "critical"
+    assert any(c["result"] == "spoken" and c["reason"] == "preempt" for c in chain)
+    assert not any(c["result"] == "dropped" and c["reason"] == "cooldown" for c in chain)
+
+
 def test_paused_suppresses_all():
     arb = _arb()
     arb.safety.pause()

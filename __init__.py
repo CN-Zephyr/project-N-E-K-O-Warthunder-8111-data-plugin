@@ -252,8 +252,13 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "connected": s.connected,
             "conn_state": s.conn_state,
             "in_battle": s.in_battle,
+            "dead": s.dead,
             "domain": s.domain,
+            "domain_label": s.domain_label,
             "vehicle_type": s.vehicle_type,
+            "profile_matched": s.profile_matched,
+            "profile_source": s.profile_source,
+            "profile_family": s.profile_family,
             "scenario": s.scenario,
             "level": s.level,
             "identity": identity_summary_from_combat(s.combat),
@@ -289,10 +294,14 @@ class NekoWarthunderPlugin(NekoPluginBase):
     @plugin_entry(
         id="test_say",
         name="测试开口",
-        description="立即推一条测试消息给猫娘，验证 push 链路（不受 dry_run 短路；用于接缝①③自检）。",
+        description="在 dry_run=false 且未暂停时推一条测试消息给猫娘，验证 push 链路。",
         input_schema={"type": "object", "properties": {"text": {"type": "string", "default": "副驾驶测试：能听到我吗？"}}},
     )
     async def test_say(self, text: str = "副驾驶测试：能听到我吗？", **_):
+        if self.cfg.dry_run:
+            return Ok({"pushed": False, "blocked": "dry_run", "text": str(text)})
+        if self.safety.stopped:
+            return Ok({"pushed": False, "blocked": self.safety.status(), "text": str(text)})
         try:
             self.push_message(
                 source="neko_warthunder",
@@ -345,8 +354,13 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "connected": s.connected,
             "conn_state": s.conn_state,
             "in_battle": s.in_battle,
+            "dead": s.dead,
             "domain": s.domain,
+            "domain_label": s.domain_label,
             "vehicle_type": s.vehicle_type,
+            "profile_matched": s.profile_matched,
+            "profile_source": s.profile_source,
+            "profile_family": s.profile_family,
             "scenario": s.scenario,
             "level": s.level,
             "identity": identity_summary_from_combat(s.combat),

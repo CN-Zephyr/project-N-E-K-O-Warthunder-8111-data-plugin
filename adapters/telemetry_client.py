@@ -55,9 +55,16 @@ def parse_telemetry(payload: dict[str, Any] | None) -> BattleState:
         conn_state=str(payload.get("state") or "offline"),
         in_battle=bool(payload.get("in_battle", False)),
         replay=bool(payload.get("replay", False)),
+        dead=bool(payload.get("dead", False)),
         vehicle_valid=bool(vehicle.get("valid", False)),
         domain=str(payload.get("domain") or "unknown"),
+        domain_label=(str(payload.get("domain_label")) if payload.get("domain_label") is not None else None),
         vehicle_type=(indicators.get("vehicle_type") or processed.get("vehicle_type")),
+        profile_matched=(
+            bool(processed.get("profile_matched")) if processed.get("profile_matched") is not None else None
+        ),
+        profile_source=(str(processed.get("profile_source")) if processed.get("profile_source") is not None else None),
+        profile_family=(str(processed.get("profile_family")) if processed.get("profile_family") is not None else None),
         timestamp=_num(payload.get("timestamp")) or 0.0,
         age_seconds=_num(fast_meta.get("age_sec")),
         flags={str(k): bool(v) for k, v in flags_raw.items()},

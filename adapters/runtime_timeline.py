@@ -94,6 +94,12 @@ class RuntimeTimeline:
             }
         )
         with self._lock:
+            if (
+                self._last_decision
+                and self._last_decision.get("outcome") == "allowed"
+                and record.get("stage") == "arbiter_preempted"
+            ):
+                return
             self._last_decision = dict(record)
             if event_id:
                 self._last_event = {"event_id": event_id}

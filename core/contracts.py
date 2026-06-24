@@ -174,9 +174,14 @@ class BattleState:
     conn_state: str = "offline"             # offline / not_in_battle / in_battle（数据层 state）
     in_battle: bool = False
     replay: bool = False                    # data-layer replay degrade mode; suppress real battle events
+    dead: bool = False                      # data-layer dead/spectating hold; data layer suppresses flags while true
     vehicle_valid: bool = False             # vehicle.valid：在战且有载具遥测=存活（出生/死亡判定用）
     domain: str = "unknown"                 # air / heli / ground / naval / menu / unknown
+    domain_label: str | None = None
     vehicle_type: str | None = None
+    profile_matched: bool | None = None
+    profile_source: str | None = None
+    profile_family: str | None = None
     timestamp: float = 0.0                  # 数据层 fast 帧时间戳
     age_seconds: float | None = None        # 距数据层最近更新
 

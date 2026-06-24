@@ -124,6 +124,30 @@ def test_arbiter_chain_maps_to_observable_stage_reasons():
     assert records[2]["outcome"] == "allowed"
 
 
+def test_last_decision_prefers_spoken_record_when_chain_contains_preempted_drops():
+    from neko_warthunder.adapters.runtime_timeline import RuntimeTimeline, arbiter_chain_to_observe_records
+
+    timeline = RuntimeTimeline()
+    chain = [
+        {"event_id": "stall_risk", "edge": "enter", "level": "critical", "result": "spoken", "reason": "preempt"},
+        {"event_id": "you_killed", "edge": "enter", "level": "warning", "result": "dropped", "reason": "lost_to_preempt"},
+    ]
+    for record in arbiter_chain_to_observe_records(chain, scenario="CRITICAL_RISK"):
+        timeline.record_stage(**record)
+        timeline.record_decision(
+            event_id=record.get("event_id"),
+            stage=record.get("stage", "arbiter_dropped"),
+            outcome=record.get("outcome", "dropped"),
+            reason=record.get("reason", "unknown"),
+            scenario="CRITICAL_RISK",
+        )
+
+    decision = timeline.snapshot()["last_decision"]
+    assert decision["event_id"] == "stall_risk"
+    assert decision["stage"] == "arbiter_allowed"
+    assert decision["outcome"] == "allowed"
+
+
 def test_arbiter_chain_preserves_kill_coalesced_decision_reason():
     from neko_warthunder.adapters.runtime_timeline import arbiter_chain_to_observe_records
 

@@ -58,6 +58,21 @@ def test_parse_replay_flag():
     assert getattr(s, "replay", False) is True
 
 
+def test_parse_dead_and_profile_fields_from_v18_contract():
+    payload = _sample()
+    payload["dead"] = True
+    payload["domain_label"] = "Air"
+    payload["processed"]["profile_matched"] = True
+    payload["processed"]["profile_source"] = "family"
+    payload["processed"]["profile_family"] = "Bf 109"
+    s = parse_telemetry(payload)
+    assert s.dead is True
+    assert s.domain_label == "Air"
+    assert s.profile_matched is True
+    assert s.profile_source == "family"
+    assert s.profile_family == "Bf 109"
+
+
 def test_parse_hud_notices_feed_without_losing_raw_contract():
     payload = _sample()
     payload["hud_notices"] = {

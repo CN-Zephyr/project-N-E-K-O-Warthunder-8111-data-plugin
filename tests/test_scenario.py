@@ -48,6 +48,14 @@ def test_death():
     assert r.resolve(dead, 1008.0, 6) == C.DEAD
 
 
+def test_dead_flag_overrides_stale_vehicle_valid():
+    r = ScenarioResolver()
+    r.resolve(_alive(), 1000.0, 6)
+    r.resolve(_alive(), 1007.0, 6)
+    dead = C.BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True, dead=True)
+    assert r.resolve(dead, 1008.0, 6) == C.DEAD
+
+
 def test_battle_ended():
     r = ScenarioResolver()
     assert r.resolve(_alive(mission_status="win"), 1000.0, 6) == C.BATTLE_ENDED

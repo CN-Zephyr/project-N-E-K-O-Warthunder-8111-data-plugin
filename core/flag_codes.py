@@ -11,8 +11,10 @@
 from __future__ import annotations
 
 # event_id -> [(warning_flag, critical_flag), ...]
+# Keep aoa_* separate from stall_risk. Data layer treats high AoA as a distinct fact;
+# mapping it to stall caused high-G/loss-of-control cases to be spoken as stall.
 CONDITION_FLAG_GROUPS: dict[str, list[tuple[str, str]]] = {
-    "stall_risk": [("stall_warning", "stall_critical"), ("aoa_high", "aoa_critical")],
+    "stall_risk": [("stall_warning", "stall_critical")],
     "overheat": [("engine_overheat", "engine_overheat_critical"), ("oil_overheat", "oil_overheat_critical")],
     "low_fuel": [("fuel_low", "fuel_critical")],
     "low_alt_danger": [("altitude_low", "altitude_critical")],

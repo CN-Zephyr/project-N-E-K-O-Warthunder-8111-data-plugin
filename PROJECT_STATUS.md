@@ -12,7 +12,7 @@
 - `T-Live: live monitor summary tool` is complete for safe, read-only runtime summaries during real-machine tests.
 - `T-Output: output backpressure guard` is complete for real `push_message` calls. It suppresses same-or-lower-priority real pushes during `output_backpressure_seconds` while allowing higher-priority events through.
 - `T-Kill-Coalesce: you_killed multi-kill coalescing` is complete in lightweight form. Owned kill events are buffered for `kill_coalesce_window_seconds`, merged into one `kill_count` event, and cleared by critical preempt.
-- Logic self-check currently passes: `119/119`.
+- Logic self-check currently passes: `127/127`.
 - Real-machine smoke passed on 2026-06-21 and 2026-06-23 for Hosted UI context/actions, safety pause/resume, spawn, overspeed warning/critical, low_fuel warning/critical, low-altitude warning/critical, stall warning/critical, overheat warning/critical, identity manual seam, owned kill/death ownership, you_killed / you_died Arbiter decisions, dry-run dispatcher output, and `dry_run=false` push output.
 - 2026-06-23: plugin status reporting was deduped and throttled to avoid host-side `report_status` / ZMQ backpressure spam while still reporting immediately on real state changes.
 - 2026-06-24 live `dry_run=false` testing showed the plugin can push events quickly while the host reply may arrive late and mix older event context. The first mitigation is plugin-side real-output backpressure; the next live test should verify it reduces stale queued replies without blocking critical interrupts.
@@ -68,7 +68,7 @@ uv run pytest -c tests\pytest.ini tests -q
 Notes:
 
 - `tools/preflight.py --run` also runs plugin check, synthetic replay, local sample replay, the offline readiness report, and the live test plan when the relevant local paths exist. Use `--report-output <path>` to save the Markdown report; parent directories are created automatically. The printed preflight plan points local sample replay users to `session_summary`, the Markdown / JSON report, and the live operation plan as review entries.
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `119/119 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `127/127 passed`.
 - The standalone pytest entry uses `tests/pytest.ini` so pytest does not import the host SDK-dependent plugin entrypoint while collecting tests.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result, the next unified live-test order, and links to the 2026-06-20 offline sample replay report in `docs/样本回放-20260620.md`.

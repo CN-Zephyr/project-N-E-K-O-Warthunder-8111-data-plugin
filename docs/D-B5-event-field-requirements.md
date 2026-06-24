@@ -16,7 +16,7 @@
 
 | 我们的事件 | 数据层来源 | 我们做什么 | payload 取值 |
 |---|---|---|---|
-| `stall_risk` | flags `stall_warning`/`stall_critical`（OR `aoa_high`/`aoa_critical`） | 边沿+debounce+迟滞+cooldown | ias_kmh, aoa_deg, altitude_m |
+| `stall_risk` | flags `stall_warning`/`stall_critical` | 边沿+debounce+迟滞+cooldown；`aoa_high`/`aoa_critical` 只作为迎角事实，不直接映射为失速播报 | ias_kmh, aoa_deg, altitude_m |
 | `overspeed` | flags `overspeed_warn` / `overspeed_critical`（数据层 v1.6 已提供，插件侧待验证） | 同上 | ias_kmh, mach |
 | `overheat` | flags `engine_overheat`/`engine_overheat_critical`（OR `oil_overheat*`）；或 `hud_notices.feed[].code=engine_overheat/oil_overheat` | flags 走边沿+debounce；hud_notices 按 id 去重（不抢占） | temp_c；或 safe notice code |
 | `low_fuel` | flags `fuel_low`/`fuel_critical` | 同上（仅 IN_FLIGHT） | fuel_fraction, fuel_remaining_sec |

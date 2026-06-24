@@ -43,8 +43,13 @@ type DashboardState = {
   connected?: boolean
   conn_state?: string
   in_battle?: boolean
+  dead?: boolean
   domain?: string
+  domain_label?: string | null
   vehicle_type?: string | null
+  profile_matched?: boolean | null
+  profile_source?: string | null
+  profile_family?: string | null
   scenario?: string
   level?: string
   identity?: IdentityState
@@ -162,8 +167,13 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
               { key: "connected", label: "connected", value: badge(state.connected, "connected", "offline") },
               { key: "conn_state", label: "conn_state", value: text(state.conn_state) },
               { key: "in_battle", label: "in_battle", value: badge(state.in_battle) },
+              { key: "dead", label: "dead", value: badge(state.dead) },
               { key: "domain", label: "domain", value: text(state.domain) },
+              { key: "domain_label", label: "domain_label", value: text(state.domain_label) },
               { key: "vehicle_type", label: "vehicle_type", value: text(state.vehicle_type) },
+              { key: "profile_source", label: "profile_source", value: text(state.profile_source) },
+              { key: "profile_family", label: "profile_family", value: text(state.profile_family) },
+              { key: "profile_matched", label: "profile_matched", value: badge(state.profile_matched ?? undefined) },
               { key: "scenario", label: "scenario", value: text(state.scenario) },
               { key: "level", label: "level", value: <StatusBadge tone={levelTone(state.level)} label={text(state.level)} /> },
             ]}

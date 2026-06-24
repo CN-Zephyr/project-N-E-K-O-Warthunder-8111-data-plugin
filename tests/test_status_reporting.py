@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import pathlib
 import sys
@@ -79,6 +80,20 @@ def _plugin_for_report_tests():
     return plugin
 
 
+def _plugin_for_action_tests():
+    Plugin = _runtime_plugin_class()
+    plugin = object.__new__(Plugin)
+    plugin.cfg = WtConfig()
+    plugin.safety = SafetyGuard(plugin.cfg)
+    plugin.pushed_messages = []
+
+    def push_message(**kwargs):
+        plugin.pushed_messages.append(kwargs)
+
+    plugin.push_message = push_message
+    return plugin
+
+
 def test_status_report_is_deduped_between_unchanged_poll_ticks():
     plugin = _plugin_for_report_tests()
 
@@ -141,3 +156,26 @@ def test_replay_tick_records_suppressed_decision_without_output():
     assert observe["last_decision"]["reason"] == "replay"
     assert observe["last_output_status"] is None
     assert observe["last_event"] is None
+
+
+def test_test_say_is_blocked_by_dry_run():
+    plugin = _plugin_for_action_tests()
+    plugin.cfg.dry_run = True
+
+    result = asyncio.run(plugin.test_say("hello"))
+
+    assert result["pushed"] is False
+    assert result["blocked"] == "dry_run"
+    assert plugin.pushed_messages == []
+
+
+def test_test_say_is_blocked_by_manual_pause():
+    plugin = _plugin_for_action_tests()
+    plugin.cfg.dry_run = False
+    plugin.safety.pause()
+
+    result = asyncio.run(plugin.test_say("hello"))
+
+    assert result["pushed"] is False
+    assert result["blocked"] == "paused"
+    assert plugin.pushed_messages == []

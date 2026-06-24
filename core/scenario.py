@@ -41,7 +41,7 @@ class ScenarioResolver:
 
     def resolve(self, state: BattleState, now: float, grace_seconds: float) -> str:
         scenario = self._classify(state, now, grace_seconds)
-        self._prev_alive = bool(state.in_battle and state.vehicle_valid)
+        self._prev_alive = bool(state.in_battle and state.vehicle_valid and not state.dead)
         return scenario
 
     def _classify(self, state: BattleState, now: float, grace_seconds: float) -> str:
@@ -57,6 +57,9 @@ class ScenarioResolver:
             self._stress_until = 0.0
             self._last_hud_id = -1
             return OUT_OF_BATTLE
+
+        if state.dead:
+            return DEAD
 
         alive = state.vehicle_valid
         if not alive:

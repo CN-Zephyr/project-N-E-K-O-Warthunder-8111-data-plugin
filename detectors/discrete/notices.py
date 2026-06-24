@@ -61,7 +61,7 @@ class HudNoticeDetector(DiscreteDetector):
             return None
 
         code = str(newest.get("code") or "")
-        severity = str(newest.get("severity") or "warning").lower()
+        severity = str(newest.get("level") or newest.get("severity") or "warning").lower()
         level = "critical" if severity == "critical" else "warning"
         return BattleEvent(
             "overheat",

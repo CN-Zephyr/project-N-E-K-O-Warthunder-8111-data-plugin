@@ -6,7 +6,7 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 
 - M1 scaffold + M2 Battle Awareness 主链路已实现。
 - T1A Hosted UI Integration + T1B Minimal Panel 已完成，surface/context/action smoke 已通过。
-- T4 集成测试已完成；T-Safety output text sanitizer 已完成；T-Observe runtime decision timeline 已完成轻量实现；T-Live live monitor summary tool 已完成；T-Output output backpressure guard 已完成；T-Kill-Coalesce 多杀合并已完成；`/api/identity` Hosted UI/action 接缝已完成；当前逻辑自检以 `119/119 passed` 为准。
+- T4 集成测试已完成；T-Safety output text sanitizer 已完成；T-Observe runtime decision timeline 已完成轻量实现；T-Live live monitor summary tool 已完成；T-Output output backpressure guard 已完成；T-Kill-Coalesce 多杀合并已完成；`/api/identity` Hosted UI/action 接缝已完成；当前逻辑自检以 `127/127 passed` 为准。
 - 2026-06-21 / 2026-06-23 真机 smoke 已通过：Hosted UI context/action、pause/resume 安全门、spawn、overspeed warning/critical、low_fuel warning/critical、low_alt warning/critical、stall warning/critical、overheat warning/critical、identity manual seam、owned kill/death ownership、`you_killed` / `you_died` dry_run 决策链路、`dry_run=false` 真实 push 输出均正常。
 - 数据层 `v1.6` 已合并到当前独立插件仓库，包含 `overspeed_warn` / `overspeed_critical`、增强 `combat.feed`、`is_my_kill` / `is_my_death`、`/api/identity`、`replay: true` 降级、`hud_notices`、`awards`。
 - 数据层字段缺口不再是“等待字段补齐”；插件侧已分项接入 `v1.6` DTO，剩余重点是真机 / 样本接缝验证。
@@ -39,7 +39,7 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 当前状态：
 - Hosted UI 完成。
 - T4 集成测试完成。
-- 逻辑自检 119/119 passed。
+- 逻辑自检 127/127 passed。
 - 数据层 v1.6 已合并，插件侧已分项接入 kill/death、identity、replay 静默和 overheat HUD notice，仍需真机接缝验证。
 - 合作者 2026-06-20 真实样本已做离线 replay 聚合报告；`tools/sample_replay.py` 现在会输出 `session_summary`、分组 validation verdict、P1/P2 `live_test_plan` 和 `--json` 机器可读结果；`tools/offline_report.py` 可生成安全 Markdown 或 compact JSON，并在 Markdown / JSON 中提供 Team brief、Operator quick checklist 与 Next live-test plan，列出已观察事件、dry_run 输出、模块 readiness、剩余真机范围和下一步缺口；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，且 `next_steps` 也会列出这两个现场动作；`tools/live_test_plan.py` 可把待测项展开成 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”的真机操作清单；`tools/live_monitor.py` 可在真机测试中安全汇总 health、Hosted UI context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe last decision/output 和日志异常计数；`tools/preflight.py --run --report-output <path>` 可在统一预检时一并保存报告并打印操作清单。
 - 真机 smoke 已完成多轮；2026-06-23 已观察到 `overspeed_warn` / `overspeed_critical`、`low_fuel`、`low_alt_danger`、`stall_risk`、`overheat`、`you_killed`、`you_died` 进入 Arbiter / Dispatcher，并验证手动 identity、owned combat.feed 归属字段和 `dry_run=false` 真实 push 输出。

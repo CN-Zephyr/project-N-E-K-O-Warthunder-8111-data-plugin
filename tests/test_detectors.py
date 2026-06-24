@@ -122,6 +122,15 @@ def test_overspeed_warn_and_critical_flags_emit_events():
     assert events[0].level == "critical"
 
 
+def test_aoa_flags_do_not_emit_stall_risk():
+    engine = DetectorEngine(list(build_condition_detectors()))
+    prev = C.BattleState(in_battle=True, vehicle_valid=True)
+    high_aoa = C.BattleState(in_battle=True, vehicle_valid=True, flags={"aoa_high": True}, aoa_deg=19.0)
+
+    assert engine.feed(prev, high_aoa) == []
+    assert engine.feed(high_aoa, high_aoa) == []
+
+
 def test_kill_detector_uses_is_my_kill_flag():
     det = KillDetector("Me")
     feed = {
@@ -200,6 +209,22 @@ def test_hud_notice_overheat_emits_safe_overheat_event_once():
     assert ev.level == "warning"
     assert ev.payload == {"source": "hud_notice", "notice_code": "engine_overheat"}
     assert det.feed(cur, cur) is None
+
+
+def test_hud_notice_uses_data_layer_level_field():
+    det = HudNoticeDetector()
+    cur = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        timestamp=201.0,
+        hud_notices=[{"id": 10, "code": "engine_overheat", "level": "critical", "message": "engine disabled"}],
+    )
+
+    ev = det.feed(C.BattleState(in_battle=True, vehicle_valid=True), cur)
+
+    assert ev is not None
+    assert ev.event_id == "overheat"
+    assert ev.level == "critical"
 
 
 def test_hud_notice_powertrain_failure_is_not_promoted_to_speech_event_yet():
