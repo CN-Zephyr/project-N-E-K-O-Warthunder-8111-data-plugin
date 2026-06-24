@@ -188,4 +188,4 @@
 - 第 1 节矩阵的"允许/抑制 Scenario"与 D-B1 第 4 节门控矩阵一致（overheat 回填 ✅ 已完成）。
 - payload 字段须能从**数据层 `/api/telemetry`** 字段派生（见 D-B5 v0.2 映射）；落不到的（如 you_killed 的 `victim_vehicle`、you_died 的 `killer_vehicle`）标"可选"，缺则降级。
 - 全部 severity / priority / cooldown / 阈值为草稿初值，**待 D-A1 抓包后在汇合期（G3）用真实样本校准**。
-- 未决：① `/api/identity` 设置后，真机验证 `combat.self` 与 `is_my_kill` / `is_my_death` 是否按手动昵称生效；② 多杀合并与 est_minutes 估算是否 v1 做。
+- 未决：① `/api/identity` 自动选择/展示体验是否需要继续增强；② est_minutes 估算是否 v1 做。多杀合并已在插件侧轻量实现。

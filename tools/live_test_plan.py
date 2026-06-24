@@ -89,19 +89,35 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "fail": "severity 不稳定时继续使用保守默认档位。",
         "data_gap": "只有 unknown severity 时，继续补数据层映射。",
     },
+    "verify_output_backpressure": {
+        "operation": "dry_run=false 时连续触发同优先级或更低优先级事件，观察是否被输出背压压住。",
+        "monitor": "tools/live_monitor.py Summary、observe.last_output_status、output_backpressure、push_message 时延。",
+        "pass": "Summary 显示 output=dispatcher_suppressed/dropped(output_backpressure)，旧事件不再排队晚回，更高优先级事件仍能通过。",
+        "fail": "连续事件仍造成晚回、刷屏，或更高优先级事件被误压。",
+        "data_gap": "不依赖新 DTO；若现场事件不足，可用 test_say / generic kill-death smoke 补充。",
+    },
+    "verify_kill_coalescing": {
+        "operation": "dry_run=false 或 dry_run=true 下打出短窗多杀，优先用 owned combat.feed 或已验证的杀敌场景。",
+        "monitor": "tools/live_monitor.py Summary、observe.last_decision、kill_coalesced、kill_count、push_message 轮数。",
+        "pass": "Summary / Observe 保留 decision=arbiter_allowed/allowed/kill_coalesced，多杀合成单条 generic 输出，kill_count 可解释。",
+        "fail": "多杀连续刷屏、kill_count 丢失，或 you_died / critical 不能抢占。",
+        "data_gap": "如果现场没有 owned kill 样本，先保留下一轮真机用例。",
+    },
 }
 
 
 def build_compact_plan(root: str | pathlib.Path, *, player_name: str = "tl0sr2") -> dict[str, Any]:
     report = replay_sample_root(root, player_name=player_name)
     summary = report.get("session_summary") or {}
-    steps = [_step_from_item(item) for item in summary.get("live_test_plan") or [] if isinstance(item, dict)]
+    steps = [build_step_from_item(item) for item in summary.get("live_test_plan") or [] if isinstance(item, dict)]
+    quick_checklist = build_quick_checklist(steps)
     return {
         "root": report.get("root"),
         "files": report.get("files"),
         "frames": report.get("frames"),
         "status": summary.get("status") or "unknown",
         "steps": steps,
+        "quick_checklist": quick_checklist,
         "next_steps": list(summary.get("next_steps") or []),
         "coverage_gaps": list(report.get("coverage_gaps") or []),
     }
@@ -118,6 +134,19 @@ def build_markdown_plan(root: str | pathlib.Path, *, player_name: str = "tl0sr2"
         "",
     ]
     steps = payload.get("steps") or []
+    quick_checklist = payload.get("quick_checklist") or []
+    if quick_checklist:
+        lines.extend(
+            [
+                "## Operator quick checklist",
+                "",
+                "| 顺序 | 用户操作 | 我方监控重点 | 通过标准 |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for item in quick_checklist:
+            lines.append(f"| {item['order']} | {item['user_action']} | {item['monitor']} | {item['pass']} |")
+        lines.append("")
     if not steps:
         lines.extend(["## No live-test gaps", "", "- 当前样本没有生成额外真机待测项。"])
     for step in steps:
@@ -144,7 +173,7 @@ def build_markdown_plan(root: str | pathlib.Path, *, player_name: str = "tl0sr2"
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _step_from_item(item: dict[str, Any]) -> dict[str, Any]:
+def build_step_from_item(item: dict[str, Any]) -> dict[str, Any]:
     action = str(item.get("action") or "")
     detail = _ACTION_DETAILS.get(action, _fallback_detail(action))
     return {
@@ -159,6 +188,73 @@ def _step_from_item(item: dict[str, Any]) -> dict[str, Any]:
         "fail": detail["fail"],
         "data_gap": detail["data_gap"],
     }
+
+
+def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
+    actions = {str(step.get("action") or "") for step in steps}
+    checklist = [
+        {
+            "order": "0",
+            "user_action": "先跑离线门禁，或确认当天代码未变。",
+            "monitor": "tests/run_logic_tests.py、pytest、plugin check、sample/live plan。",
+            "pass": "离线基线通过，操作清单包含 P1/P2 待测项。",
+        },
+        {
+            "order": "1",
+            "user_action": "启动宿主、Hosted UI、数据层，打开面板。",
+            "monitor": "48911/health、48916/health、8112/health、Hosted UI context/actions。",
+            "pass": "三项 health 正常，context 非空，actions 可调用。",
+        },
+        {
+            "order": "2",
+            "user_action": "进战局前设置玩家名。",
+            "monitor": "/api/identity、combat.self.source、combat.player_name。",
+            "pass": "combat.self.source=manual，后续 ownership 围绕该昵称生效。",
+        },
+        {
+            "order": "3",
+            "user_action": "保持 `dry_run=true`，打一轮常规空战或陆战。",
+            "monitor": "observe.last_event、observe.last_decision、observe.last_output_status、processed.flags。",
+            "pass": "事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一。",
+        },
+    ]
+    if "use_v16_combat_feed_ownership_fields" in actions or "capture_owned_kill_or_death" in actions:
+        checklist.append(
+            {
+                "order": "4",
+                "user_action": "触发或等待 owned kill / death。",
+                "monitor": "combat.feed[].is_my_kill / is_my_death、you_killed / you_died。",
+                "pass": "生成 generic kill/death，不含 raw 玩家名；death / critical 仍可抢占。",
+            }
+        )
+    if "run_free_text_dry_run_safety_check" in actions or "capture_awards_or_free_text_sample" in actions:
+        checklist.append(
+            {
+                "order": "5",
+                "user_action": "观察 awards / hud_notices / combat.feed 自由文本源。",
+                "monitor": "free_text_safety.status、source_details、prompt / dry_run 输出。",
+                "pass": "free_text=dry_run_only，raw HUD / combat.feed / awards 原文不进入 prompt。",
+            }
+        )
+    if "capture_replay_true_sample" in actions:
+        checklist.append(
+            {
+                "order": "6",
+                "user_action": "若出现 replay，继续观察不要手动触发输出。",
+                "monitor": "replay=true、detector_suppressed/replay、output_blocked。",
+                "pass": "replay 帧静默，live_monitor 显示 replay suppressed，不真实开口。",
+            }
+        )
+    if "verify_output_backpressure" in actions or "verify_kill_coalescing" in actions:
+        checklist.append(
+            {
+                "order": "7",
+                "user_action": "条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death。",
+                "monitor": "push_message、last_output_status、output_backpressure、kill_coalesced。",
+                "pass": "真实开口不刷屏，旧回复晚到减少，更高优先级事件仍可插队。",
+            }
+        )
+    return checklist
 
 
 def _fallback_detail(action: str) -> dict[str, str]:

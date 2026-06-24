@@ -251,8 +251,12 @@ def test_sample_replay_includes_safe_session_summary_with_next_steps():
     assert "you_killed/enter/warning" in summary["observed_outputs"]
     assert "capture_replay_true_sample" in summary["next_steps"]
     assert "set_manual_identity_before_capture" in summary["next_steps"]
+    assert "verify_output_backpressure" in summary["next_steps"]
+    assert "verify_kill_coalescing" in summary["next_steps"]
     assert "session_summary:" in text
     assert "next_steps=capture_replay_true_sample" in text
+    assert "verify_output_backpressure" in text
+    assert "verify_kill_coalescing" in text
     assert unsafe not in text
     assert "LegacyKiller" not in text
     assert "unsafe notice" not in text
@@ -309,8 +313,24 @@ def test_sample_replay_session_summary_includes_prioritized_live_test_plan():
         "priority": "P2",
         "action": "capture_oil_overheat_notice",
     } in plan
+    assert {
+        "area": "runtime_output",
+        "label": "T-Output 真实开口背压",
+        "status": "needs_live_review",
+        "priority": "P2",
+        "action": "verify_output_backpressure",
+    } in plan
+    assert {
+        "area": "runtime_output",
+        "label": "T-Kill-Coalesce 多杀合并",
+        "status": "needs_live_review",
+        "priority": "P2",
+        "action": "verify_kill_coalescing",
+    } in plan
     assert "live_test_plan=" in text
     assert "回放降级" in text
+    assert "verify_output_backpressure" in text
+    assert "verify_kill_coalescing" in text
     assert "unsafe notice" not in text
 
 

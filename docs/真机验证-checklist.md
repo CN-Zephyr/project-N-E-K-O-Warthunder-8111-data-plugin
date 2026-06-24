@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、identity Hosted UI/action 接缝已完成；逻辑自检以 `108/108 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、identity Hosted UI/action 接缝已完成；逻辑自检以 `119/119 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -76,6 +76,19 @@
 
 每轮测完后，用 `docs/真机测试结果-template.md` 记录结果；只写聚合统计、安全摘要和结论，不写 raw 玩家名、raw HUD 文本、raw combat.feed 或 awards 原文。
 
+### 现场速用版
+
+| 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
+| --- | --- | --- | --- |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `119/119 passed`，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity` |
+| 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
+| 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
+| 4 | 触发或等待 owned kill / death | `combat.feed[].is_my_kill` / `is_my_death`、`you_killed` / `you_died` | 生成 generic kill/death，不含 raw 玩家名；death / critical 仍可抢占 |
+| 5 | 观察 awards / hud_notices / combat.feed 自由文本源 | `free_text_safety.status`、`source_details`、prompt / dry_run 输出 | `free_text=dry_run_only(...)`，raw HUD / combat.feed / awards 原文不进入 prompt |
+| 6 | 若出现 replay，继续观察不要手动触发输出 | `replay=true`、`detector_suppressed/replay`、`output_blocked` | replay 帧静默，`live_monitor` 显示 replay suppressed，不真实开口 |
+| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；更高优先级事件仍可插队 |
+
 现场优先级：
 
 - 第一优先：replay=true、awards/free-text dry_run 安全合同。
@@ -107,7 +120,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`108/108 passed`。
+   预期：`119/119 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -151,7 +164,7 @@
    uv run python tools/sample_replay.py local_samples/data_process_20260620 tl0sr2
    ```
 
-   当前样本的聚合回放结论见 `docs/样本回放-20260620.md`。该报告只记录统计和缺口，不提交原始抓包文本；`session_summary` 可直接给出已观察事件、dry_run 输出、分组 validation verdict、P1/P2 `live_test_plan` 和下一步补测项。需要机器可读结果时使用 `--json`，需要可交付 Markdown 汇报时使用 `tools/offline_report.py`；需要操作清单时使用 `tools/live_test_plan.py`；真机测试进行中用 `tools/live_monitor.py` 做只读安全摘要，先看 `Summary` 行，再查看 `free_text=dry_run_only(...)`、`FreeText detail` 和 JSON 的 `free_text_safety.source_details` 是否按预期出现。该报告包含 Team brief 和 Next live-test plan，也可通过 `tools/preflight.py --run --report-output <path>` 在统一预检时保存并打印操作清单。
+   当前样本的聚合回放结论见 `docs/样本回放-20260620.md`。该报告只记录统计和缺口，不提交原始抓包文本；`session_summary` 可直接给出已观察事件、dry_run 输出、分组 validation verdict、P1/P2 `live_test_plan` 和下一步补测项。需要机器可读结果时使用 `--json`，需要可交付 Markdown 汇报时使用 `tools/offline_report.py`；需要操作清单时使用 `tools/live_test_plan.py`。`sample_replay` / `offline_report` / `live_test_plan` 三个出口与 `session_summary.next_steps` 都会列出 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项；真机测试进行中用 `tools/live_monitor.py` 做只读安全摘要，先看 `Summary` 行，再查看 `free_text=dry_run_only(...)`、`FreeText detail` 和 JSON 的 `free_text_safety.source_details` 是否按预期出现。该报告包含 Team brief、Operator quick checklist 和 Next live-test plan，也可通过 `tools/preflight.py --run --report-output <path>` 在统一预检时保存并打印操作清单。
 
    重点看输出 `coverage:` 行里的 `is_my_kill_field` / `is_my_death_field` / `involves_me_field`、`is_my_kill_true` / `is_my_death_true` / `involves_me_true`、`combat_self_source`、`hud_notice_codes`、`hud_notice_severities`、`awards_items`、`replay_true`，以及 `coverage_gaps:` 行。如果 `coverage_gaps` 含 `combat_feed_missing_ownership_fields`，说明样本里完全没有新归属字段；如果含 `combat_feed_no_ownership_true_frames`，说明字段存在但样本没有命中我方击杀/死亡。两种情况都不能关闭 kill/death identity 验证项。若 `coverage_gaps` 含 `no_manual_identity_frames`，说明当前样本没有 `combat.self.source=manual`，不能关闭手动 `/api/identity` 接缝验证。若 `coverage_gaps` 含 `no_awards_items`、`no_overspeed_critical_flags`、`no_oil_overheat_notice_codes`、`no_powertrain_failure_notice_codes` 或 `hud_notice_severity_unknown`，说明当前样本还不能验证 awards、超速 critical、油温 notice、动力故障 notice 或 notice warning/critical 档位。
 
@@ -206,6 +219,8 @@
 
 - 数值安全事件接缝已在 dry_run 下通过。
 - T-Safety 已完成；generic kill/death 已通过真机 dry_run 与真实 push。hudmsg / awards / 其他 free-text 还需要真机 dry_run 验证后，才允许测试真实播报。
+- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure`，并保留 `kill_coalesced` 决策原因。
+- T-Kill-Coalesce 已完成；多杀 / 连杀测试时应观察 `you_killed` 是否合并为 `kill_count` 单条输出，并确认 `you_died` / critical 安全事件仍可抢占。
 
 步骤：
 

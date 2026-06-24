@@ -124,6 +124,35 @@ def test_arbiter_chain_maps_to_observable_stage_reasons():
     assert records[2]["outcome"] == "allowed"
 
 
+def test_arbiter_chain_preserves_kill_coalesced_decision_reason():
+    from neko_warthunder.adapters.runtime_timeline import arbiter_chain_to_observe_records
+
+    records = arbiter_chain_to_observe_records(
+        [
+            {
+                "event_id": "you_killed",
+                "edge": "enter",
+                "level": "warning",
+                "result": "spoken",
+                "reason": "kill_coalesced",
+            }
+        ],
+        scenario="IN_FLIGHT",
+    )
+
+    assert records == [
+        {
+            "stage": "arbiter_allowed",
+            "outcome": "allowed",
+            "reason": "kill_coalesced",
+            "event_id": "you_killed",
+            "edge": "enter",
+            "level": "warning",
+            "scenario": "IN_FLIGHT",
+        }
+    ]
+
+
 def test_dispatcher_records_dry_run_output_status_without_prompt_text():
     RuntimeTimeline = _timeline_api()
     timeline = RuntimeTimeline(observability_enabled=True, max_events=10)

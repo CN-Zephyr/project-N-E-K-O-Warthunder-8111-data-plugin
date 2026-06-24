@@ -426,7 +426,11 @@ def _format_summary_line(
 def _format_output_summary(output: dict[str, Any]) -> str:
     if not output:
         return "-"
-    return f"{output.get('stage') or '-'}/{output.get('outcome') or '-'}"
+    text = f"{output.get('stage') or '-'}/{output.get('outcome') or '-'}"
+    reason = output.get("reason")
+    if reason in {"output_backpressure"}:
+        text += f"({reason})"
+    return text
 
 
 def _format_issue_summary(logs: dict[str, int]) -> str:

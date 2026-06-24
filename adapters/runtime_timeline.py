@@ -8,7 +8,14 @@ from threading import Lock
 from typing import Any
 
 
-_OUTPUT_STAGES = {"dispatcher_dry_run", "dispatcher_pushed", "dispatcher_failed", "tts_pending", "tts_failed"}
+_OUTPUT_STAGES = {
+    "dispatcher_dry_run",
+    "dispatcher_pushed",
+    "dispatcher_failed",
+    "dispatcher_suppressed",
+    "tts_pending",
+    "tts_failed",
+}
 
 
 def _now_iso() -> str:
@@ -166,7 +173,7 @@ def arbiter_chain_to_observe_records(chain: list[dict[str, Any]], *, scenario: s
         if result == "spoken":
             stage = "arbiter_allowed"
             outcome = "allowed"
-            normalized_reason = "selected"
+            normalized_reason = reason if reason in {"kill_coalesced"} else "selected"
         elif reason == "cooldown":
             stage = "arbiter_cooldown"
             normalized_reason = "cooldown_active"

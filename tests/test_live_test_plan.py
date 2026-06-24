@@ -82,6 +82,45 @@ def test_live_test_plan_json_is_machine_readable_and_safe():
     assert "RawKiller" not in json.dumps(payload, ensure_ascii=False)
 
 
+def test_live_test_plan_includes_runtime_output_followups():
+    from neko_warthunder.tools.live_test_plan import build_compact_plan, build_markdown_plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame()}])
+
+        payload = build_compact_plan(root, player_name="Pilot")
+        text = build_markdown_plan(root, player_name="Pilot")
+
+    actions = {step["action"] for step in payload["steps"]}
+    assert "verify_output_backpressure" in actions
+    assert "verify_kill_coalescing" in actions
+    assert "output_backpressure" in text
+    assert "kill_coalesced" in text
+
+
+def test_live_test_plan_includes_operator_quick_checklist():
+    from neko_warthunder.tools.live_test_plan import build_compact_plan, build_markdown_plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame()}])
+
+        payload = build_compact_plan(root, player_name="Pilot")
+        text = build_markdown_plan(root, player_name="Pilot")
+
+    assert "## Operator quick checklist" in text
+    assert "| 用户操作 | 我方监控重点 | 通过标准 |" in text
+    assert "`dry_run=true`" in text
+    assert "free_text=dry_run_only" in text
+    assert "output_backpressure" in text
+    assert "quick_checklist" in payload
+    assert payload["quick_checklist"][0]["user_action"]
+    assert payload["quick_checklist"][0]["monitor"]
+    assert payload["quick_checklist"][0]["pass"]
+    assert "RawKiller" not in json.dumps(payload, ensure_ascii=False)
+
+
 def test_live_test_plan_cli_can_write_markdown_file():
     from neko_warthunder.tools import live_test_plan
 

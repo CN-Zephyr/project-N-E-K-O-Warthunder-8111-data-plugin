@@ -26,9 +26,13 @@ def test_scenario_gating_drops_low_fuel_in_combat():
 
 
 def test_spawning_allows_owned_kill_event():
-    chosen, chain = _arb().decide([BattleEvent("you_killed", level="warning")], SPAWNING, 1000.0)
-    assert chosen is not None and chosen.event_id == "you_killed"
-    assert any(c["result"] == "spoken" and c["reason"] == "window_flush" for c in chain)
+    arb = _arb()
+    chosen, chain = arb.decide([BattleEvent("you_killed", level="warning")], SPAWNING, 1000.0)
+    flushed, flush_chain = arb.decide([], SPAWNING, 1002.1)
+    assert chosen is None
+    assert any(c["result"] == "buffered" and c["reason"] == "kill_coalescing" for c in chain)
+    assert flushed is not None and flushed.event_id == "you_killed"
+    assert any(c["result"] == "spoken" and c["reason"] == "kill_coalesced" for c in flush_chain)
 
 
 def test_spawning_still_gates_flight_safety_warning():

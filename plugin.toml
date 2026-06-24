@@ -46,6 +46,8 @@ http_timeout_seconds = 1.5
 # 仲裁/限流（草稿值，待真机校准）
 global_rate_limit_seconds = 12
 critical_preempt_cooldown_seconds = 5
+output_backpressure_seconds = 20
+kill_coalesce_window_seconds = 2
 spawn_grace_seconds = 6
 # 安全门
 queue_limit = 5

@@ -7,6 +7,8 @@ dry_run 时短路、绝不真投。常驻场景上下文走 push_context(ai_beha
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from typing import Any
 
 from ..core.contracts import BattleEvent
@@ -29,6 +31,14 @@ _INTENT: dict[str, str] = {
 _RECOVERY_INTENT = "刚才的危险解除了，跟 {MASTER_NAME} 说句'好险、稳住了'之类的"
 
 
+def _output_backpressure_seconds(plugin: Any) -> float:
+    cfg = getattr(plugin, "cfg", None)
+    try:
+        return max(0.0, float(getattr(cfg, "output_backpressure_seconds", 20.0)))
+    except (TypeError, ValueError):
+        return 20.0
+
+
 def _fact_line(event: BattleEvent) -> str:
     p, _ = sanitize_event_payload(event.event_id, event.payload)
     bits: list[str] = []
@@ -40,6 +50,7 @@ def _fact_line(event: BattleEvent) -> str:
         ("mach", "M {:.2f}"),
         ("fuel_fraction", "余油 {:.0%}"),
         ("temp_c", "温度 {:.0f}℃"),
+        ("kill_count", "连杀 {}"),
         ("victim", "击落 {}"),
         ("cause", "{}"),
         ("result", "战果 {}"),
@@ -54,10 +65,19 @@ def _fact_line(event: BattleEvent) -> str:
 
 
 class NekoDispatcher:
-    def __init__(self, plugin: Any, *, timeline: RuntimeTimeline | None = None) -> None:
+    def __init__(
+        self,
+        plugin: Any,
+        *,
+        timeline: RuntimeTimeline | None = None,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
         self.plugin = plugin
         self.timeline = timeline
         self.logger = getattr(plugin, "logger", None)
+        self._clock = clock or time.time
+        self._last_push_at: float | None = None
+        self._last_push_priority = -1
 
     def build_prompt(self, event: BattleEvent) -> str:
         intent = _RECOVERY_INTENT if event.edge == "recovery" else _INTENT.get(event.event_id, "")
@@ -70,8 +90,8 @@ class NekoDispatcher:
 
     def push_event(self, event: BattleEvent, *, dry_run: bool) -> str:
         """把一个 BattleEvent 投给猫娘。dry_run 时只返回摘要、不真投。"""
-        text = self.build_prompt(event)
         if dry_run:
+            text = self.build_prompt(event)
             if self.timeline:
                 self.timeline.record_stage(
                     stage="dispatcher_dry_run",
@@ -85,6 +105,22 @@ class NekoDispatcher:
                     safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
                 )
             return f"dry_run(event={event.event_id}/{event.edge}/{event.level}, prio={event.priority}, preempt={event.preempt_eligible})"
+        now = self._clock()
+        if self._is_backpressured(event, now):
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_suppressed",
+                    outcome="dropped",
+                    reason="output_backpressure",
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=False,
+                    safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                )
+            return f"suppressed(event={event.event_id}/{event.edge}, reason=output_backpressure)"
+        text = self.build_prompt(event)
         try:
             self.plugin.push_message(
                 source="neko_warthunder",
@@ -107,6 +143,8 @@ class NekoDispatcher:
                     dry_run=False,
                 )
             raise
+        self._last_push_at = now
+        self._last_push_priority = event.priority
         if self.timeline:
             self.timeline.record_stage(
                 stage="dispatcher_pushed",
@@ -120,6 +158,14 @@ class NekoDispatcher:
                 safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
             )
         return f"pushed(event={event.event_id}/{event.edge})"
+
+    def _is_backpressured(self, event: BattleEvent, now: float) -> bool:
+        guard = _output_backpressure_seconds(self.plugin)
+        if guard <= 0 or self._last_push_at is None:
+            return False
+        if now - self._last_push_at >= guard:
+            return False
+        return event.priority <= self._last_push_priority
 
     def push_context(self, text: str) -> None:
         """注入/恢复常驻场景上下文（ai_behavior='read'，不触发回复）。"""

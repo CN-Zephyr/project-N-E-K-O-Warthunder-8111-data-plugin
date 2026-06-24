@@ -87,6 +87,8 @@
 - `observe.last_event` 是否能说明最近事件：
 - `observe.last_decision` 是否能解释 allow / drop / cooldown / scenario gate：
 - `observe.last_output_status` 是否能解释 dry_run / pushed / failed：
+- `kill_coalesced` 是否能说明多杀合并：
+- `output_backpressure` 是否能说明输出被压住：
 - 是否需要打开 debug timeline：
 - 信息是否足够解释“为什么没播 / 为什么晚播”：
 
@@ -109,7 +111,21 @@
 - 是否正常开口：
 - 是否滞后：
 - 是否刷屏：
+- `output_backpressure` 是否出现：
+- 更高优先级事件是否能插队：
+- 旧事件晚回复是否减少：
 - 是否有 TTS / push_message 报错：
+
+## T-Output / T-Kill-Coalesce 复测
+
+- `sample_replay` / `offline_report` / `live_test_plan` / `session_summary.next_steps` 是否列出 `verify_output_backpressure`：
+- `sample_replay` / `offline_report` / `live_test_plan` / `session_summary.next_steps` 是否列出 `verify_kill_coalescing`：
+- 连续同/低优先级事件是否被背压压住：
+- 更高优先级事件是否仍可通过：
+- 短窗多杀是否合并成单条 `kill_count` 输出：
+- `you_died` / critical 是否仍可抢占待播击杀：
+- `tools/live_monitor.py` Summary 是否显示 `output_backpressure` / `kill_coalesced`：
+- 旧回复晚到 / 多条消息堆积是否比上一轮减少：
 
 ## coverage_gaps
 

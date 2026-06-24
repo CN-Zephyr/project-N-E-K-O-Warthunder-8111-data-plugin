@@ -12,8 +12,8 @@
 - Hosted UI surface/context/action smoke 已通过。
 - T-Safety output text sanitizer 已完成。
 - T-Observe runtime decision timeline 已完成轻量实现：普通模式只保留最近摘要，debug 模式使用内存 ring buffer。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `108/108 passed` 为准。
-- 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单，`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要与日志异常计数。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `119/119 passed` 为准。
+- 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，`next_steps` 也会列出这两个现场动作但状态仍按样本/数据缺口判定；`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要、`kill_coalesced` / `output_backpressure` 等可行动原因与日志异常计数。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
   - enhanced `combat.feed`
@@ -45,6 +45,8 @@
 - L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
 - L7 safety guard + Hosted UI：完成。
 - T-Observe runtime decision timeline：完成轻量实现；Hosted UI context 暴露 `observe.last_event` / `last_decision` / `last_output_status`，debug timeline 默认关闭。
+- T-Output output backpressure guard：完成轻量实现；真实 `push_message` 前会在 `output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，减少主机回复队列堆积，更高优先级事件仍可通过。
+- T-Kill-Coalesce 多杀合并：完成轻量实现；`you_killed` 会在 `kill_coalesce_window_seconds` 窗口内合并为一条 `kill_count` 事件，critical 抢占会清空待播击杀。
 - L8 数据层并入：vendored 数据层已合并；插件侧子进程编排未做。
 - L9 真机调参：未完成；T-Live 只读监控工具已完成，可用于下一轮真机统一测试归档。
 
@@ -82,7 +84,7 @@
 旧定义“等待数据层补齐”已过期。新的 M3 是插件侧适配和验证：
 
 - `overspeed`：读取 `processed.flags` 中的 `overspeed_warn` / `overspeed_critical`；2026-06-23 已真机 dry_run 验证 warning/critical 事件链路。
-- `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；多杀合并仍可留后续调优。
+- `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；短窗多杀已在 Arbiter 合并为单条 `kill_count` 输出。
 - `you_died`：已监听 `combat.feed[]` 中 `is_my_death == true` 的新 id，不再把 `vehicle_valid` 跳变当作唯一可靠死亡信号。
 - `player_name`：通过 `/api/identity` 或启动参数建立权威身份；插件侧 Hosted UI/context/action seam 已完成，2026-06-23 真机已验证 `combat.self.source=manual` 与 `is_my_kill` / `is_my_death` owned 路径。`you_killed` 候选曾被 `SPAWNING` 门控压住，已修复；post-fix dry_run 与 `dry_run=false` push 已通过陆战验证。
 - `replay: true`：已在 DetectorEngine 静默并 reset，避免回放触发真实播报；T-Observe 会把原因记录为 `detector_suppressed/replay`，`tools/live_monitor.py` 会汇总为 `replay_degrade.status=suppressed` / `output_blocked=true`；仍需真实 replay 样本验证。
@@ -117,5 +119,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety / pre-identity 测试数量；当前逻辑自检应以 `108/108 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce 测试数量；当前逻辑自检应以 `119/119 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。

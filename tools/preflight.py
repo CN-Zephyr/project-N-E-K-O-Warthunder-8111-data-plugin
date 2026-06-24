@@ -75,7 +75,7 @@ def build_checks(
                 "offline readiness report",
                 plugin,
                 _offline_report_cmd(sample_rel, report_output),
-                "Markdown summary for handoff and next live-test scope",
+                "Markdown summary with Team brief, Operator quick checklist, quick_checklist JSON, and next live-test scope",
             )
         )
         checks.append(
@@ -83,7 +83,7 @@ def build_checks(
                 "live test plan",
                 plugin,
                 ["uv", "run", "python", "tools/live_test_plan.py", sample_rel, "tl0sr2"],
-                "human operation steps for the next live validation run",
+                "Operator quick checklist plus detailed operation steps for the next live validation run",
             )
         )
     return checks

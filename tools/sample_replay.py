@@ -196,10 +196,12 @@ def _session_summary(report: dict[str, Any]) -> dict[str, Any]:
         next_steps.insert(0, "add_sample_capture")
     if report.get("frames", 0) > 0 and not report.get("dry_run_outputs"):
         next_steps.append("inspect_detector_or_arbiter_chain")
+    sample_next_steps = list(next_steps)
+    next_steps.extend(_runtime_output_next_steps())
 
     checks = _validation_checks(report)
     return {
-        "status": "ready_for_live_review" if not next_steps else "needs_more_samples",
+        "status": "ready_for_live_review" if not sample_next_steps else "needs_more_samples",
         "observed_events": sorted((report.get("events") or {}).keys()),
         "observed_event_labels": [display_event_key(key) for key in sorted((report.get("events") or {}).keys())],
         "chosen_events": sorted((report.get("chosen") or {}).keys()),
@@ -332,6 +334,9 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
             action = "verify_hud_notice_severity_mapping"
         add("profile_calibration", "油温/动力故障校准", "needs_more_samples", "P2", action)
 
+    add("runtime_output", "T-Output 真实开口背压", "needs_live_review", "P2", "verify_output_backpressure")
+    add("runtime_output", "T-Kill-Coalesce 多杀合并", "needs_live_review", "P2", "verify_kill_coalescing")
+
     return plan
 
 
@@ -348,6 +353,10 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
         "hud_notice_severity_unknown": "verify_hud_notice_severity_mapping",
     }
     return [mapping[gap] for gap in gaps if gap in mapping]
+
+
+def _runtime_output_next_steps() -> list[str]:
+    return ["verify_output_backpressure", "verify_kill_coalescing"]
 
 
 def _dedupe(values: list[str]) -> list[str]:

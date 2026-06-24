@@ -16,12 +16,15 @@ if "neko_warthunder" not in sys.modules:
     sys.modules["neko_warthunder"] = _pkg
 
 from neko_warthunder.tools.sample_replay import replay_sample_root  # noqa: E402
+from neko_warthunder.tools.live_test_plan import build_quick_checklist, build_step_from_item  # noqa: E402
 
 
 def build_markdown_report(root: str | pathlib.Path, *, player_name: str = "tl0sr2") -> str:
     report = replay_sample_root(root, player_name=player_name)
     summary = report.get("session_summary") or {}
     checks = summary.get("validation_checks") or {}
+    steps = [build_step_from_item(item) for item in summary.get("live_test_plan") or [] if isinstance(item, dict)]
+    quick_checklist = build_quick_checklist(steps)
 
     lines = [
         "# neko_warthunder offline readiness report",
@@ -60,6 +63,12 @@ def build_markdown_report(root: str | pathlib.Path, *, player_name: str = "tl0sr
         "",
         _bullet_list(summary.get("next_steps") or []),
         "",
+        "## Operator quick checklist",
+        "",
+        "| 顺序 | 用户操作 | 我方监控重点 | 通过标准 |",
+        "| --- | --- | --- | --- |",
+        *_quick_checklist_rows(quick_checklist),
+        "",
         "## Next live-test plan",
         "",
         "| priority | area | status | action |",
@@ -82,6 +91,7 @@ def build_markdown_report(root: str | pathlib.Path, *, player_name: str = "tl0sr
 def build_compact_report(root: str | pathlib.Path, *, player_name: str = "tl0sr2") -> dict[str, Any]:
     report = replay_sample_root(root, player_name=player_name)
     summary = report.get("session_summary") or {}
+    steps = [build_step_from_item(item) for item in summary.get("live_test_plan") or [] if isinstance(item, dict)]
     return {
         "root": report.get("root"),
         "files": report.get("files"),
@@ -90,6 +100,7 @@ def build_compact_report(root: str | pathlib.Path, *, player_name: str = "tl0sr2
         "observed_outputs": list(summary.get("observed_outputs") or []),
         "validation_checks": dict(summary.get("validation_checks") or {}),
         "live_test_plan": list(summary.get("live_test_plan") or []),
+        "quick_checklist": build_quick_checklist(steps),
         "remaining_live_scope": _remaining_live_scope(summary),
         "next_steps": list(summary.get("next_steps") or []),
         "coverage_gaps": list(report.get("coverage_gaps") or []),
@@ -149,6 +160,12 @@ def _live_test_plan_rows(plan: list[Any]) -> list[str]:
             )
         )
     return rows or ["| - | - | - | - |"]
+
+
+def _quick_checklist_rows(items: list[dict[str, str]]) -> list[str]:
+    if not items:
+        return ["| - | - | - | - |"]
+    return [f"| {item['order']} | {item['user_action']} | {item['monitor']} | {item['pass']} |" for item in items]
 
 
 def main(argv: list[str] | None = None) -> int:
