@@ -110,6 +110,8 @@ def test_preflight_plan_points_sample_replay_to_session_summary():
         assert "local sample replay" in text
         assert "review: session_summary" in text
         assert "next validation steps" in text
+        assert "Operator quick checklist" in text
+        assert "quick_checklist" in text
         assert "live test plan" in text
 
 
