@@ -12,6 +12,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Callable
 
+from .text_safety import sanitize_display_name
+
 
 IdentityFetcher = Callable[[str, float], dict[str, Any] | None]
 
@@ -61,6 +63,7 @@ def identity_summary_from_combat(combat: dict[str, Any] | None) -> dict[str, Any
         "self": _identity_self_summary(self_info),
         "requested": combat.get("requested"),
         "active_players_count": len(active_players),
+        "active_players": _active_player_summaries(active_players),
     }
 
 
@@ -72,3 +75,19 @@ def _identity_self_summary(self_info: dict[str, Any] | None) -> dict[str, Any] |
         "source": self_info.get("source"),
         "confidence": self_info.get("confidence"),
     }
+
+
+def _active_player_summaries(active_players: list[Any], *, limit: int = 12) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for item in active_players[:limit]:
+        if not isinstance(item, dict):
+            continue
+        safe = sanitize_display_name(item.get("name"), fallback="player")
+        summary: dict[str, Any] = {
+            "display_name": safe.text,
+            "selectable": safe.level == "safe",
+        }
+        if safe.level == "safe":
+            summary["name"] = safe.text
+        result.append(summary)
+    return result

@@ -35,6 +35,11 @@ type IdentityState = {
   } | null
   requested?: string | null
   active_players_count?: number
+  active_players?: Array<{
+    display_name?: string
+    name?: string
+    selectable?: boolean
+  }>
 }
 
 type DashboardState = {
@@ -119,24 +124,31 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
   }
 
   async function submitIdentity(clear = false) {
+    await submitIdentityName(identityName, clear)
+  }
+
+  async function submitIdentityName(name: string, clear = false) {
     if (!setIdentityAction) {
       setIdentityError("set_identity action 不可用")
       return
     }
     try {
       setIdentityError("")
-      const result = unwrapActionResult(await props.api.call("set_identity", { name: identityName, clear }))
+      const result = unwrapActionResult(await props.api.call("set_identity", { name, clear }))
       const identityResult = result.identity && typeof result.identity === "object" ? result.identity : result
       if (identityResult.ok === false) {
         setIdentityError(String(identityResult.error || "identity request failed"))
         return
       }
-      if (clear) setIdentityName("")
+      setIdentityName(clear ? "" : name)
       await props.api.refresh()
     } catch (error) {
       setIdentityError(error instanceof Error ? error.message : String(error))
     }
   }
+
+  const activePlayers = Array.isArray(identity.active_players) ? identity.active_players : []
+  const selectablePlayers = activePlayers.filter((player) => player?.selectable && player.name)
 
   return (
     <Page title="战雷猫娘副驾驶" subtitle="Battle Awareness 状态面板">
@@ -206,6 +218,15 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
           <Field label="玩家名">
             <Input value={identityName} placeholder="输入你的游戏昵称" onChange={setIdentityName} />
           </Field>
+          {selectablePlayers.length ? (
+            <Grid cols={3}>
+              {selectablePlayers.map((player) => (
+                <Button key={player.name} onClick={() => submitIdentityName(String(player.name))}>
+                  {text(player.display_name || player.name)}
+                </Button>
+              ))}
+            </Grid>
+          ) : null}
           {identityError ? <Alert tone="danger">{identityError}</Alert> : null}
           <Grid cols={2}>
             <Button tone="primary" onClick={() => submitIdentity(false)}>设置玩家名</Button>
