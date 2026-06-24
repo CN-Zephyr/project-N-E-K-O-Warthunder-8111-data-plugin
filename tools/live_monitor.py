@@ -79,11 +79,14 @@ def monitor_once(
     context_raw = _dict(fetch(ENDPOINTS["context"]))
     telemetry_raw = _dict(fetch(ENDPOINTS["telemetry"]))
     logs = _summarize_logs(read_logs(log_paths))
+    context = _summarize_context(context_raw)
+    telemetry = _summarize_telemetry(telemetry_raw)
+    telemetry["replay_degrade"] = _summarize_replay_degrade(telemetry, context)
 
     report = {
         "health": health,
-        "context": _summarize_context(context_raw),
-        "telemetry": _summarize_telemetry(telemetry_raw),
+        "context": context,
+        "telemetry": telemetry,
         "logs": logs,
     }
     report["verdict"] = _build_verdict(report)
@@ -101,6 +104,7 @@ def render_text_report(report: dict[str, Any]) -> str:
     output = observe.get("last_output_status") if isinstance(observe.get("last_output_status"), dict) else {}
     combat = telemetry.get("combat") if isinstance(telemetry.get("combat"), dict) else {}
     free_text = telemetry.get("free_text_safety") if isinstance(telemetry.get("free_text_safety"), dict) else {}
+    replay_degrade = telemetry.get("replay_degrade") if isinstance(telemetry.get("replay_degrade"), dict) else {}
 
     health_line = ", ".join(
         [
@@ -111,8 +115,10 @@ def render_text_report(report: dict[str, Any]) -> str:
     )
     flags = telemetry.get("flags") if isinstance(telemetry.get("flags"), list) else []
     flag_text = ", ".join(str(flag) for flag in flags) if flags else "-"
+    free_text_detail = _format_free_text_detail(free_text.get("source_details"))
     lines = [
         "# neko_warthunder live monitor",
+        _format_summary_line(health, context, telemetry, logs),
         f"Health: {health_line}",
         "Runtime: dry_run={dry_run}, connected={connected}, in_battle={in_battle}, scenario={scenario}, safety={safety}".format(
             dry_run=context.get("dry_run"),
@@ -134,6 +140,14 @@ def render_text_report(report: dict[str, Any]) -> str:
             sources=", ".join(free_text.get("observed_sources") or []) or "-",
             raw_fields=free_text.get("raw_text_fields_present", False),
             prompt_allowed=free_text.get("prompt_allowed", False),
+        ),
+        f"FreeText detail: {free_text_detail}",
+        "Replay: replay={status}({stage}/{reason}), output_blocked={output_blocked}, prompt_allowed={prompt_allowed}".format(
+            status=replay_degrade.get("status") or "clear",
+            stage=replay_degrade.get("decision_stage") or "-",
+            reason=replay_degrade.get("decision_reason") or "-",
+            output_blocked=replay_degrade.get("output_blocked", False),
+            prompt_allowed=replay_degrade.get("prompt_allowed", True),
         ),
         "Observe: event={event}, decision={stage}/{outcome}/{reason}, output={out_stage}/{outcome2}/{reason2}".format(
             event=_safe_get(observe.get("last_event"), "event_id") or "-",
@@ -253,26 +267,94 @@ def _summarize_free_text_safety(
     hud_feed: list[Any],
     award_feed: list[Any],
 ) -> dict[str, Any]:
-    sources: list[str] = []
-    if combat_feed:
-        sources.append("combat_feed")
-    if hud_feed:
-        sources.append("hud_notices")
-    if award_feed:
-        sources.append("awards")
+    source_items = {
+        "awards": award_feed,
+        "combat_feed": combat_feed,
+        "hud_notices": hud_feed,
+    }
+    sources = sorted(source for source, items in source_items.items() if items)
     sources = sorted(sources)
-    raw_text_fields = _has_raw_text_fields(combat_feed) or _has_raw_text_fields(hud_feed) or _has_raw_text_fields(award_feed)
+    source_details = {
+        source: _free_text_source_detail(items)
+        for source, items in source_items.items()
+        if items
+    }
+    raw_text_fields = any(detail["raw_text_fields_present"] for detail in source_details.values())
+    blocked_reasons = [
+        f"{source}_raw_text"
+        for source, detail in source_details.items()
+        if detail["raw_text_fields_present"]
+    ]
     if not sources:
         return {
             "status": "clear",
             "observed_sources": [],
             "raw_text_fields_present": False,
             "prompt_allowed": True,
+            "source_details": {},
+            "blocked_reasons": [],
         }
     return {
         "status": "dry_run_only",
         "observed_sources": sources,
         "raw_text_fields_present": raw_text_fields,
+        "prompt_allowed": False,
+        "source_details": source_details,
+        "blocked_reasons": blocked_reasons,
+    }
+
+
+def _free_text_source_detail(items: list[Any]) -> dict[str, Any]:
+    return {
+        "items": len(items),
+        "raw_text_fields_present": _has_raw_text_fields(items),
+        "prompt_allowed": False,
+        "mode": "dry_run_only",
+    }
+
+
+def _format_free_text_detail(value: Any) -> str:
+    details = value if isinstance(value, dict) else {}
+    if not details:
+        return "-"
+    parts: list[str] = []
+    for source in sorted(details):
+        detail = details.get(source) if isinstance(details.get(source), dict) else {}
+        status = "blocked" if detail.get("prompt_allowed") is False else "allowed"
+        parts.append(f"{source}={detail.get('items', 0)}/{status}")
+    return ", ".join(parts)
+
+
+def _summarize_replay_degrade(telemetry: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    observe = context.get("observe") if isinstance(context.get("observe"), dict) else {}
+    decision = observe.get("last_decision") if isinstance(observe.get("last_decision"), dict) else {}
+    output = observe.get("last_output_status") if isinstance(observe.get("last_output_status"), dict) else {}
+    telemetry_replay = telemetry.get("replay") is True
+    decision_stage = decision.get("stage")
+    decision_outcome = decision.get("outcome")
+    decision_reason = decision.get("reason")
+    output_blocked = not bool(output)
+    if not telemetry_replay:
+        return {
+            "status": "clear",
+            "telemetry_replay": bool(telemetry.get("replay")),
+            "decision_stage": decision_stage,
+            "decision_reason": decision_reason,
+            "output_blocked": True,
+            "prompt_allowed": True,
+        }
+    suppressed = (
+        decision_stage == "detector_suppressed"
+        and decision_outcome == "suppressed"
+        and decision_reason == "replay"
+        and output_blocked
+    )
+    return {
+        "status": "suppressed" if suppressed else "needs_attention",
+        "telemetry_replay": True,
+        "decision_stage": decision_stage,
+        "decision_reason": decision_reason,
+        "output_blocked": output_blocked,
         "prompt_allowed": False,
     }
 
@@ -310,6 +392,52 @@ def _summarize_logs(lines: list[str]) -> dict[str, int]:
         if "pushed" in lower or "push_message" in lower:
             counters["pushed"] += 1
     return counters
+
+
+def _format_summary_line(
+    health: dict[str, Any],
+    context: dict[str, Any],
+    telemetry: dict[str, Any],
+    logs: dict[str, int],
+) -> str:
+    free_text = telemetry.get("free_text_safety") if isinstance(telemetry.get("free_text_safety"), dict) else {}
+    replay = telemetry.get("replay_degrade") if isinstance(telemetry.get("replay_degrade"), dict) else {}
+    observe = context.get("observe") if isinstance(context.get("observe"), dict) else {}
+    output = observe.get("last_output_status") if isinstance(observe.get("last_output_status"), dict) else {}
+    health_state = "ok" if all(_dict(value).get("ok") for value in health.values()) else "fail"
+    battle_state = "in_battle" if context.get("in_battle") is True else "not_in_battle"
+    scenario = context.get("scenario") or "-"
+    output_blocked = replay.get("status") == "suppressed" and replay.get("output_blocked") is True
+    output_text = "blocked" if not output and output_blocked else _format_output_summary(output)
+    return (
+        "Summary: health={health}, battle={battle}/{scenario}, free_text={free_text}, "
+        "replay={replay}, output={output}, issues={issues}"
+    ).format(
+        health=health_state,
+        battle=battle_state,
+        scenario=scenario,
+        free_text=free_text.get("status") or "clear",
+        replay=replay.get("status") or "clear",
+        output=output_text,
+        issues=_format_issue_summary(logs),
+    )
+
+
+def _format_output_summary(output: dict[str, Any]) -> str:
+    if not output:
+        return "-"
+    return f"{output.get('stage') or '-'}/{output.get('outcome') or '-'}"
+
+
+def _format_issue_summary(logs: dict[str, int]) -> str:
+    names = [
+        ("action_failed", "PLUGIN_UI_ACTION_FAILED"),
+        ("traceback", "Traceback"),
+        ("error", "ERROR"),
+        ("tts", "TTS/tts"),
+    ]
+    issues = [name for name, key in names if logs.get(key, 0) > 0]
+    return "+".join(issues) if issues else "none"
 
 
 def _build_verdict(report: dict[str, Any]) -> dict[str, Any]:

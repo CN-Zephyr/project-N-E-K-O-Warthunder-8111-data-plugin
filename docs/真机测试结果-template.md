@@ -34,6 +34,10 @@
 - `live_monitor` `free_text_safety.status`：
 - `live_monitor` `free_text_safety.observed_sources`：
 - `live_monitor` `free_text_safety.raw_text_fields_present`：
+- `live_monitor` `free_text_safety.source_details`：
+- `live_monitor` `free_text_safety.blocked_reasons`：
+- `live_monitor` `replay_degrade.status`：
+- `live_monitor` `replay_degrade.output_blocked`：
 - `live_monitor` 日志异常计数：
 
 ## 面板与 action

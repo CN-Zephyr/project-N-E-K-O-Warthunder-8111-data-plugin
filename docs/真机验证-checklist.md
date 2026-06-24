@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、identity Hosted UI/action 接缝已完成；逻辑自检以 `105/105 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、identity Hosted UI/action 接缝已完成；逻辑自检以 `108/108 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -54,7 +54,7 @@
 
 待复核：
 
-- replay 降级：插件侧离线合同已覆盖 Detector 静默与 `detector_suppressed/replay` 观测记录；仍需真实 `replay=true` 样本验证。
+- replay 降级：插件侧离线合同已覆盖 Detector 静默、`detector_suppressed/replay` 观测记录和 `live_monitor` 的 `replay_degrade` 汇总；仍需真实 `replay=true` 样本验证。
 - 油温/发动机细项：过热基础链路已过；油温 / 发动机温度数据库和 `powertrain_failure` 策略仍后置，`powertrain_failure` 暂不直接播报。
 
 ## 下一轮统一测试现场顺序
@@ -69,8 +69,8 @@
 4. **基础 action**：依次点 `pause`、`resume`、`test_say`，确认没有 `PLUGIN_UI_ACTION_FAILED`；`pause` 时风险事件应被 suppress，`resume` 后恢复。
 5. **identity / owned combat 回归**：在 Hosted UI 设置游戏昵称，确认 `/api/identity` 与 `/api/telemetry.combat.self.source=manual`；击杀 / 死亡时确认 `is_my_kill=true` / `is_my_death=true` 仍能生成 `you_killed` / `you_died`，并由 T-Observe 解释 Arbiter / Dispatcher 输出。
 6. **数值安全事件**：优先复测 `overheat` / `oil_overheat`、`overspeed_critical`、`stall_risk`、`low_alt_danger`、`low_fuel`；每次看 `observe.last_decision` 是否能解释 allow / drop / cooldown / scenario gate。
-7. **自由文本风险路径**：只在 `dry_run=true` 下观察 `combat.feed` / `hud_notices` / `awards`，确认 prompt / dry_run 输出不包含 raw 玩家名、raw HUD 文本或 awards 原文。
-8. **replay 降级**：若数据层返回 `replay=true`，确认 Detector 静默、last decision 能说明 suppressed / replay，不触发真实输出。
+7. **自由文本风险路径**：只在 `dry_run=true` 下观察 `combat.feed` / `hud_notices` / `awards`，确认 prompt / dry_run 输出不包含 raw 玩家名、raw HUD 文本或 awards 原文；`live_monitor` 顶部 `Summary` 应显示 free-text 状态，细节行应显示 `free_text=dry_run_only(...)`，并在 `FreeText detail` / `free_text_safety.source_details` 中给出逐源 `.../blocked`。
+8. **replay 降级**：若数据层返回 `replay=true`，确认 Detector 静默、last decision 能说明 suppressed / replay，`live_monitor` 显示 `replay=suppressed(detector_suppressed/replay)` 且 `output_blocked=True`，不触发真实输出。
 9. **样本留存**：把现场抓包放到 `local_samples/` 或本地临时目录，保持 `.gitignore`；仓库只提交聚合统计和脱敏结论。
 10. **真实开口**：只有前面 dry_run 通过后，才关闭 dry_run；`test_say`、generic kill/death 已在 2026-06-23 通过真实 push smoke。hudmsg / awards / 其他 free-text 仍需各自 dry_run 安全验证后再开放真实播报。
 
@@ -107,7 +107,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`105/105 passed`。
+   预期：`108/108 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -151,7 +151,7 @@
    uv run python tools/sample_replay.py local_samples/data_process_20260620 tl0sr2
    ```
 
-   当前样本的聚合回放结论见 `docs/样本回放-20260620.md`。该报告只记录统计和缺口，不提交原始抓包文本；`session_summary` 可直接给出已观察事件、dry_run 输出、分组 validation verdict、P1/P2 `live_test_plan` 和下一步补测项。需要机器可读结果时使用 `--json`，需要可交付 Markdown 汇报时使用 `tools/offline_report.py`；需要操作清单时使用 `tools/live_test_plan.py`；真机测试进行中用 `tools/live_monitor.py` 做只读安全摘要，并查看 `free_text=dry_run_only(...)` 是否按预期出现。该报告包含 Team brief 和 Next live-test plan，也可通过 `tools/preflight.py --run --report-output <path>` 在统一预检时保存并打印操作清单。
+   当前样本的聚合回放结论见 `docs/样本回放-20260620.md`。该报告只记录统计和缺口，不提交原始抓包文本；`session_summary` 可直接给出已观察事件、dry_run 输出、分组 validation verdict、P1/P2 `live_test_plan` 和下一步补测项。需要机器可读结果时使用 `--json`，需要可交付 Markdown 汇报时使用 `tools/offline_report.py`；需要操作清单时使用 `tools/live_test_plan.py`；真机测试进行中用 `tools/live_monitor.py` 做只读安全摘要，先看 `Summary` 行，再查看 `free_text=dry_run_only(...)`、`FreeText detail` 和 JSON 的 `free_text_safety.source_details` 是否按预期出现。该报告包含 Team brief 和 Next live-test plan，也可通过 `tools/preflight.py --run --report-output <path>` 在统一预检时保存并打印操作清单。
 
    重点看输出 `coverage:` 行里的 `is_my_kill_field` / `is_my_death_field` / `involves_me_field`、`is_my_kill_true` / `is_my_death_true` / `involves_me_true`、`combat_self_source`、`hud_notice_codes`、`hud_notice_severities`、`awards_items`、`replay_true`，以及 `coverage_gaps:` 行。如果 `coverage_gaps` 含 `combat_feed_missing_ownership_fields`，说明样本里完全没有新归属字段；如果含 `combat_feed_no_ownership_true_frames`，说明字段存在但样本没有命中我方击杀/死亡。两种情况都不能关闭 kill/death identity 验证项。若 `coverage_gaps` 含 `no_manual_identity_frames`，说明当前样本没有 `combat.self.source=manual`，不能关闭手动 `/api/identity` 接缝验证。若 `coverage_gaps` 含 `no_awards_items`、`no_overspeed_critical_flags`、`no_oil_overheat_notice_codes`、`no_powertrain_failure_notice_codes` 或 `hud_notice_severity_unknown`，说明当前样本还不能验证 awards、超速 critical、油温 notice、动力故障 notice 或 notice warning/critical 档位。
 
@@ -178,6 +178,7 @@
 5. replay seam：
 
    - 若 `/api/telemetry` 返回 `replay: true`，插件应进入降级或静默策略。
+   - `tools/live_monitor.py` 应显示 `replay=suppressed(detector_suppressed/replay)`，并在 JSON 中给出 `telemetry.replay_degrade.output_blocked=true`。
    - 回放期间不要消费派生战斗数据，不要触发真实播报。
 
 失败定位：
