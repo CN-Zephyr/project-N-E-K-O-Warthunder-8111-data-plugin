@@ -9,6 +9,7 @@ M2 接入 Scenario(D-B1) / Detector(D-B3) / Arbiter(D-B4) 后才真正产出事�
 
 from __future__ import annotations
 
+from pathlib import Path
 import threading
 import time
 from typing import Any
@@ -24,6 +25,7 @@ from plugin.sdk.plugin import (
     SdkError,
 )
 
+from .adapters.data_layer_process import DataLayerProcessManager
 from .adapters.identity_client import identity_summary_from_combat, set_identity as request_set_identity
 from .adapters.neko_dispatcher import NekoDispatcher
 from .adapters.runtime_timeline import RuntimeTimeline, arbiter_chain_to_observe_records
@@ -50,6 +52,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             self.logger = ctx.logger
 
         self.cfg = WtConfig()
+        self.data_layer_manager = DataLayerProcessManager(self.cfg, plugin_root=Path(__file__).resolve().parent)
         self.client = TelemetryClient(self.cfg.data_layer_url, self.cfg.http_timeout_seconds)
         self.safety = SafetyGuard(self.cfg)
         self.timeline = RuntimeTimeline(
@@ -85,6 +88,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
     def _apply_config(self, cfg: WtConfig) -> None:
         prev_player = self.cfg.player_name
         self.cfg = cfg
+        self.data_layer_manager.configure(cfg)
         self.client = TelemetryClient(cfg.data_layer_url, cfg.http_timeout_seconds)
         self.safety.update(cfg)
         self.timeline.configure(
@@ -105,24 +109,29 @@ class NekoWarthunderPlugin(NekoPluginBase):
     @lifecycle(id="startup")
     async def startup(self, **_):
         await self._reload_config()
+        data_layer_status = self.data_layer_manager.start_if_needed()
         self.dispatcher.push_context(WT_CONTEXT_INSTRUCTIONS)
         self._instructions_injected = True
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, daemon=True, name="wt-poll")
         self._thread.start()
-        self.logger.info(f"neko_warthunder started (dry_run={self.cfg.dry_run}, url={self.cfg.data_layer_url})")
-        return Ok({"status": "running", "dry_run": self.cfg.dry_run})
+        self.logger.info(
+            f"neko_warthunder started (dry_run={self.cfg.dry_run}, url={self.cfg.data_layer_url}, "
+            f"data_layer={data_layer_status.get('mode')})"
+        )
+        return Ok({"status": "running", "dry_run": self.cfg.dry_run, "data_layer": data_layer_status})
 
     @lifecycle(id="shutdown")
     def shutdown(self, **_):
         self._stop.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=3.0)
+        data_layer_status = self.data_layer_manager.stop()
         if self._instructions_injected:
             self.dispatcher.push_context(WT_RESTORE_INSTRUCTIONS)
             self._instructions_injected = False
         self.logger.info("neko_warthunder shutdown")
-        return Ok({"status": "shutdown"})
+        return Ok({"status": "shutdown", "data_layer": data_layer_status})
 
     @lifecycle(id="config_change")
     async def on_config_change(self, **_):
@@ -262,6 +271,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "scenario": s.scenario,
             "level": s.level,
             "identity": identity_summary_from_combat(s.combat),
+            "data_layer": self.data_layer_manager.snapshot(),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),
         }
@@ -407,6 +417,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "scenario": s.scenario,
             "level": s.level,
             "identity": identity_summary_from_combat(s.combat),
+            "data_layer": self.data_layer_manager.snapshot(),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),
         })

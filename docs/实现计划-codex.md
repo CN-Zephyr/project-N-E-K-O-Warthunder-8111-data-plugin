@@ -12,7 +12,7 @@
 - Hosted UI surface/context/action smoke 已通过。
 - T-Safety output text sanitizer 已完成。
 - T-Observe runtime decision timeline 已完成轻量实现：普通模式只保留最近摘要，debug 模式使用内存 ring buffer。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `143/143 passed` 为准。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `149/149 passed` 为准。
 - 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，`next_steps` 也会列出这两个现场动作但状态仍按样本/数据缺口判定；`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要、`kill_coalesced` / `output_backpressure` 等可行动原因与日志异常计数。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
@@ -27,7 +27,7 @@
 
 ## 当前边界
 
-- 插件与数据层唯一边界是 HTTP `:8112`，主入口是 `/api/telemetry`。
+- 插件与数据层唯一数据边界是 HTTP `:8112`，主入口是 `/api/telemetry`；L8 只负责可选启动/关闭自己拉起的 vendored 数据层进程。
 - 不 import、不修改 `data_layer/`。数据层作为 vendored 目录存在，后续更新以整包合并为主。
 - 输出只走 `adapters/neko_dispatcher.py`。
 - dry_run 默认开启；真机确认前不要关闭。
@@ -47,7 +47,7 @@
 - T-Observe runtime decision timeline：完成轻量实现；Hosted UI context 暴露 `observe.last_event` / `last_decision` / `last_output_status`，debug timeline 默认关闭。
 - T-Output output backpressure guard：完成轻量实现；真实 `push_message` 前会在 `output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，减少主机回复队列堆积，更高优先级事件仍可通过。
 - T-Kill-Coalesce 多杀合并：完成轻量实现；`you_killed` 会在 `kill_coalesce_window_seconds` 窗口内合并为一条 `kill_count` 事件，critical 抢占会清空待播击杀。
-- L8 数据层并入：vendored 数据层已合并；插件侧子进程编排未做。
+- L8 数据层并入：vendored 数据层已合并；插件侧最小子进程编排已完成，支持 `data_layer_auto_start`、managed/external 判定、shutdown 只关闭自己拉起的进程，并通过 Hosted UI/status 暴露 `data_layer` 状态。
 - L9 真机调参：未完成；T-Live 只读监控工具已完成，可用于下一轮真机统一测试归档。
 
 ## T-Safety：output text sanitizer
@@ -111,7 +111,7 @@
 2. 真机 checklist 验证 v1.6 接缝，同时用 T-Observe 与 T-Live 辅助解释决策链路。
 3. 如 T-Observe 在真机里信息不足，再补 debug timeline 展示/字段。
 4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
-5. T3/L8 子进程编排。
+5. L8 子进程编排真机前验证：managed 8112 随插件关闭，external 8112 不被误杀。
 6. L9 真机调参和 remaining `dry_run=false` 终验。
 
 ## 已知坑 / 不要回退
@@ -120,5 +120,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce 测试数量；当前逻辑自检应以 `143/143 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 测试数量；当前逻辑自检应以 `149/149 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。

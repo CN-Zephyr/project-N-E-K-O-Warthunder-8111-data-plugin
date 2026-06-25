@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、identity Hosted UI/action 接缝已完成；逻辑自检以 `143/143 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝已完成；逻辑自检以 `149/149 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -80,8 +80,8 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `143/143 passed`，操作清单包含 P1/P2 和 runtime output 复测项 |
-| 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity` |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `149/149 passed`，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
 | 4 | 触发或等待 owned kill / death | `combat.feed[].is_my_kill` / `is_my_death`、`you_killed` / `you_died` | 生成 generic kill/death，不含 raw 玩家名；death / critical 仍可抢占 |
@@ -121,7 +121,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`143/143 passed`。
+   预期：`149/149 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -233,4 +233,4 @@
 ## 暂缓项
 
 - recovery 继续暂缓。不要因为数据层 v1.6 合并就提前实现。
-- T3/L8 子进程编排后置，等数据层启动方式和真机接缝更明确后再做。
+- L8 子进程最小编排已完成。下一轮真机前先验证：插件托管启动时 `data_layer.mode=managed` 且插件关闭会关掉该 8112；手动预先启动 8112 时 `data_layer.mode=external` 且插件关闭不会误杀。

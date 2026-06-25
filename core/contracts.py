@@ -118,6 +118,9 @@ class WtConfig:
     enabled: bool = True
     dry_run: bool = True
     data_layer_url: str = "http://127.0.0.1:8112"
+    data_layer_auto_start: bool = True
+    data_layer_startup_timeout_seconds: float = 3.0
+    data_layer_shutdown_timeout_seconds: float = 3.0
     poll_interval_seconds: float = 0.4
     http_timeout_seconds: float = 1.5
     global_rate_limit_seconds: float = 12.0
@@ -141,6 +144,9 @@ class WtConfig:
             enabled=bool(raw.get("enabled", True)),
             dry_run=bool(raw.get("dry_run", True)),
             data_layer_url=str(raw.get("data_layer_url") or "http://127.0.0.1:8112").rstrip("/"),
+            data_layer_auto_start=bool(raw.get("data_layer_auto_start", True)),
+            data_layer_startup_timeout_seconds=_clamp(raw.get("data_layer_startup_timeout_seconds"), 3.0, 0.0, 30.0),
+            data_layer_shutdown_timeout_seconds=_clamp(raw.get("data_layer_shutdown_timeout_seconds"), 3.0, 0.1, 30.0),
             poll_interval_seconds=_clamp(raw.get("poll_interval_seconds"), 0.4, 0.05, 5.0),
             http_timeout_seconds=_clamp(raw.get("http_timeout_seconds"), 1.5, 0.2, 10.0),
             global_rate_limit_seconds=_clamp(raw.get("global_rate_limit_seconds"), 12.0, 0.0, 600.0),

@@ -41,6 +41,9 @@ enabled = true
 enabled = true
 dry_run = true
 data_layer_url = "http://127.0.0.1:8112"
+data_layer_auto_start = true
+data_layer_startup_timeout_seconds = 3
+data_layer_shutdown_timeout_seconds = 3
 poll_interval_seconds = 0.4
 http_timeout_seconds = 1.5
 # 仲裁/限流（草稿值，待真机校准）

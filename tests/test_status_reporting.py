@@ -66,6 +66,8 @@ def _plugin_for_report_tests():
     plugin = object.__new__(Plugin)
     plugin.cfg = WtConfig()
     plugin.safety = SafetyGuard(plugin.cfg)
+    plugin.timeline = RuntimeTimeline()
+    plugin.data_layer_manager = types.SimpleNamespace(snapshot=lambda: {"mode": "external"})
     plugin.state = BattleState(connected=True, conn_state="in_battle", in_battle=True, scenario="IN_FLIGHT")
     plugin._state_lock = threading.Lock()
     plugin._status_report_min_interval_seconds = 10.0
@@ -156,6 +158,67 @@ def test_replay_tick_records_suppressed_decision_without_output():
     assert observe["last_decision"]["reason"] == "replay"
     assert observe["last_output_status"] is None
     assert observe["last_event"] is None
+
+
+def test_status_includes_data_layer_process_snapshot():
+    plugin = _plugin_for_report_tests()
+    plugin.data_layer_manager = types.SimpleNamespace(
+        snapshot=lambda: {
+            "mode": "managed",
+            "pid": 4321,
+            "started_by_plugin": True,
+            "health": True,
+        }
+    )
+
+    result = plugin.status()
+
+    assert result["data_layer"] == {
+        "mode": "managed",
+        "pid": 4321,
+        "started_by_plugin": True,
+        "health": True,
+    }
+
+
+def test_dashboard_context_includes_data_layer_process_snapshot():
+    plugin = _plugin_for_report_tests()
+    plugin.data_layer_manager = types.SimpleNamespace(snapshot=lambda: {"mode": "managed", "pid": 4321})
+
+    result = asyncio.run(plugin.dashboard_context())
+
+    assert result["data_layer"] == {"mode": "managed", "pid": 4321}
+
+
+def test_manual_pause_suppresses_detected_event_before_dispatcher():
+    Plugin = _runtime_plugin_class()
+    plugin = object.__new__(Plugin)
+    plugin.cfg = WtConfig(dry_run=False)
+    plugin.safety = SafetyGuard(plugin.cfg)
+    plugin.safety.pause()
+    plugin.timeline = RuntimeTimeline(observability_enabled=True, max_events=10)
+    plugin.resolver = ScenarioResolver()
+    plugin.arbiter = Arbiter(plugin.safety)
+    plugin.engine = plugin._build_engine()
+    plugin.dispatcher = types.SimpleNamespace(push_event=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError))
+    plugin.logger = types.SimpleNamespace(info=lambda *_args, **_kwargs: None)
+
+    prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True)
+    cur = BattleState(
+        connected=True,
+        conn_state="in_battle",
+        in_battle=True,
+        vehicle_valid=True,
+        flags={"fuel_low": True},
+        fuel_fraction=0.05,
+    )
+
+    plugin._evaluate(prev, cur)
+
+    observe = plugin.timeline.snapshot()
+    assert observe["last_decision"]["outcome"] == "suppressed"
+    assert observe["last_decision"]["reason"] == "paused"
+    assert observe["last_output_status"] is None
 
 
 def test_test_say_is_blocked_by_dry_run():

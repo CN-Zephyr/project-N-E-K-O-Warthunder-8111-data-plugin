@@ -12,12 +12,13 @@
 - `T-Live: live monitor summary tool` is complete for safe, read-only runtime summaries during real-machine tests.
 - `T-Output: output backpressure guard` is complete for real `push_message` calls. It suppresses same-or-lower-priority real pushes during `output_backpressure_seconds` while allowing higher-priority events through.
 - `T-Kill-Coalesce: you_killed multi-kill coalescing` is complete in lightweight form. Owned kill events are buffered for `kill_coalesce_window_seconds`, merged into one `kill_count` event, and cleared by critical preempt.
-- Logic self-check currently passes: `143/143`.
+- L8 data-layer subprocess orchestration is implemented in minimal form. The plugin can auto-start vendored `wt_server.py` when `:8112` is missing, marks an already-running `:8112` as external, and only stops processes it started itself.
+- Logic self-check currently passes: `149/149`.
 - Real-machine smoke passed on 2026-06-21 and 2026-06-23 for Hosted UI context/actions, safety pause/resume, spawn, overspeed warning/critical, low_fuel warning/critical, low-altitude warning/critical, stall warning/critical, overheat warning/critical, identity manual seam, owned kill/death ownership, you_killed / you_died Arbiter decisions, dry-run dispatcher output, and `dry_run=false` push output.
 - 2026-06-23: plugin status reporting was deduped and throttled to avoid host-side `report_status` / ZMQ backpressure spam while still reporting immediately on real state changes.
 - 2026-06-24 live `dry_run=false` testing showed the plugin can push events quickly while the host reply may arrive late and mix older event context. The first mitigation is plugin-side real-output backpressure; the next live test should verify it reduces stale queued replies without blocking critical interrupts.
 - Default runtime mode is `dry_run = true`; the plugin runs the decision chain but does not push real catgirl speech until dry run is disabled.
-- The plugin boundary is HTTP `:8112` (`/api/telemetry`) only. It consumes the vendored data layer and must not import or modify `data_layer/` code.
+- The plugin data boundary is HTTP `:8112` (`/api/telemetry`) only. L8 lifecycle code may start/stop the vendored data-layer process, but it still must not import or modify `data_layer/` code.
 - Vendored data layer contract `v1.6` is merged. It includes `overspeed_warn` / `overspeed_critical`, enhanced `combat.feed`, `is_my_kill` / `is_my_death`, `/api/identity`, `replay: true` degrade mode, `hud_notices`, and `awards`.
 
 ## Ready to Hand Off
@@ -46,7 +47,7 @@
 - T-Safety is now in place at the NekoDispatcher / prompt-builder boundary. It blocks common hudmsg / combat.feed / awards free-text field families before prompt construction. Generic kill/death speech has passed real-machine `dry_run=false` smoke; hudmsg / awards / other free-text speech still needs real-machine dry-run validation before rollout.
 - Numeric flight-safety events such as stall, low altitude, overheat, overspeed, and low_fuel are not blocked by T-Safety. 2026-06-23 air dry-run observed low_fuel warning and critical output; later low_fuel repeats could be scenario-gated under combat stress as expected.
 - The 2026-06-23 live monitor exposed a data-layer map/profile polling regression where `wt_proximity` still called the old `_merge_profile()` signature. The code path is fixed with regression coverage; the next live data-layer restart should confirm the log no longer repeats.
-- Data-layer subprocess orchestration is not implemented.
+- Data-layer subprocess orchestration is implemented for the minimal ownership contract: managed processes are stopped on plugin shutdown, external `:8112` services are not killed, and Hosted UI/status expose `data_layer.mode`, `pid`, `started_by_plugin`, `health`, and `last_error`.
 - `contract/telemetry_sample.json` now contains a sanitized v1.6-shaped telemetry sample derived from real capture structure. It intentionally excludes raw free text; live testing should place raw captures under ignored `local_samples/` and only update `contract/telemetry_sample.json` with sanitized data.
 - recovery remains deferred; do not open `wants_recovery` until real-machine samples justify it.
 - i18n currently has only a `zh-CN` placeholder; full 8-locale coverage is expected when future panel copy expands.
@@ -69,7 +70,7 @@ uv run pytest -c tests\pytest.ini tests -q
 Notes:
 
 - `tools/preflight.py --run` also runs plugin check, synthetic replay, local sample replay, the offline readiness report, and the live test plan when the relevant local paths exist. Use `--report-output <path>` to save the Markdown report; parent directories are created automatically. The printed preflight plan points local sample replay users to `session_summary`, the Markdown / JSON report, and the live operation plan as review entries.
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `143/143 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `149/149 passed`.
 - The standalone pytest entry uses `tests/pytest.ini` so pytest does not import the host SDK-dependent plugin entrypoint while collecting tests.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result, the next unified live-test order, and links to the 2026-06-20 offline sample replay report in `docs/样本回放-20260620.md`.
@@ -82,4 +83,4 @@ Notes:
 2. Run the remaining real-machine/data-layer/dry_run seams from `docs/真机验证-checklist.md`, using T-Observe to inspect `last_decision` / `last_output_status` while focusing on replay, awards/free-text paths, oil/engine failure details after the data-layer database/profile calibration, and whether T-Output reduces stale real replies.
 3. During live validation, capture a fresh real `/api/telemetry` response under ignored `local_samples/` for comparison with the sanitized `contract/telemetry_sample.json`, then summarize the result with `docs/真机测试结果-template.md`.
 4. Keep kill/death generic speech enabled only through T-Safety-safe prompts; consider hudmsg/combat.feed/awards speech only after their own dry-run safety checks pass.
-5. Keep T3/L8 data-layer subprocess orchestration for a later runtime pass.
+5. In the next live preflight, validate the L8 managed/external shutdown contract before entering War Thunder: managed `:8112` should stop with the plugin, while external `:8112` should survive plugin shutdown.

@@ -42,6 +42,16 @@ type IdentityState = {
   }>
 }
 
+type DataLayerState = {
+  mode?: string
+  url?: string
+  pid?: number | null
+  started_by_plugin?: boolean
+  auto_start?: boolean
+  health?: boolean
+  last_error?: string | null
+}
+
 type DashboardState = {
   enabled?: boolean
   dry_run?: boolean
@@ -58,6 +68,7 @@ type DashboardState = {
   scenario?: string
   level?: string
   identity?: IdentityState
+  data_layer?: DataLayerState
   safety?: SafetyState
 }
 
@@ -99,6 +110,7 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
   const state = props.state || {}
   const safety = state.safety || {}
   const identity = state.identity || {}
+  const dataLayer = state.data_layer || {}
   const actions = Array.isArray(props.actions) ? props.actions : []
   const setDryRunAction = actionById(actions, "set_dry_run")
   const setIdentityAction = actionById(actions, "set_identity")
@@ -168,6 +180,7 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
         <StatCard label="dry_run" value={text(state.dry_run)} />
         <StatCard label="conn_state" value={text(state.conn_state)} />
         <StatCard label="scenario" value={text(state.scenario)} />
+        <StatCard label="data_layer" value={text(dataLayer.mode)} />
       </Grid>
 
       <Grid cols={2}>
@@ -188,6 +201,11 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
               { key: "profile_matched", label: "profile_matched", value: badge(state.profile_matched ?? undefined) },
               { key: "scenario", label: "scenario", value: text(state.scenario) },
               { key: "level", label: "level", value: <StatusBadge tone={levelTone(state.level)} label={text(state.level)} /> },
+              { key: "data_layer.mode", label: "data_layer.mode", value: text(dataLayer.mode) },
+              { key: "data_layer.health", label: "data_layer.health", value: badge(dataLayer.health) },
+              { key: "data_layer.pid", label: "data_layer.pid", value: text(dataLayer.pid) },
+              { key: "data_layer.started_by_plugin", label: "data_layer.started_by_plugin", value: badge(dataLayer.started_by_plugin) },
+              { key: "data_layer.last_error", label: "data_layer.last_error", value: text(dataLayer.last_error) },
             ]}
           />
         </Card>

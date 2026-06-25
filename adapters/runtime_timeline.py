@@ -203,6 +203,9 @@ def arbiter_chain_to_observe_records(chain: list[dict[str, Any]], *, scenario: s
         elif result == "buffered":
             stage = "arbiter_dropped"
             outcome = "buffered"
+        elif result == "suppressed":
+            stage = "arbiter_suppressed"
+            outcome = "suppressed"
 
         out.append(
             _clean_record(
