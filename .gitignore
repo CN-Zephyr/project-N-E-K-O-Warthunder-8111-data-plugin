@@ -11,7 +11,9 @@ venv/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
 
 data_layer/data process/maps/
 data_layer/data process/_*.py

@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "neko_warthunder: logic self-check",
+      "type": "shell",
+      "command": "uv run python tests/run_logic_tests.py",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_warthunder: pytest",
+      "type": "shell",
+      "command": "uv run python -m pytest tests -q",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_warthunder: plugin check",
+      "type": "shell",
+      "command": "uv run python -m plugin.neko_plugin_cli.cli check ${workspaceFolder}",
+      "options": {
+        "cwd": "${config:nekoPlugin.hostRoot}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_warthunder: preflight plan",
+      "type": "shell",
+      "command": "uv run python tools/preflight.py",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "neko_warthunder: preflight run",
+      "type": "shell",
+      "command": "uv run python tools/preflight.py --run",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
