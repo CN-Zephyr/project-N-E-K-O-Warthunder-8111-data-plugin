@@ -158,6 +158,8 @@ def render_text_report(report: dict[str, Any]) -> str:
             outcome2=output.get("outcome") or "-",
             reason2=output.get("reason") or "-",
         ),
+        f"Decision detail: {_format_reason_detail(decision.get('reason'), kind='decision')}",
+        f"Output detail: {_format_reason_detail(output.get('reason'), kind='output')}",
         "Logs: action_failed={action_failed}, traceback={traceback}, error={error}, dry_run={dry_run}, pushed={pushed}, tts={tts}".format(
             action_failed=logs.get("PLUGIN_UI_ACTION_FAILED", 0),
             traceback=logs.get("Traceback", 0),
@@ -431,6 +433,25 @@ def _format_output_summary(output: dict[str, Any]) -> str:
     if reason in {"output_backpressure"}:
         text += f"({reason})"
     return text
+
+
+def _format_reason_detail(reason: Any, *, kind: str) -> str:
+    if not reason:
+        return "-"
+    text = str(reason)
+    explanations = {
+        "selected": "Arbiter allowed this event",
+        "kill_coalesced": "multiple kills were merged",
+        "dry_run_enabled": "dry_run blocked real push",
+        "output_backpressure": "real output queue/backpressure suppressed this reply",
+        "manual_pause": "manual pause suppressed output",
+        "scenario_gated": "scenario gate suppressed this event",
+        "cooldown": "cooldown suppressed repeat output",
+        "rate_limit": "rate limit delayed or suppressed output",
+        "replay": "replay telemetry is suppressed",
+    }
+    fallback = "decision recorded" if kind == "decision" else "output recorded"
+    return f"{text}={explanations.get(text, fallback)}"
 
 
 def _format_issue_summary(logs: dict[str, int]) -> str:

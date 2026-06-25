@@ -42,6 +42,10 @@ def build_markdown_report(root: str | pathlib.Path, *, player_name: str = "tl0sr
         "",
         _bullet_list(summary.get("observed_outputs") or []),
         "",
+        "## Next test focus",
+        "",
+        _bullet_list(_next_test_focus(summary)),
+        "",
         "## Validation checks",
         "",
         "| check | status | detail |",
@@ -98,6 +102,7 @@ def build_compact_report(root: str | pathlib.Path, *, player_name: str = "tl0sr2
         "status": summary.get("status") or "unknown",
         "observed_outputs": list(summary.get("observed_outputs") or []),
         "validation_checks": dict(summary.get("validation_checks") or {}),
+        "next_test_focus": _next_test_focus(summary),
         "live_test_plan": list(summary.get("live_test_plan") or []),
         "quick_checklist": build_quick_checklist(steps),
         "remaining_live_scope": _remaining_live_scope(summary),
@@ -146,6 +151,8 @@ def _inline_list(values: list[Any]) -> str:
 def _check_detail(key: str, value: dict[str, Any]) -> str:
     if key == "free_text_safety" and value.get("source_details"):
         return _free_text_detail(value.get("source_details"))
+    if key == "replay_degrade" and value.get("telemetry_replay_frames", 0) > 0:
+        return _replay_detail(value)
     detail = value.get("missing") or value.get("observed") or []
     return _inline_list(detail)
 
@@ -160,6 +167,58 @@ def _free_text_detail(value: Any) -> str:
         status = "blocked" if detail.get("prompt_allowed") is False else "allowed"
         parts.append(f"`{source}={detail.get('items', 0)}/{status}`")
     return ", ".join(parts) if parts else "-"
+
+
+def _replay_detail(value: dict[str, Any]) -> str:
+    status = "suppressed" if value.get("detector_suppressed") else "needs_attention"
+    return ", ".join(
+        [
+            f"`replay={value.get('telemetry_replay_frames', 0)}/{status}`",
+            f"`output_blocked={value.get('output_blocked')}`",
+            f"`prompt_allowed={value.get('prompt_allowed')}`",
+        ]
+    )
+
+
+def _next_test_focus(summary: dict[str, Any]) -> list[str]:
+    checks = summary.get("validation_checks") if isinstance(summary.get("validation_checks"), dict) else {}
+    focus: list[str] = []
+    replay = checks.get("replay_degrade") if isinstance(checks.get("replay_degrade"), dict) else {}
+    if replay.get("status") == "suppressed":
+        focus.append("replay_true_suppressed")
+    elif replay.get("status") == "needs_more_samples":
+        focus.append("capture_replay_true_sample")
+    elif replay.get("status") == "needs_attention":
+        focus.append("fix_replay_output_leak")
+
+    free_text = checks.get("free_text_safety") if isinstance(checks.get("free_text_safety"), dict) else {}
+    if free_text.get("status") == "dry_run_only":
+        focus.append("free_text_dry_run_only")
+    elif free_text.get("status") == "needs_more_samples":
+        focus.append("capture_free_text_sample")
+
+    focus.extend(["runtime_output_backpressure", "kill_coalescing"])
+
+    numeric = checks.get("numeric_safety") if isinstance(checks.get("numeric_safety"), dict) else {}
+    if "overspeed_critical" in (numeric.get("missing") or []):
+        focus.append("overspeed_critical")
+
+    profile = checks.get("profile_calibration") if isinstance(checks.get("profile_calibration"), dict) else {}
+    for item in profile.get("missing") or []:
+        focus.append(f"profile_{item}")
+
+    return _dedupe(focus)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
 
 
 def _live_test_plan_rows(plan: list[Any]) -> list[str]:

@@ -292,6 +292,8 @@ def test_live_monitor_render_text_is_short_and_actionable():
     assert "awards=1/blocked" in text
     assert "combat_feed=1/blocked" in text
     assert "hud_notices=1/blocked" in text
+    assert "Decision detail: selected=Arbiter allowed this event" in text
+    assert "Output detail: dry_run_enabled=dry_run blocked real push" in text
     assert "action_failed=1" in text
     assert "dry_run=1" in text
     assert "需要处理：存在 action failed / Traceback / ERROR / TTS 异常" in text
@@ -315,6 +317,8 @@ def test_live_monitor_summary_includes_actionable_output_reason():
 
     assert "output=dispatcher_suppressed/dropped(output_backpressure)" in text
     assert "decision=arbiter_allowed/allowed/kill_coalesced" in text
+    assert "Decision detail: kill_coalesced=multiple kills were merged" in text
+    assert "Output detail: output_backpressure=real output queue/backpressure suppressed this reply" in text
 
 
 def test_live_monitor_marks_replay_true_as_suppressed_when_observe_matches():

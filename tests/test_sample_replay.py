@@ -277,8 +277,43 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["ownership"]["status"] == "ready_for_review"
     assert checks["free_text_safety"]["status"] == "dry_run_only"
     assert checks["free_text_safety"]["observed"] == ["awards", "combat_feed", "hud_notices"]
-    assert checks["replay_degrade"]["status"] == "sample_seen"
+    assert checks["replay_degrade"]["status"] == "suppressed"
+    assert checks["replay_degrade"]["telemetry_replay_frames"] == 1
+    assert checks["replay_degrade"]["detector_suppressed"] is True
+    assert checks["replay_degrade"]["output_blocked"] is True
+    assert checks["replay_degrade"]["prompt_allowed"] is False
     assert checks["profile_calibration"]["status"] == "needs_more_samples"
+
+
+def test_sample_replay_replay_true_contract_is_suppressed_without_output():
+    from neko_warthunder.tools.sample_replay import replay_sample_root, render_report
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        frame = _coverage_frame()
+        frame["processed"]["flags"] = {"stall_critical": True, "engine_overheat": True}
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": frame}])
+
+        report = replay_sample_root(root, player_name="Pilot")
+        text = render_report(report)
+
+    replay = report["session_summary"]["validation_checks"]["replay_degrade"]
+    assert replay == {
+        "status": "suppressed",
+        "missing": [],
+        "telemetry_replay_frames": 1,
+        "candidate_events": 0,
+        "chosen_events": 0,
+        "dry_run_outputs": 0,
+        "detector_suppressed": True,
+        "output_blocked": True,
+        "prompt_allowed": False,
+    }
+    assert report["events"] == {}
+    assert report["chosen"] == {}
+    assert report["dry_run_outputs"] == {}
+    assert "replay_degrade:suppressed(replay=1/suppressed, output_blocked=True, prompt_allowed=False)" in text
+    assert "raw notice" not in text
 
 
 def test_sample_replay_free_text_safety_includes_source_details_without_raw_text():

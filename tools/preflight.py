@@ -60,6 +60,14 @@ def build_checks(
                 ],
             )
         )
+    checks.append(
+        Check(
+            "runtime smoke",
+            plugin,
+            ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"],
+            "dry_run / paused / Hosted UI / 8112 ownership / duplicate plugin scan risk",
+        )
+    )
     checks.append(Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]))
     if sample.exists():
         checks.append(

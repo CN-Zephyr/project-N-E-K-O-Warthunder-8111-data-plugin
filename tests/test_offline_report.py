@@ -61,11 +61,15 @@ def test_offline_report_renders_safe_markdown_with_verdicts():
     assert "awards=1/blocked" in text
     assert "combat_feed=1/blocked" in text
     assert "hud_notices=1/blocked" in text
-    assert "| replay_degrade | sample_seen |" in text
+    assert "| replay_degrade | suppressed | `replay=1/suppressed`, `output_blocked=True`, `prompt_allowed=False` |" in text
     assert "## Team brief" in text
     assert "- ready:" in text
     assert "- blocked:" in text
     assert "- next:" in text
+    assert "## Next test focus" in text
+    assert "`replay_true_suppressed`" in text
+    assert "`free_text_dry_run_only`" in text
+    assert "`runtime_output_backpressure`" in text
     assert "## Next validation steps" in text
     assert "## Operator quick checklist" in text
     assert "| 用户操作 | 我方监控重点 | 通过标准 |" in text
@@ -131,6 +135,22 @@ def test_offline_report_cli_can_print_compact_json_without_raw_text():
     assert rc == 0
     assert payload["status"] == "needs_more_samples"
     assert payload["validation_checks"]["free_text_safety"]["status"] == "dry_run_only"
+    assert payload["validation_checks"]["replay_degrade"] == {
+        "status": "suppressed",
+        "missing": [],
+        "telemetry_replay_frames": 1,
+        "candidate_events": 0,
+        "chosen_events": 0,
+        "dry_run_outputs": 0,
+        "detector_suppressed": True,
+        "output_blocked": True,
+        "prompt_allowed": False,
+    }
+    assert payload["next_test_focus"][:3] == [
+        "replay_true_suppressed",
+        "free_text_dry_run_only",
+        "runtime_output_backpressure",
+    ]
     assert payload["validation_checks"]["free_text_safety"]["source_details"]["awards"] == {
         "items": 1,
         "raw_text_fields_present": True,

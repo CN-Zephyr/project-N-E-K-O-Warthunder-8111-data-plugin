@@ -91,6 +91,9 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
         "sample_files": [str(p.relative_to(root)) if pathlib.Path(root) in p.parents else str(p) for p in files],
         "coverage": {
             "replay_true": 0,
+            "replay_candidate_events": 0,
+            "replay_chosen_events": 0,
+            "replay_dry_run_outputs": 0,
             "combat_feed_items": 0,
             "is_my_kill_field": 0,
             "is_my_death_field": 0,
@@ -125,6 +128,8 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
 
             cur.scenario = resolver.resolve(cur, now, cfg.spawn_grace_seconds)
             candidates = engine.feed(prev, cur)
+            if cur.replay:
+                report["coverage"]["replay_candidate_events"] += len(candidates)
             for event in candidates:
                 report["events"][f"{event.event_id}/{event.level}"] += 1
 
@@ -132,7 +137,11 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             if chosen is not None:
                 event_key = f"{chosen.event_id}/{chosen.level}"
                 report["chosen"][event_key] += 1
+                if cur.replay:
+                    report["coverage"]["replay_chosen_events"] += 1
                 result = dispatcher.push_event(chosen, dry_run=True)
+                if cur.replay:
+                    report["coverage"]["replay_dry_run_outputs"] += 1
                 report["dry_run_outputs"][result.split(",", 1)[0].replace("dry_run(event=", "")] += 1
             prev = cur
             now += 1.0
@@ -310,6 +319,17 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if severities and set(severities) == {"unknown"}:
         profile_missing.append("hud_notice_severity")
 
+    replay_frames = int(coverage.get("replay_true", 0))
+    replay_candidate_events = int(coverage.get("replay_candidate_events", 0))
+    replay_chosen_events = int(coverage.get("replay_chosen_events", 0))
+    replay_dry_run_outputs = int(coverage.get("replay_dry_run_outputs", 0))
+    replay_suppressed = (
+        replay_frames > 0
+        and replay_candidate_events == 0
+        and replay_chosen_events == 0
+        and replay_dry_run_outputs == 0
+    )
+
     return {
         "numeric_safety": {
             "status": "ready_for_review" if not numeric_missing else "needs_more_samples",
@@ -328,8 +348,21 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "blocked_reasons": free_text_blocked_reasons,
         },
         "replay_degrade": {
-            "status": "sample_seen" if coverage.get("replay_true", 0) > 0 else "needs_more_samples",
-            "missing": [] if coverage.get("replay_true", 0) > 0 else ["replay_true"],
+            "status": (
+                "suppressed"
+                if replay_suppressed
+                else "needs_attention"
+                if replay_frames > 0
+                else "needs_more_samples"
+            ),
+            "missing": [] if replay_frames > 0 else ["replay_true"],
+            "telemetry_replay_frames": replay_frames,
+            "candidate_events": replay_candidate_events,
+            "chosen_events": replay_chosen_events,
+            "dry_run_outputs": replay_dry_run_outputs,
+            "detector_suppressed": replay_suppressed,
+            "output_blocked": replay_chosen_events == 0 and replay_dry_run_outputs == 0,
+            "prompt_allowed": replay_frames == 0,
         },
         "profile_calibration": {
             "status": "ready_for_review" if not profile_missing else "needs_more_samples",
@@ -515,6 +548,9 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
     parts: list[str] = []
     for key in (
         "replay_true",
+        "replay_candidate_events",
+        "replay_chosen_events",
+        "replay_dry_run_outputs",
         "combat_feed_items",
         "is_my_kill_field",
         "is_my_death_field",
@@ -570,6 +606,9 @@ def _fmt_validation_checks(checks: dict[str, Any]) -> str:
         if key == "free_text_safety" and value.get("source_details"):
             detail_text = _fmt_free_text_source_details(value.get("source_details"))
             suffix = f"({detail_text})" if detail_text else ""
+        elif key == "replay_degrade" and value.get("telemetry_replay_frames", 0) > 0:
+            detail_text = _fmt_replay_degrade_detail(value)
+            suffix = f"({detail_text})" if detail_text else ""
         else:
             detail = value.get("missing") or value.get("observed") or []
             suffix = f"({_fmt_list(list(detail))})" if detail else ""
@@ -587,6 +626,15 @@ def _fmt_free_text_source_details(value: Any) -> str:
         status = "blocked" if detail.get("prompt_allowed") is False else "allowed"
         parts.append(f"{source}={detail.get('items', 0)}/{status}")
     return ", ".join(parts)
+
+
+def _fmt_replay_degrade_detail(value: dict[str, Any]) -> str:
+    status = "suppressed" if value.get("detector_suppressed") else "needs_attention"
+    return (
+        f"replay={value.get('telemetry_replay_frames', 0)}/{status}, "
+        f"output_blocked={value.get('output_blocked')}, "
+        f"prompt_allowed={value.get('prompt_allowed')}"
+    )
 
 
 def _fmt_live_test_plan(plan: list[dict[str, Any]]) -> str:
