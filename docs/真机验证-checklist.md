@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口、真实战场事件队列 coalescing 与事件过期丢弃已完成；逻辑自检以 `158/158 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口、真实战场事件队列 coalescing、事件过期丢弃与 Hosted UI 信息架构整理已完成；逻辑自检以 `160/160 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -75,7 +75,7 @@
    - 若出现 `neko_warthunder_1`，或 `dry_run=true` 下 `test_say` 返回 `pushed=true`，说明运行副本没有对齐；先停止测试并修复运行路径。
    - Hosted UI 侧以 context `state_empty=false`、actions 包含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity` 作为注册通过信号。
 3. **打开面板**：确认 `dry_run=true`，观察 `connected` / `conn_state` / `in_battle` / `scenario` / `safety` / `observe.last_decision` / `observe.last_output_status`。
-   - 面板应显示中文化标签和常见中文状态值；如仍出现大量 `enabled` / `conn_state` / `scenario` / `safety.status` 等裸字段名，记录为 Hosted UI 文案回归。
+   - 面板应按连接状态、战场状态、安全控制、最近决策、最近输出分区显示，并使用中文化标签和常见中文状态值；如仍出现大量 `enabled` / `conn_state` / `scenario` / `safety.status` 等裸字段名，记录为 Hosted UI 文案回归。
 4. **基础 action**：依次点 `pause`、`resume`、`test_say`，确认没有 `PLUGIN_UI_ACTION_FAILED`；`pause` 时风险事件应被 suppress，`resume` 后恢复。
 5. **identity / owned combat 回归**：在 Hosted UI 设置游戏昵称，确认 `/api/identity` 与 `/api/telemetry.combat.self.source=manual`；击杀 / 死亡时确认 `is_my_kill=true` / `is_my_death=true` 仍能生成 `you_killed` / `you_died`，并由 T-Observe 解释 Arbiter / Dispatcher 输出。
 6. **数值安全事件**：优先复测 `overheat` / `oil_overheat`、`overspeed_critical`、`stall_risk`、`low_alt_danger`、`low_fuel`；每次看 `observe.last_decision` 是否能解释 allow / drop / cooldown / scenario gate。
@@ -92,7 +92,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `158/158 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `160/160 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -134,7 +134,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`158/158 passed`。
+   预期：`160/160 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
