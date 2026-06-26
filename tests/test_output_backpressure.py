@@ -51,6 +51,20 @@ def test_real_output_backpressure_allows_higher_priority_event_to_preempt_queue_
     assert plugin.calls[-1]["metadata"]["event_id"] == "low_alt_danger"
 
 
+def test_real_event_pushes_use_battle_coalesce_key_to_replace_stale_host_queue():
+    plugin = FakePlugin()
+    dispatcher = NekoDispatcher(plugin, clock=_clock([100.0, 105.0]))
+
+    dispatcher.push_event(BattleEvent("low_alt_danger", level="warning"), dry_run=False)
+    dispatcher.push_event(BattleEvent("you_died", level="critical"), dry_run=False)
+
+    assert len(plugin.calls) == 2
+    assert plugin.calls[0]["metadata"]["event_id"] == "low_alt_danger"
+    assert plugin.calls[1]["metadata"]["event_id"] == "you_died"
+    assert plugin.calls[0]["coalesce_key"] == "neko_warthunder:battle_event"
+    assert plugin.calls[1]["coalesce_key"] == "neko_warthunder:battle_event"
+
+
 def test_output_backpressure_does_not_affect_dry_run_decisions():
     plugin = FakePlugin()
     dispatcher = NekoDispatcher(plugin, clock=_clock([100.0, 105.0]))

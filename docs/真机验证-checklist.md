@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口已完成；逻辑自检以 `153/153 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口与真实战场事件队列 coalescing 已完成；逻辑自检以 `154/154 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -92,7 +92,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `153/153 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `154/154 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -101,7 +101,7 @@
 | 4a | 分别观察空战 / 陆战 kill-death 文案 | `domain`、`cause`、Dispatcher prompt / 实际输出 | 空战可说击落；陆战击杀说击毁 / 摧毁地面目标；陆战死亡不说被击落；坠毁说坠毁 |
 | 5 | 观察 awards / hud_notices / combat.feed 自由文本源 | `free_text_safety.status`、`source_details`、prompt / dry_run 输出 | `free_text=dry_run_only(...)`，raw HUD / combat.feed / awards 原文不进入 prompt |
 | 6 | 若出现 replay，继续观察不要手动触发输出 | `replay=true`、`detector_suppressed/replay`、`output_blocked` | replay 帧静默，`live_monitor` 显示 replay suppressed，不真实开口 |
-| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；更高优先级事件仍可插队 |
+| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`coalesce_key=neko_warthunder:battle_event`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；死亡/critical 等新事件能替换宿主队列里的旧低空/超速提示；更高优先级事件仍可插队 |
 
 现场优先级：
 
@@ -134,7 +134,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`153/153 passed`。
+   预期：`154/154 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -233,7 +233,7 @@
 
 - 数值安全事件接缝已在 dry_run 下通过。
 - T-Safety 已完成；generic kill/death 已通过真机 dry_run 与真实 push。hudmsg / awards / 其他 free-text 还需要真机 dry_run 验证后，才允许测试真实播报。
-- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure`，并保留 `kill_coalesced` 决策原因。
+- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。真实战场事件 push 会带 `coalesce_key=neko_warthunder:battle_event`，应能让宿主队列中尚未释放的旧低空/超速 cue 被死亡/critical 等新事件替换。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure`，并保留 `kill_coalesced` 决策原因。
 - T-Kill-Coalesce 已完成；多杀 / 连杀测试时应观察 `you_killed` 是否合并为 `kill_count` 单条输出，并确认 `you_died` / critical 安全事件仍可抢占。
 
 步骤：

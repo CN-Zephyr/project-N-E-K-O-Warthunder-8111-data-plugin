@@ -15,6 +15,8 @@ from ..core.contracts import BattleEvent
 from .runtime_timeline import RuntimeTimeline
 from .text_safety import sanitize_event_payload
 
+BATTLE_EVENT_COALESCE_KEY = "neko_warthunder:battle_event"
+
 # 每个事件的"要求行"意图（不写最终台词，台词归角色 LLM）。
 _INTENT: dict[str, str] = {
     "stall_risk": "濒临失速，提醒 {MASTER_NAME} 赶紧加速/松杆改出",
@@ -169,6 +171,7 @@ class NekoDispatcher:
                 ai_behavior="respond",
                 parts=[{"type": "text", "text": text}],
                 priority=event.priority,
+                coalesce_key=BATTLE_EVENT_COALESCE_KEY,
                 metadata={"plugin": "neko_warthunder", "event_id": event.event_id, "level": event.level},
             )
         except Exception as exc:
