@@ -450,6 +450,7 @@ def _format_reason_detail(reason: Any, *, kind: str) -> str:
         "cooldown": "冷却中，避免重复播报",
         "rate_limit": "全局限流中，输出被延后或压住",
         "replay": "回放数据已静默",
+        "deferred_hud_notice": "HUD 技术通知已识别，当前策略暂不播报",
     }
     fallback = "已记录决策" if kind == "decision" else "已记录输出状态"
     return f"{text}={explanations.get(text, fallback)}"

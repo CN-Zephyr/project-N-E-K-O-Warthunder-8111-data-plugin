@@ -318,6 +318,42 @@ def test_manual_pause_suppresses_detected_event_before_dispatcher():
     assert observe["last_output_status"] is None
 
 
+def test_powertrain_failure_notice_is_observed_as_deferred_without_speech():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 101.0])
+    try:
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True)
+        cur = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            hud_notices=[{"id": 42, "code": "powertrain_failure", "severity": "critical", "text": "raw engine failure"}],
+        )
+
+        plugin._evaluate(prev, cur)
+        plugin._evaluate(cur, cur)
+
+        observe = plugin.timeline.snapshot()
+        assert plugin.pushed_events == []
+        assert observe["last_decision"]["stage"] == "detector_suppressed"
+        assert observe["last_decision"]["outcome"] == "suppressed"
+        assert observe["last_decision"]["reason"] == "deferred_hud_notice"
+        assert observe["last_decision"]["event_id"] == "powertrain_failure"
+        records = [
+            item
+            for item in observe["recent_timeline"]
+            if item.get("event_id") == "powertrain_failure" and item.get("reason") == "deferred_hud_notice"
+        ]
+        assert len(records) == 1
+        assert records[0]["stage"] == "detector_suppressed"
+        assert records[0]["outcome"] == "suppressed"
+        assert records[0]["level"] == "critical"
+        assert records[0]["message"] == "hud_notice/powertrain_failure/deferred"
+        assert "raw engine failure" not in repr(observe)
+    finally:
+        module.time.time = original_time
+
+
 def test_test_say_is_blocked_by_dry_run():
     plugin = _plugin_for_action_tests()
     plugin.cfg.dry_run = True

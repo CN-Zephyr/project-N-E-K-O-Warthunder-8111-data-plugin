@@ -40,6 +40,7 @@ from .detectors.condition.flight_safety import build_condition_detectors
 from .detectors.discrete.lifecycle import build_discrete_detectors
 
 _CONFIG_SECTION = "neko_warthunder"
+_DEFERRED_HUD_NOTICE_CODES = frozenset({"powertrain_failure"})
 
 
 @neko_plugin
@@ -73,6 +74,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
         self._status_report_min_interval_seconds = 2.0
         self._last_status_report_at = 0.0
         self._last_status_report_snapshot: dict[str, Any] | None = None
+        self._deferred_hud_notice_ids: set[int] = set()
 
     # ------------------------------------------------------------------ 配置
     async def _reload_config(self) -> None:
@@ -185,6 +187,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
                 dry_run=self.cfg.dry_run,
             )
             return
+        self._record_deferred_hud_notices(cur)
         candidates = self._suppress_takeoff_low_alt(candidates, cur, now)
         for candidate in candidates:
             self.timeline.record_stage(
@@ -221,6 +224,50 @@ class NekoWarthunderPlugin(NekoPluginBase):
             except Exception as exc:  # noqa: BLE001 — 投递失败计入安全门，不杀循环
                 self.logger.warning(f"dispatch failed: {type(exc).__name__}: {exc}")
                 self.safety.record_failure(now)
+
+    def _record_deferred_hud_notices(self, cur: BattleState) -> None:
+        if not (cur.in_battle and cur.vehicle_valid and not cur.dead):
+            return
+        seen_ids = getattr(self, "_deferred_hud_notice_ids", None)
+        if seen_ids is None:
+            seen_ids = set()
+            self._deferred_hud_notice_ids = seen_ids
+
+        for item in cur.hud_notices:
+            if not isinstance(item, dict):
+                continue
+            code = str(item.get("code") or "")
+            if code not in _DEFERRED_HUD_NOTICE_CODES:
+                continue
+            try:
+                notice_id = int(item.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if notice_id in seen_ids:
+                continue
+            seen_ids.add(notice_id)
+            level = "critical" if str(item.get("level") or item.get("severity") or "").lower() == "critical" else "warning"
+            self.timeline.record_stage(
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="deferred_hud_notice",
+                event_id=code,
+                level=level,
+                scenario=cur.scenario,
+                in_battle=cur.in_battle,
+                replay=cur.replay,
+                dry_run=self.cfg.dry_run,
+                safe_summary=f"hud_notice/{code}/deferred",
+            )
+            self.timeline.record_decision(
+                event_id=code,
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="deferred_hud_notice",
+                scenario=cur.scenario,
+                safety_status=self.safety.status(),
+                dry_run=self.cfg.dry_run,
+            )
 
     def _suppress_takeoff_low_alt(
         self,

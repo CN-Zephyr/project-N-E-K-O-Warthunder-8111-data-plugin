@@ -170,6 +170,51 @@ def _fake_idle_fetcher(url: str):
     raise AssertionError(url)
 
 
+def _fake_deferred_notice_fetcher(url: str):
+    if url.endswith(":48911/health"):
+        return {"ok": True}
+    if url.endswith(":48916/health"):
+        return {"ok": True}
+    if url.endswith(":8112/health"):
+        return {"ok": True}
+    if "/hosted-ui/context" in url:
+        return {
+            "state": {
+                "dry_run": True,
+                "connected": True,
+                "conn_state": "in_battle",
+                "in_battle": True,
+                "domain": "air",
+                "scenario": "IN_FLIGHT",
+                "level": "critical",
+                "safety": {"status": "running", "manual_paused": False, "auto_paused": False, "failures": 0},
+                "observe": {
+                    "last_event": {"event_id": "powertrain_failure", "level": "critical"},
+                    "last_decision": {
+                        "event_id": "powertrain_failure",
+                        "stage": "detector_suppressed",
+                        "outcome": "suppressed",
+                        "reason": "deferred_hud_notice",
+                        "scenario": "IN_FLIGHT",
+                        "dry_run": True,
+                    },
+                    "last_output_status": None,
+                },
+            }
+        }
+    if url.endswith(":8112/api/telemetry"):
+        return {
+            "state": "in_battle",
+            "replay": False,
+            "in_battle": True,
+            "domain": "air",
+            "vehicle": {"valid": True},
+            "processed": {"level": "critical", "flags": {}},
+            "hud_notices": {"feed": [{"id": 42, "code": "powertrain_failure", "text": "raw failure text"}]},
+        }
+    raise AssertionError(url)
+
+
 def _fake_backpressure_fetcher(url: str):
     if url.endswith(":48911/health"):
         return {"ok": True}
@@ -357,6 +402,17 @@ def test_live_monitor_summary_does_not_call_idle_no_output_blocked():
     text = render_text_report(report)
 
     assert "Summary: health=ok, battle=not_in_battle/OUT_OF_BATTLE, free_text=clear, replay=clear, output=-, issues=none" in text
+
+
+def test_live_monitor_explains_deferred_hud_notice_without_raw_text():
+    from neko_warthunder.tools.live_monitor import monitor_once, render_text_report
+
+    report = monitor_once(fetcher=_fake_deferred_notice_fetcher, log_reader=lambda _paths: [])
+    text = render_text_report(report)
+
+    assert "decision=detector_suppressed/suppressed/deferred_hud_notice" in text
+    assert "Decision detail: deferred_hud_notice=HUD 技术通知已识别，当前策略暂不播报" in text
+    assert "raw failure text" not in text
 
 
 def test_live_monitor_summary_includes_actionable_output_reason():

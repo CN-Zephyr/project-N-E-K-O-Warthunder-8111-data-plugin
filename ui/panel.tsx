@@ -204,6 +204,7 @@ const REASON_LABELS: Record<string, string> = {
   event_expired: "事件过期，真实开口前丢弃",
   replay: "回放数据已静默",
   kill_coalesced: "多杀提示已合并",
+  deferred_hud_notice: "HUD 技术通知已识别，当前策略暂不播报",
 }
 
 function safetyTone(status: string | undefined) {

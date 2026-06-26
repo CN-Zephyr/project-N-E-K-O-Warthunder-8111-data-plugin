@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口、真实战场事件队列 coalescing、事件过期丢弃与 Hosted UI 信息架构整理已完成；逻辑自检以 `160/160 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `162/162 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -63,7 +63,7 @@
 待复核：
 
 - replay 降级：插件侧离线合同已覆盖 Detector 静默、`detector_suppressed/replay` 观测记录和 `live_monitor` 的 `replay_degrade` 汇总；仍需真实 `replay=true` 样本验证。
-- 油温/发动机细项：过热基础链路已过；油温 / 发动机温度数据库和 `powertrain_failure` 策略仍后置，`powertrain_failure` 暂不直接播报。
+- 油温/发动机细项：过热基础链路已过；油温 / 发动机温度数据库和 `powertrain_failure` 策略仍后置，`powertrain_failure` 暂不直接播报，但应在 T-Observe / live monitor 中显示为 `detector_suppressed/deferred_hud_notice`。
 
 ## 下一轮统一测试现场顺序
 
@@ -92,7 +92,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `160/160 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `162/162 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -134,7 +134,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`160/160 passed`。
+   预期：`162/162 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
