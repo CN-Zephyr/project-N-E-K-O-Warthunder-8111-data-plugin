@@ -342,8 +342,8 @@ def test_live_monitor_render_text_is_short_and_actionable():
     assert "awards=1/blocked" in text
     assert "combat_feed=1/blocked" in text
     assert "hud_notices=1/blocked" in text
-    assert "Decision detail: selected=Arbiter allowed this event" in text
-    assert "Output detail: dry_run_enabled=dry_run blocked real push" in text
+    assert "Decision detail: selected=Arbiter 已放行此事件" in text
+    assert "Output detail: dry_run_enabled=dry_run 开启，仅模拟不真实开口" in text
     assert "action_failed=1" in text
     assert "dry_run=1" in text
     assert "需要处理：存在 action failed / Traceback / ERROR / TTS 异常" in text
@@ -367,8 +367,8 @@ def test_live_monitor_summary_includes_actionable_output_reason():
 
     assert "output=dispatcher_suppressed/dropped(output_backpressure)" in text
     assert "decision=arbiter_allowed/allowed/kill_coalesced" in text
-    assert "Decision detail: kill_coalesced=multiple kills were merged" in text
-    assert "Output detail: output_backpressure=real output queue/backpressure suppressed this reply" in text
+    assert "Decision detail: kill_coalesced=多次击杀已合并" in text
+    assert "Output detail: output_backpressure=输出背压中，同级或低优先级提示被压住" in text
 
 
 def test_live_monitor_summary_includes_expired_output_reason():
@@ -378,7 +378,7 @@ def test_live_monitor_summary_includes_expired_output_reason():
     text = render_text_report(report)
 
     assert "output=dispatcher_suppressed/dropped(event_expired)" in text
-    assert "Output detail: event_expired=stale battle event dropped before real push" in text
+    assert "Output detail: event_expired=旧战场事件已过期，真实开口前丢弃" in text
 
 
 def test_live_monitor_marks_replay_true_as_suppressed_when_observe_matches():

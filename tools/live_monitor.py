@@ -440,18 +440,18 @@ def _format_reason_detail(reason: Any, *, kind: str) -> str:
         return "-"
     text = str(reason)
     explanations = {
-        "selected": "Arbiter allowed this event",
-        "kill_coalesced": "multiple kills were merged",
-        "dry_run_enabled": "dry_run blocked real push",
-        "event_expired": "stale battle event dropped before real push",
-        "output_backpressure": "real output queue/backpressure suppressed this reply",
-        "manual_pause": "manual pause suppressed output",
-        "scenario_gated": "scenario gate suppressed this event",
-        "cooldown": "cooldown suppressed repeat output",
-        "rate_limit": "rate limit delayed or suppressed output",
-        "replay": "replay telemetry is suppressed",
+        "selected": "Arbiter 已放行此事件",
+        "kill_coalesced": "多次击杀已合并",
+        "dry_run_enabled": "dry_run 开启，仅模拟不真实开口",
+        "event_expired": "旧战场事件已过期，真实开口前丢弃",
+        "output_backpressure": "输出背压中，同级或低优先级提示被压住",
+        "manual_pause": "手动暂停中，输出被压住",
+        "scenario_gated": "当前场景不允许播这个事件",
+        "cooldown": "冷却中，避免重复播报",
+        "rate_limit": "全局限流中，输出被延后或压住",
+        "replay": "回放数据已静默",
     }
-    fallback = "decision recorded" if kind == "decision" else "output recorded"
+    fallback = "已记录决策" if kind == "decision" else "已记录输出状态"
     return f"{text}={explanations.get(text, fallback)}"
 
 

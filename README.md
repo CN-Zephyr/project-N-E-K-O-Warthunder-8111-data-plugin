@@ -18,7 +18,7 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 - `you_killed` 已接入轻量多杀合并：`kill_coalesce_window_seconds` 窗口内的 owned kill 会合成一条带 `kill_count` 的 generic prompt，critical 事件仍可抢占并清空待播击杀。
 - L9 调参首个修复已接入：`takeoff_low_alt_grace_seconds` 默认 45s，只在出生/机场起飞保护期内压制 `low_alt_danger`，不影响 `stall_risk`、`overspeed`、`overheat`、`low_fuel`、`you_died`。
 - Hosted UI 面板已完成一轮中文化：主要状态标签、风险等级、场景、数据层模式和身份识别来源均显示中文。
-- `tools/live_monitor.py` 的 Summary / Observe 摘要会保留 `kill_coalesced` 决策原因，并在输出被压住或过期丢弃时直接显示 `output_backpressure` / `event_expired`；Decision detail / Output detail 会把 `selected`、`dry_run_enabled`、`kill_coalesced`、`output_backpressure`、`event_expired` 等原因翻译成可读解释，方便下一轮真机判断“没播/晚播”是合并、背压、过期丢弃还是其他门控导致。
+- `tools/live_monitor.py` 的 Summary / Observe 摘要会保留 `kill_coalesced` 决策原因，并在输出被压住或过期丢弃时直接显示 `output_backpressure` / `event_expired`；Decision detail / Output detail 会把 `selected`、`dry_run_enabled`、`kill_coalesced`、`output_backpressure`、`event_expired` 等原因翻译成中文可读解释，方便下一轮真机判断“没播/晚播”是合并、背压、过期丢弃还是其他门控导致。
 - kill/death ownership 已完成真机 dry_run 与 `dry_run=false` 真实 push 验证；2026-06-23 已验证手动 identity 会反映到 `combat.self.source=manual`，空战 / 陆战 owned combat.feed 均可产生 `is_my_kill=true` 或 `is_my_death=true`，插件可生成 `you_killed` / `you_died` 并经 Arbiter / Dispatcher 输出。hudmsg / awards 等其他自由文本真实播报仍需单独 dry_run 安全验证。stall/low_alt/overheat/overspeed/low_fuel 等数值安全事件不被 T-Safety 阻塞，且本轮已观察到 dry_run 正向链路。
 - recovery 已评估并暂缓；当前不要打开 `wants_recovery`。
 
