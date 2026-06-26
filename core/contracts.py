@@ -126,6 +126,7 @@ class WtConfig:
     global_rate_limit_seconds: float = 12.0
     critical_preempt_cooldown_seconds: float = 5.0
     output_backpressure_seconds: float = 20.0
+    output_event_max_age_seconds: float = 8.0
     kill_coalesce_window_seconds: float = 2.0
     spawn_grace_seconds: float = 6.0
     takeoff_low_alt_grace_seconds: float = 45.0
@@ -153,6 +154,7 @@ class WtConfig:
             global_rate_limit_seconds=_clamp(raw.get("global_rate_limit_seconds"), 12.0, 0.0, 600.0),
             critical_preempt_cooldown_seconds=_clamp(raw.get("critical_preempt_cooldown_seconds"), 5.0, 0.0, 120.0),
             output_backpressure_seconds=_clamp(raw.get("output_backpressure_seconds"), 20.0, 0.0, 300.0),
+            output_event_max_age_seconds=_clamp(raw.get("output_event_max_age_seconds"), 8.0, 0.0, 120.0),
             kill_coalesce_window_seconds=_clamp(raw.get("kill_coalesce_window_seconds"), 2.0, 0.0, 30.0),
             spawn_grace_seconds=_clamp(raw.get("spawn_grace_seconds"), 6.0, 0.0, 60.0),
             takeoff_low_alt_grace_seconds=_clamp(raw.get("takeoff_low_alt_grace_seconds"), 45.0, 0.0, 120.0),

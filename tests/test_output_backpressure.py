@@ -65,6 +65,21 @@ def test_real_event_pushes_use_battle_coalesce_key_to_replace_stale_host_queue()
     assert plugin.calls[1]["coalesce_key"] == "neko_warthunder:battle_event"
 
 
+def test_real_output_drops_expired_battle_event_before_push():
+    plugin = FakePlugin()
+    plugin.cfg.output_event_max_age_seconds = 5.0
+    timeline = RuntimeTimeline(observability_enabled=True, max_events=10)
+    dispatcher = NekoDispatcher(plugin, timeline=timeline, clock=_clock([100.0]))
+
+    result = dispatcher.push_event(BattleEvent("low_alt_danger", level="warning", ts=90.0), dry_run=False)
+
+    assert result == "suppressed(event=low_alt_danger/enter, reason=event_expired)"
+    assert plugin.calls == []
+    status = timeline.snapshot()["last_output_status"]
+    assert status["stage"] == "dispatcher_suppressed"
+    assert status["reason"] == "event_expired"
+
+
 def test_output_backpressure_does_not_affect_dry_run_decisions():
     plugin = FakePlugin()
     dispatcher = NekoDispatcher(plugin, clock=_clock([100.0, 105.0]))

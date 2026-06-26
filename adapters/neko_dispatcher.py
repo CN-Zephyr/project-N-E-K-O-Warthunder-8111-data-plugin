@@ -41,6 +41,14 @@ def _output_backpressure_seconds(plugin: Any) -> float:
         return 20.0
 
 
+def _output_event_max_age_seconds(plugin: Any) -> float:
+    cfg = getattr(plugin, "cfg", None)
+    try:
+        return max(0.0, float(getattr(cfg, "output_event_max_age_seconds", 8.0)))
+    except (TypeError, ValueError):
+        return 8.0
+
+
 def _fact_line(event: BattleEvent) -> str:
     p, _ = sanitize_event_payload(event.event_id, event.payload)
     bits: list[str] = []
@@ -146,6 +154,23 @@ class NekoDispatcher:
                 )
             return f"dry_run(event={event.event_id}/{event.edge}/{event.level}, prio={event.priority}, preempt={event.preempt_eligible})"
         now = self._clock()
+        if self._is_expired(event, now):
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_suppressed",
+                    outcome="dropped",
+                    reason="event_expired",
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=False,
+                    kind="event",
+                    ai_behavior="respond",
+                    pushed=False,
+                    safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                )
+            return f"suppressed(event={event.event_id}/{event.edge}, reason=event_expired)"
         if self._is_backpressured(event, now):
             if self.timeline:
                 self.timeline.record_stage(
@@ -216,6 +241,12 @@ class NekoDispatcher:
         if now - self._last_push_at >= guard:
             return False
         return event.priority <= self._last_push_priority
+
+    def _is_expired(self, event: BattleEvent, now: float) -> bool:
+        max_age = _output_event_max_age_seconds(self.plugin)
+        if max_age <= 0 or event.ts <= 0:
+            return False
+        return now >= event.ts and now - event.ts > max_age
 
     def push_context(self, text: str) -> None:
         """注入/恢复常驻场景上下文（ai_behavior='read'，不触发回复）。"""
