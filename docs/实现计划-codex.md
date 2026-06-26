@@ -12,7 +12,7 @@
 - Hosted UI surface/context/action smoke 已通过。
 - T-Safety output text sanitizer 已完成。
 - T-Observe runtime decision timeline 已完成轻量实现：普通模式只保留最近摘要，debug 模式使用内存 ring buffer。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `151/151 passed` 为准。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `153/153 passed` 为准。
 - 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，并能用 candidate/chosen/output 计数证明 `replay=true` 样本被静默；`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，并输出 Next test focus；`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，`next_steps` 也会列出这两个现场动作但状态仍按样本/数据缺口判定；`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要、`selected` / `dry_run_enabled` / `kill_coalesced` / `output_backpressure` 等可行动原因与日志异常计数；`tools/preflight.py` 已把 runtime smoke 纳入门禁。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
@@ -43,12 +43,12 @@
 - L4 Detector：已实现主链路；`overspeed` 已在真机 dry_run 中验证 `overspeed_warn` / `overspeed_critical`；`low_fuel` 已在真机 dry_run 中验证 warning / critical；`low_alt_danger`、`stall_risk`、`overheat` 均已观察到 warning / critical 基础链路；`you_killed` / `you_died` 已消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`，离线 replay 合成场景也已覆盖该形状。
 - L5 Arbiter：完成；`SPAWNING` 仍压制飞行安全误报，但已允许 owned combat kill 事件通过，避免真实击杀在出生 grace 内被误压。后续 M3 适配时要保持 cooldown、优先级、Scenario 门控语义不变。
 - L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
-- L7 safety guard + Hosted UI：完成。
+- L7 safety guard + Hosted UI：完成；Hosted UI 面板已完成一轮中文化，常见标签/状态值使用中文显示。
 - T-Observe runtime decision timeline：完成轻量实现；Hosted UI context 暴露 `observe.last_event` / `last_decision` / `last_output_status`，debug timeline 默认关闭。
 - T-Output output backpressure guard：完成轻量实现；真实 `push_message` 前会在 `output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，减少主机回复队列堆积，更高优先级事件仍可通过。
 - T-Kill-Coalesce 多杀合并：完成轻量实现；`you_killed` 会在 `kill_coalesce_window_seconds` 窗口内合并为一条 `kill_count` 事件，critical 抢占会清空待播击杀。
-- L8 数据层并入：vendored 数据层已合并；插件侧最小子进程编排已完成，支持 `data_layer_auto_start`、managed/external 判定、shutdown 只关闭自己拉起的进程，并通过 Hosted UI/status 暴露 `data_layer` 状态。
-- L9 真机调参：未完成；T-Live 只读监控工具已完成，可用于下一轮真机统一测试归档。
+- L8 数据层并入：vendored 数据层已合并；插件侧最小子进程编排已完成，支持 `data_layer_auto_start`、managed/external 判定、shutdown 只关闭自己拉起的进程，并通过 Hosted UI/status 暴露 `data_layer` 状态；2026-06-26 已本地自验证 managed/external 生命周期边界。
+- L9 真机调参：进行中；已完成起飞/复活低空保护窗口，`takeoff_low_alt_grace_seconds=45` 默认只压制保护期内的 `low_alt_danger`，不影响失速、超速、过热、低油或死亡事件。T-Live 只读监控工具可用于下一轮真机统一测试归档。
 
 ## T-Safety：output text sanitizer
 
@@ -107,12 +107,13 @@
 
 ## 推进顺序
 
-1. M3 剩余验证：先运行 `tools/live_test_plan.py local_samples/data_process_20260620 tl0sr2` 生成下一轮真机操作清单，现场用 `tools/live_monitor.py` 做安全只读摘要，先看 `Summary` 行，再用 `replay_degrade` 字段确认 replay 静默/输出阻断，用 `free_text_safety.source_details` / `FreeText detail` 确认 awards、combat.feed、hud_notices 逐源 blocked，再按清单补 replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
-2. 真机 checklist 验证 v1.6 接缝，同时用 T-Observe 与 T-Live 辅助解释决策链路。
-3. 如 T-Observe 在真机里信息不足，再补 debug timeline 展示/字段。
-4. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
-5. L8 子进程编排真机前验证：managed 8112 随插件关闭，external 8112 不被误杀。
-6. L9 真机调参和 remaining `dry_run=false` 终验。
+1. L9 下一轮真机先复测机场起飞/复活阶段：45s 起飞低空保护期内不应播 `low_alt_danger`，但失速、死亡、超速等关键事件仍应能触发。
+2. M3 剩余验证：先运行 `tools/live_test_plan.py local_samples/data_process_20260620 tl0sr2` 生成下一轮真机操作清单，现场用 `tools/live_monitor.py` 做安全只读摘要，先看 `Summary` 行，再用 `replay_degrade` 字段确认 replay 静默/输出阻断，用 `free_text_safety.source_details` / `FreeText detail` 确认 awards、combat.feed、hud_notices 逐源 blocked，再按清单补 replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
+3. 真机 checklist 验证 v1.6 接缝，同时用 T-Observe 与 T-Live 辅助解释决策链路。
+4. 如 T-Observe 在真机里信息不足，再补 debug timeline 展示/字段。
+5. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
+6. L8 子进程编排已完成本地自验证：managed 8112 随插件 stop 关闭，external 8112 不被误杀；后续真机只需观察现场是否有异常残留。
+7. remaining `dry_run=false` 终验：继续观察 T-Output 背压是否减少晚播/旧回复，以及 T-Kill-Coalesce 是否减少多杀刷屏。
 
 ## 已知坑 / 不要回退
 
@@ -120,5 +121,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 测试数量；当前逻辑自检应以 `151/151 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 / pre-L9-takeoff-grace 测试数量；当前逻辑自检应以 `153/153 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。

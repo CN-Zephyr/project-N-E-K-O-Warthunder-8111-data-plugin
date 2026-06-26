@@ -44,6 +44,11 @@ class ScenarioResolver:
         self._prev_alive = bool(state.in_battle and state.vehicle_valid and not state.dead)
         return scenario
 
+    def seconds_since_spawn(self, now: float) -> float | None:
+        if self._spawn_at <= 0:
+            return None
+        return max(0.0, now - self._spawn_at)
+
     def _classify(self, state: BattleState, now: float, grace_seconds: float) -> str:
         if not state.connected or state.conn_state == "offline":
             self._stress_until = 0.0

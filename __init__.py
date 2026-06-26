@@ -185,6 +185,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
                 dry_run=self.cfg.dry_run,
             )
             return
+        candidates = self._suppress_takeoff_low_alt(candidates, cur, now)
         for candidate in candidates:
             self.timeline.record_stage(
                 stage="detector_candidate",
@@ -220,6 +221,49 @@ class NekoWarthunderPlugin(NekoPluginBase):
             except Exception as exc:  # noqa: BLE001 — 投递失败计入安全门，不杀循环
                 self.logger.warning(f"dispatch failed: {type(exc).__name__}: {exc}")
                 self.safety.record_failure(now)
+
+    def _suppress_takeoff_low_alt(
+        self,
+        candidates: list[BattleEvent],
+        cur: BattleState,
+        now: float,
+    ) -> list[BattleEvent]:
+        grace = float(getattr(self.cfg, "takeoff_low_alt_grace_seconds", 0.0) or 0.0)
+        if grace <= 0 or not cur.in_battle or not cur.vehicle_valid or cur.dead:
+            return candidates
+        elapsed = self.resolver.seconds_since_spawn(now)
+        if elapsed is None or elapsed >= grace:
+            return candidates
+
+        kept: list[BattleEvent] = []
+        for candidate in candidates:
+            if candidate.event_id != "low_alt_danger":
+                kept.append(candidate)
+                continue
+            self.timeline.record_stage(
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="takeoff_low_alt_grace",
+                event_id=candidate.event_id,
+                edge=candidate.edge,
+                level=candidate.level,
+                priority=candidate.priority,
+                scenario=cur.scenario,
+                in_battle=cur.in_battle,
+                replay=cur.replay,
+                dry_run=self.cfg.dry_run,
+                safe_summary=f"{candidate.event_id}/{candidate.edge}/{candidate.level}",
+            )
+            self.timeline.record_decision(
+                event_id=candidate.event_id,
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="takeoff_low_alt_grace",
+                scenario=cur.scenario,
+                safety_status=self.safety.status(),
+                dry_run=self.cfg.dry_run,
+            )
+        return kept
 
     def _status_report_snapshot(self, s: BattleState) -> dict[str, Any]:
         return {

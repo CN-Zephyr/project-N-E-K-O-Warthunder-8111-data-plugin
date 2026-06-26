@@ -86,6 +86,61 @@ function badge(value: boolean | undefined, yes = "是", no = "否") {
   return <StatusBadge tone={value ? "success" : "warning"} label={value ? yes : no} />
 }
 
+function mappedText(value: unknown, labels: Record<string, string> = {}): string {
+  const raw = text(value)
+  return labels[raw] || raw
+}
+
+const CONN_STATE_LABELS: Record<string, string> = {
+  offline: "离线",
+  not_in_battle: "未进战斗",
+  in_battle: "战斗中",
+}
+
+const SCENARIO_LABELS: Record<string, string> = {
+  OUT_OF_BATTLE: "战斗外",
+  SPAWNING: "出生/进场",
+  IN_FLIGHT: "飞行中",
+  COMBAT_STRESS: "交战压力",
+  CRITICAL_RISK: "危急风险",
+  DEAD: "已阵亡",
+  BATTLE_ENDED: "战斗结束",
+}
+
+const LEVEL_LABELS: Record<string, string> = {
+  info: "正常",
+  warning: "警告",
+  critical: "危急",
+  danger: "危险",
+}
+
+const SAFETY_LABELS: Record<string, string> = {
+  running: "运行中",
+  paused: "已暂停",
+  auto_paused: "自动暂停",
+}
+
+const DOMAIN_LABELS: Record<string, string> = {
+  air: "空战",
+  heli: "直升机",
+  ground: "陆战",
+  naval: "海战",
+  menu: "菜单",
+  unknown: "未知",
+}
+
+const DATA_LAYER_LABELS: Record<string, string> = {
+  managed: "插件托管",
+  external: "外部运行",
+  disabled: "未启用",
+  unknown: "未知",
+}
+
+const IDENTITY_SOURCE_LABELS: Record<string, string> = {
+  manual: "手动设置",
+  auto: "自动识别",
+}
+
 function safetyTone(status: string | undefined) {
   if (status === "running") return "success"
   if (status === "paused") return "danger"
@@ -123,7 +178,7 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
 
   async function setDryRun(value: boolean) {
     if (!setDryRunAction) {
-      setDryRunError("dry_run action 不可用")
+      setDryRunError("安全试运行开关不可用")
       return
     }
     try {
@@ -141,7 +196,7 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
 
   async function submitIdentityName(name: string, clear = false) {
     if (!setIdentityAction) {
-      setIdentityError("set_identity action 不可用")
+      setIdentityError("玩家名设置不可用")
       return
     }
     try {
@@ -149,7 +204,7 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
       const result = unwrapActionResult(await props.api.call("set_identity", { name, clear }))
       const identityResult = result.identity && typeof result.identity === "object" ? result.identity : result
       if (identityResult.ok === false) {
-        setIdentityError(String(identityResult.error || "identity request failed"))
+        setIdentityError(String(identityResult.error || "玩家名设置失败"))
         return
       }
       setIdentityName(clear ? "" : name)
@@ -163,12 +218,12 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
   const selectablePlayers = activePlayers.filter((player) => player?.selectable && player.name)
 
   return (
-    <Page title="战雷猫娘副驾驶" subtitle="Battle Awareness 状态面板">
+    <Page title="战雷猫娘副驾驶" subtitle="战场态势状态面板">
       <Toolbar>
         <ToolbarGroup>
           <StatusBadge tone={state.connected ? "success" : "warning"} label={state.connected ? "已连接" : "未连接"} />
-          <StatusBadge tone={safetyTone(safety.status)} label={text(safety.status)} />
-          <StatusBadge tone={levelTone(state.level)} label={text(state.level)} />
+          <StatusBadge tone={safetyTone(safety.status)} label={mappedText(safety.status, SAFETY_LABELS)} />
+          <StatusBadge tone={levelTone(state.level)} label={mappedText(state.level, LEVEL_LABELS)} />
         </ToolbarGroup>
         <ToolbarGroup>
           <RefreshButton label="刷新状态" />
@@ -176,36 +231,36 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
       </Toolbar>
 
       <Grid cols={4}>
-        <StatCard label="enabled" value={text(state.enabled)} />
-        <StatCard label="dry_run" value={text(state.dry_run)} />
-        <StatCard label="conn_state" value={text(state.conn_state)} />
-        <StatCard label="scenario" value={text(state.scenario)} />
-        <StatCard label="data_layer" value={text(dataLayer.mode)} />
+        <StatCard label="插件启用" value={text(state.enabled)} />
+        <StatCard label="安全试运行" value={text(state.dry_run)} />
+        <StatCard label="连接状态" value={mappedText(state.conn_state, CONN_STATE_LABELS)} />
+        <StatCard label="当前场景" value={mappedText(state.scenario, SCENARIO_LABELS)} />
+        <StatCard label="数据层" value={mappedText(dataLayer.mode, DATA_LAYER_LABELS)} />
       </Grid>
 
       <Grid cols={2}>
         <Card title="运行状态">
           <KeyValue
             items={[
-              { key: "enabled", label: "enabled", value: badge(state.enabled) },
-              { key: "dry_run", label: "dry_run", value: badge(state.dry_run) },
-              { key: "connected", label: "connected", value: badge(state.connected, "connected", "offline") },
-              { key: "conn_state", label: "conn_state", value: text(state.conn_state) },
-              { key: "in_battle", label: "in_battle", value: badge(state.in_battle) },
-              { key: "dead", label: "dead", value: badge(state.dead) },
-              { key: "domain", label: "domain", value: text(state.domain) },
-              { key: "domain_label", label: "domain_label", value: text(state.domain_label) },
-              { key: "vehicle_type", label: "vehicle_type", value: text(state.vehicle_type) },
-              { key: "profile_source", label: "profile_source", value: text(state.profile_source) },
-              { key: "profile_family", label: "profile_family", value: text(state.profile_family) },
-              { key: "profile_matched", label: "profile_matched", value: badge(state.profile_matched ?? undefined) },
-              { key: "scenario", label: "scenario", value: text(state.scenario) },
-              { key: "level", label: "level", value: <StatusBadge tone={levelTone(state.level)} label={text(state.level)} /> },
-              { key: "data_layer.mode", label: "data_layer.mode", value: text(dataLayer.mode) },
-              { key: "data_layer.health", label: "data_layer.health", value: badge(dataLayer.health) },
-              { key: "data_layer.pid", label: "data_layer.pid", value: text(dataLayer.pid) },
-              { key: "data_layer.started_by_plugin", label: "data_layer.started_by_plugin", value: badge(dataLayer.started_by_plugin) },
-              { key: "data_layer.last_error", label: "data_layer.last_error", value: text(dataLayer.last_error) },
+              { key: "enabled", label: "插件启用", value: badge(state.enabled) },
+              { key: "dry_run", label: "安全试运行", value: badge(state.dry_run, "开启", "关闭") },
+              { key: "connected", label: "数据连接", value: badge(state.connected, "已连接", "离线") },
+              { key: "conn_state", label: "连接状态", value: mappedText(state.conn_state, CONN_STATE_LABELS) },
+              { key: "in_battle", label: "战斗内", value: badge(state.in_battle) },
+              { key: "dead", label: "阵亡状态", value: badge(state.dead) },
+              { key: "domain", label: "模式", value: mappedText(state.domain, DOMAIN_LABELS) },
+              { key: "domain_label", label: "模式说明", value: text(state.domain_label) },
+              { key: "vehicle_type", label: "载具", value: text(state.vehicle_type) },
+              { key: "profile_source", label: "数据库来源", value: text(state.profile_source) },
+              { key: "profile_family", label: "载具族", value: text(state.profile_family) },
+              { key: "profile_matched", label: "数据库匹配", value: badge(state.profile_matched ?? undefined) },
+              { key: "scenario", label: "当前场景", value: mappedText(state.scenario, SCENARIO_LABELS) },
+              { key: "level", label: "风险等级", value: <StatusBadge tone={levelTone(state.level)} label={mappedText(state.level, LEVEL_LABELS)} /> },
+              { key: "data_layer.mode", label: "数据层模式", value: mappedText(dataLayer.mode, DATA_LAYER_LABELS) },
+              { key: "data_layer.health", label: "数据层健康", value: badge(dataLayer.health) },
+              { key: "data_layer.pid", label: "数据层 PID", value: text(dataLayer.pid) },
+              { key: "data_layer.started_by_plugin", label: "由插件启动", value: badge(dataLayer.started_by_plugin) },
+              { key: "data_layer.last_error", label: "最近错误", value: text(dataLayer.last_error) },
             ]}
           />
         </Card>
@@ -213,10 +268,10 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
         <Card title="安全状态">
           <KeyValue
             items={[
-              { key: "safety.status", label: "safety.status", value: <StatusBadge tone={safetyTone(safety.status)} label={text(safety.status)} /> },
-              { key: "safety.manual_paused", label: "safety.manual_paused", value: badge(safety.manual_paused) },
-              { key: "safety.auto_paused", label: "safety.auto_paused", value: badge(safety.auto_paused) },
-              { key: "safety.failures", label: "safety.failures", value: text(safety.failures) },
+              { key: "safety.status", label: "安全门状态", value: <StatusBadge tone={safetyTone(safety.status)} label={mappedText(safety.status, SAFETY_LABELS)} /> },
+              { key: "safety.manual_paused", label: "手动暂停", value: badge(safety.manual_paused) },
+              { key: "safety.auto_paused", label: "自动暂停", value: badge(safety.auto_paused) },
+              { key: "safety.failures", label: "失败计数", value: text(safety.failures) },
             ]}
           />
         </Card>
@@ -226,11 +281,11 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
         <Stack>
           <KeyValue
             items={[
-              { key: "identity.player_name", label: "player_name", value: text(identity.player_name) },
-              { key: "identity.self.name", label: "self.name", value: text(identity.self?.name) },
-              { key: "identity.self.source", label: "self.source", value: text(identity.self?.source) },
-              { key: "identity.self.confidence", label: "self.confidence", value: text(identity.self?.confidence) },
-              { key: "identity.active_players_count", label: "active_players", value: text(identity.active_players_count) },
+              { key: "identity.player_name", label: "手动玩家名", value: text(identity.player_name) },
+              { key: "identity.self.name", label: "当前识别", value: text(identity.self?.name) },
+              { key: "identity.self.source", label: "识别来源", value: mappedText(identity.self?.source, IDENTITY_SOURCE_LABELS) },
+              { key: "identity.self.confidence", label: "置信度", value: text(identity.self?.confidence) },
+              { key: "identity.active_players_count", label: "候选玩家数", value: text(identity.active_players_count) },
             ]}
           />
           <Field label="玩家名">
@@ -255,12 +310,12 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
 
       <Card title="操作">
         <Stack>
-          <Switch checked={!!state.dry_run} label="dry_run" onChange={setDryRun} />
+          <Switch checked={!!state.dry_run} label="安全试运行 dry_run" onChange={setDryRun} />
           {dryRunError ? <Alert tone="danger">{dryRunError}</Alert> : null}
           <Grid cols={3}>
             <ActionButton action={pauseAction} actionId="pause" tone="danger">急停</ActionButton>
             <ActionButton action={resumeAction} actionId="resume" tone="success">恢复</ActionButton>
-            <ActionButton action={testSayAction} actionId="test_say" values={{ text: "T1B 面板测试开口" }} refresh={false}>测试开口</ActionButton>
+            <ActionButton action={testSayAction} actionId="test_say" values={{ text: "副驾驶面板测试开口" }} refresh={false}>测试开口</ActionButton>
           </Grid>
         </Stack>
       </Card>

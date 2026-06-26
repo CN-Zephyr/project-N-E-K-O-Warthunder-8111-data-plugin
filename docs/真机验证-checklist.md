@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝已完成；逻辑自检以 `151/151 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞低空保护窗口已完成；逻辑自检以 `153/153 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -52,6 +52,14 @@
 - 现场确认猫娘实际开口；未发现 `PLUGIN_UI_ACTION_FAILED`、Traceback、TTS/push 报错。
 - 记录边界：本节只记录聚合结论，不写 raw 玩家名、raw combat.feed 原文或 raw HUD 文本。
 
+## 已完成的 L8 数据层生命周期自验证（2026-06-26）
+
+- managed 模式：基线 `48916` / `8112` 均关闭；启动宿主后调用 `/plugins/refresh` 与 `/plugin/neko_warthunder/start`，插件自动拉起 `8112`，Hosted UI context 返回 `data_layer.mode=managed`、`started_by_plugin=true`、`health=true`。
+- managed 关闭：调用 `/plugin/neko_warthunder/stop` 后，插件自己拉起的 `8112` 退出，`8112/health` 不再可连接。
+- external 模式：手动预先启动 vendored `wt_server.py --port 8112` 后再启动插件，Hosted UI context 返回 `data_layer.mode=external`、`started_by_plugin=false`、`health=true`。
+- external 关闭：调用 `/plugin/neko_warthunder/stop` 后，外部 `8112` 仍可访问且未被误杀。
+- 测试结束后已清理本轮宿主与外部数据层进程，`48911` / `48916` / `8112` 均关闭。
+
 待复核：
 
 - replay 降级：插件侧离线合同已覆盖 Detector 静默、`detector_suppressed/replay` 观测记录和 `live_monitor` 的 `replay_degrade` 汇总；仍需真实 `replay=true` 样本验证。
@@ -67,9 +75,12 @@
    - 若出现 `neko_warthunder_1`，或 `dry_run=true` 下 `test_say` 返回 `pushed=true`，说明运行副本没有对齐；先停止测试并修复运行路径。
    - Hosted UI 侧以 context `state_empty=false`、actions 包含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity` 作为注册通过信号。
 3. **打开面板**：确认 `dry_run=true`，观察 `connected` / `conn_state` / `in_battle` / `scenario` / `safety` / `observe.last_decision` / `observe.last_output_status`。
+   - 面板应显示中文化标签和常见中文状态值；如仍出现大量 `enabled` / `conn_state` / `scenario` / `safety.status` 等裸字段名，记录为 Hosted UI 文案回归。
 4. **基础 action**：依次点 `pause`、`resume`、`test_say`，确认没有 `PLUGIN_UI_ACTION_FAILED`；`pause` 时风险事件应被 suppress，`resume` 后恢复。
 5. **identity / owned combat 回归**：在 Hosted UI 设置游戏昵称，确认 `/api/identity` 与 `/api/telemetry.combat.self.source=manual`；击杀 / 死亡时确认 `is_my_kill=true` / `is_my_death=true` 仍能生成 `you_killed` / `you_died`，并由 T-Observe 解释 Arbiter / Dispatcher 输出。
 6. **数值安全事件**：优先复测 `overheat` / `oil_overheat`、`overspeed_critical`、`stall_risk`、`low_alt_danger`、`low_fuel`；每次看 `observe.last_decision` 是否能解释 allow / drop / cooldown / scenario gate。
+   - 起飞/复活低空保护：出生或机场起飞后 45s 内，`altitude_critical` 不应产生真实低空播报，`observe.last_decision.reason` 应能解释为 `takeoff_low_alt_grace`；同窗口内 `stall_risk`、`overspeed`、`you_died` 不应被该保护误伤。
+   - 保护期后，若仍处于真实低空危险，`low_alt_danger` 应恢复正常 Arbiter / Dispatcher 链路。
 7. **自由文本风险路径**：只在 `dry_run=true` 下观察 `combat.feed` / `hud_notices` / `awards`，确认 prompt / dry_run 输出不包含 raw 玩家名、raw HUD 文本或 awards 原文；`live_monitor` 顶部 `Summary` 应显示 free-text 状态，细节行应显示 `free_text=dry_run_only(...)`，并在 `FreeText detail` / `free_text_safety.source_details` 中给出逐源 `.../blocked`。
 8. **replay 降级**：若数据层返回 `replay=true`，确认 Detector 静默、last decision 能说明 suppressed / replay，`live_monitor` 显示 `replay=suppressed(detector_suppressed/replay)` 且 `output_blocked=True`，不触发真实输出。
 9. **样本留存**：把现场抓包放到 `local_samples/` 或本地临时目录，保持 `.gitignore`；仓库只提交聚合统计和脱敏结论。
@@ -81,10 +92,11 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `151/151 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `153/153 passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2 和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
+| 3a | 机场起飞 / 复活后低空滑跑或刚离地 | `low_alt_danger`、`observe.last_decision.reason`、其他 critical 事件 | 45s 保护期内低空被 `takeoff_low_alt_grace` 压住；失速、死亡、超速等关键事件不被误压；保护期后低空恢复正常 |
 | 4 | 触发或等待 owned kill / death | `combat.feed[].is_my_kill` / `is_my_death`、`you_killed` / `you_died` | 生成 generic kill/death，不含 raw 玩家名；death / critical 仍可抢占 |
 | 4a | 分别观察空战 / 陆战 kill-death 文案 | `domain`、`cause`、Dispatcher prompt / 实际输出 | 空战可说击落；陆战击杀说击毁 / 摧毁地面目标；陆战死亡不说被击落；坠毁说坠毁 |
 | 5 | 观察 awards / hud_notices / combat.feed 自由文本源 | `free_text_safety.status`、`source_details`、prompt / dry_run 输出 | `free_text=dry_run_only(...)`，raw HUD / combat.feed / awards 原文不进入 prompt |
@@ -122,7 +134,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`151/151 passed`。
+   预期：`153/153 passed`。
 
 3. 启动宿主后启动插件，确认 `status` / Hosted UI context 可返回状态。
 
@@ -234,5 +246,5 @@
 ## 暂缓项
 
 - recovery 继续暂缓。不要因为数据层 v1.6 合并就提前实现。
-- L8 子进程最小编排已完成。下一轮真机前先验证：插件托管启动时 `data_layer.mode=managed` 且插件关闭会关掉该 8112；手动预先启动 8112 时 `data_layer.mode=external` 且插件关闭不会误杀。
+- L8 子进程最小编排已完成且已本地自验证。2026-06-26 确认插件托管启动时 `data_layer.mode=managed` 且插件 stop 会关掉该 `8112`；手动预先启动 `8112` 时 `data_layer.mode=external` 且插件 stop 不会误杀。
 - 2026-06-25 已修正本地运行副本边界：`N.E.K.O\plugin\plugins\neko_warthunder` 改为指向独立插件仓库的 junction。复测确认宿主启动、`/plugins/refresh`、`/plugin/neko_warthunder/start`、Hosted UI context、`set_dry_run` / `pause` / `resume` / `test_say` 均可用；`dry_run=true` 下 `test_say` 正确返回 `pushed=false, blocked="dry_run"`。

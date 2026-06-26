@@ -128,6 +128,7 @@ class WtConfig:
     output_backpressure_seconds: float = 20.0
     kill_coalesce_window_seconds: float = 2.0
     spawn_grace_seconds: float = 6.0
+    takeoff_low_alt_grace_seconds: float = 45.0
     queue_limit: int = 5
     safety_auto_stop_enabled: bool = True
     safety_window_seconds: float = 60.0
@@ -154,6 +155,7 @@ class WtConfig:
             output_backpressure_seconds=_clamp(raw.get("output_backpressure_seconds"), 20.0, 0.0, 300.0),
             kill_coalesce_window_seconds=_clamp(raw.get("kill_coalesce_window_seconds"), 2.0, 0.0, 30.0),
             spawn_grace_seconds=_clamp(raw.get("spawn_grace_seconds"), 6.0, 0.0, 60.0),
+            takeoff_low_alt_grace_seconds=_clamp(raw.get("takeoff_low_alt_grace_seconds"), 45.0, 0.0, 120.0),
             queue_limit=int(_clamp(raw.get("queue_limit"), 5, 1, 100)),
             safety_auto_stop_enabled=bool(raw.get("safety_auto_stop_enabled", True)),
             safety_window_seconds=_clamp(raw.get("safety_window_seconds"), 60.0, 5.0, 3600.0),

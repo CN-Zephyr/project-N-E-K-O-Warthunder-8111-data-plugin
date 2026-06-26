@@ -160,6 +160,103 @@ def test_replay_tick_records_suppressed_decision_without_output():
     assert observe["last_event"] is None
 
 
+def _plugin_for_runtime_evaluate_tests(*, clock_values: list[float], dry_run: bool = False):
+    Plugin = _runtime_plugin_class()
+    plugin = object.__new__(Plugin)
+    plugin.cfg = WtConfig(dry_run=dry_run)
+    plugin.safety = SafetyGuard(plugin.cfg)
+    plugin.timeline = RuntimeTimeline(observability_enabled=True, max_events=20)
+    plugin.resolver = ScenarioResolver()
+    plugin.arbiter = Arbiter(plugin.safety)
+    plugin.engine = plugin._build_engine()
+    plugin.pushed_events = []
+    plugin.logger = types.SimpleNamespace(info=lambda *_args, **_kwargs: None)
+
+    def push_event(event, **_kwargs):
+        plugin.pushed_events.append(event)
+        return f"pushed(event={event.event_id}/{event.edge})"
+
+    plugin.dispatcher = types.SimpleNamespace(push_event=push_event)
+
+    module = sys.modules[Plugin.__module__]
+    clock_iter = iter(clock_values)
+    original_time = module.time.time
+    module.time.time = lambda: next(clock_iter)
+
+    return plugin, module, original_time
+
+
+def test_takeoff_low_alt_grace_suppresses_low_altitude_event_only():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 110.0, 112.0])
+    try:
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=False)
+        spawn = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True)
+        plugin._evaluate(prev, spawn)
+        plugin.pushed_events.clear()
+
+        low_alt_1 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            flags={"altitude_critical": True},
+            altitude_m=38.0,
+            climb_ms=-3.0,
+        )
+        low_alt_2 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            flags={"altitude_critical": True},
+            altitude_m=35.0,
+            climb_ms=-4.0,
+        )
+        plugin._evaluate(spawn, low_alt_1)
+        plugin._evaluate(low_alt_1, low_alt_2)
+
+        assert plugin.pushed_events == []
+        decision = plugin.timeline.snapshot()["last_decision"]
+        assert decision["stage"] == "detector_suppressed"
+        assert decision["reason"] == "takeoff_low_alt_grace"
+    finally:
+        module.time.time = original_time
+
+
+def test_takeoff_low_alt_grace_does_not_suppress_stall_critical():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 110.0, 112.0])
+    try:
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=False)
+        spawn = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True)
+        plugin._evaluate(prev, spawn)
+        plugin.pushed_events.clear()
+
+        stall_1 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            flags={"stall_critical": True},
+            aoa_deg=22.0,
+            ias_kmh=160.0,
+        )
+        stall_2 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            flags={"stall_critical": True},
+            aoa_deg=23.0,
+            ias_kmh=150.0,
+        )
+        plugin._evaluate(spawn, stall_1)
+        plugin._evaluate(stall_1, stall_2)
+
+        assert [event.event_id for event in plugin.pushed_events] == ["stall_risk"]
+    finally:
+        module.time.time = original_time
+
+
 def test_status_includes_data_layer_process_snapshot():
     plugin = _plugin_for_report_tests()
     plugin.data_layer_manager = types.SimpleNamespace(
