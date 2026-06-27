@@ -432,12 +432,17 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     profile = checks.get("profile_calibration") or {}
     profile_missing = set(profile.get("missing") or [])
     if profile.get("status") == "needs_more_samples":
-        action = "capture_oil_overheat_notice"
-        if "powertrain_failure" in profile_missing and "oil_overheat" not in profile_missing:
-            action = "wait_for_powertrain_profile_or_sample"
-        elif "hud_notice_severity" in profile_missing and "oil_overheat" not in profile_missing:
-            action = "verify_hud_notice_severity_mapping"
-        add("profile_calibration", "油温/动力故障校准", "needs_more_samples", "P2", action)
+        profile_actions: list[str] = []
+        if "oil_overheat" in profile_missing:
+            profile_actions.append("capture_oil_overheat_notice")
+        if "powertrain_failure" in profile_missing:
+            profile_actions.append("wait_for_powertrain_profile_or_sample")
+        if "hud_notice_severity" in profile_missing:
+            profile_actions.append("verify_hud_notice_severity_mapping")
+        if not profile_actions:
+            profile_actions.append("capture_oil_overheat_notice")
+        for action in profile_actions:
+            add("profile_calibration", "油温/动力故障校准", "needs_more_samples", "P2", action)
 
     add("runtime_output", "T-Output 真实开口背压", "needs_live_review", "P2", "verify_output_backpressure")
     add("runtime_output", "T-Kill-Coalesce 多杀合并", "needs_live_review", "P2", "verify_kill_coalescing")

@@ -43,6 +43,12 @@ def _sample_frame() -> dict:
     }
 
 
+def _sample_frame_with_oil_notice() -> dict:
+    frame = _sample_frame()
+    frame["hud_notices"] = {"feed": [{"id": 1, "code": "oil_overheat", "text": "unsafe oil text"}]}
+    return frame
+
+
 def test_live_test_plan_markdown_turns_readiness_into_operational_steps():
     from neko_warthunder.tools.live_test_plan import build_markdown_plan
 
@@ -71,7 +77,7 @@ def test_live_test_plan_json_is_machine_readable_and_safe():
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame()}])
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame_with_oil_notice()}])
 
         payload = build_compact_plan(root, player_name="Pilot")
 
@@ -98,6 +104,26 @@ def test_live_test_plan_includes_runtime_output_followups():
     assert "output_backpressure" in text
     assert "event_expired" in text
     assert "kill_coalesced" in text
+
+
+def test_live_test_plan_includes_deferred_powertrain_hud_notice_check():
+    from neko_warthunder.tools.live_test_plan import build_compact_plan, build_markdown_plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame_with_oil_notice()}])
+
+        payload = build_compact_plan(root, player_name="Pilot")
+        text = build_markdown_plan(root, player_name="Pilot")
+
+    steps_by_action = {step["action"]: step for step in payload["steps"]}
+    step = steps_by_action["wait_for_powertrain_profile_or_sample"]
+    assert "powertrain_failure" in step["monitor"]
+    assert "deferred_hud_notice" in step["monitor"]
+    assert "不直接播报" in step["pass"]
+    assert "detector_suppressed" in text
+    assert "powertrain_failure" in text
+    assert "raw HUD" in text
 
 
 def test_live_test_plan_includes_operator_quick_checklist():

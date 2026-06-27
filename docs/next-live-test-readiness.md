@@ -75,7 +75,8 @@
 | 4 | 触发或等待 owned kill / death。 | combat.feed[].is_my_kill / is_my_death、you_killed / you_died。 | 生成 generic kill/death，不含 raw 玩家名；death / critical 仍可抢占。 |
 | 5 | 观察 awards / hud_notices / combat.feed 自由文本源。 | free_text_safety.status、source_details、prompt / dry_run 输出。 | free_text=dry_run_only，raw HUD / combat.feed / awards 原文不进入 prompt。 |
 | 6 | 若出现 replay，继续观察不要手动触发输出。 | replay=true、detector_suppressed/replay、output_blocked。 | replay 帧静默，live_monitor 显示 replay suppressed，不真实开口。 |
-| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death。 | push_message、last_output_status、output_backpressure、kill_coalesced。 | 真实开口不刷屏，旧回复晚到减少，更高优先级事件仍可插队。 |
+| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death。 | push_message、last_output_status、output_backpressure、event_expired、kill_coalesced。 | 真实开口不刷屏，旧回复晚到减少，过期旧事件不真实 push，更高优先级事件仍可插队。 |
+| 8 | 若出现动力故障 HUD 技术通知，不急着判断成播报事件。 | powertrain_failure、deferred_hud_notice、detector_suppressed、raw HUD 是否被阻断。 | 只显示 deferred 可观测记录，不真实开口，不泄漏 raw HUD 文本。 |
 
 ## Next live-test plan
 
@@ -86,6 +87,8 @@
 | P1 | 击杀/死亡归属 | needs_more_samples | use_v16_combat_feed_ownership_fields |
 | P2 | 数值安全事件 | needs_more_samples | trigger_overspeed_critical |
 | P2 | 油温/动力故障校准 | needs_more_samples | capture_oil_overheat_notice |
+| P2 | 油温/动力故障校准 | needs_more_samples | wait_for_powertrain_profile_or_sample |
+| P2 | 油温/动力故障校准 | needs_more_samples | verify_hud_notice_severity_mapping |
 | P2 | T-Output 真实开口背压 | needs_live_review | verify_output_backpressure |
 | P2 | T-Kill-Coalesce 多杀合并 | needs_live_review | verify_kill_coalescing |
 

@@ -76,11 +76,11 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "data_gap": "如果数据层仍没有 oil_overheat code，等待 profile/database 补齐。",
     },
     "wait_for_powertrain_profile_or_sample": {
-        "operation": "等待动力故障 profile/database 或真实 powertrain_failure 样本。",
-        "monitor": "hud_notices.feed[].code、profile/database 版本、是否应提升为事件。",
-        "pass": "有稳定 code 后再决定是否映射，不靠猜测开播报。",
-        "fail": "无稳定字段时插件侧不应硬造事件。",
-        "data_gap": "没有 powertrain_failure 样本或数据库时，保持 TODO。",
+        "operation": "等待动力故障 profile/database 或真实 powertrain_failure 样本，保持 dry_run 优先观察。",
+        "monitor": "hud_notices.feed[].code=powertrain_failure、observe.last_decision.reason=deferred_hud_notice、live_monitor Decision detail。",
+        "pass": "powertrain_failure 只记录 detector_suppressed/deferred_hud_notice，不直接播报，不带 raw HUD 文本。",
+        "fail": "powertrain_failure 被硬造为真实播报事件，或 raw HUD 文本进入 prompt / push。",
+        "data_gap": "没有 powertrain_failure 样本或数据库时，继续保持 TODO；有样本后再决定是否新增或映射故障事件。",
     },
     "verify_hud_notice_severity_mapping": {
         "operation": "采集 warning / critical notice 档位样本。",
@@ -252,6 +252,15 @@ def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
                 "user_action": "条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death。",
                 "monitor": "push_message、last_output_status、output_backpressure、event_expired、kill_coalesced。",
                 "pass": "真实开口不刷屏，旧回复晚到减少，过期旧事件不真实 push，更高优先级事件仍可插队。",
+            }
+        )
+    if "wait_for_powertrain_profile_or_sample" in actions:
+        checklist.append(
+            {
+                "order": "8",
+                "user_action": "若出现动力故障 HUD 技术通知，不急着判断成播报事件。",
+                "monitor": "powertrain_failure、deferred_hud_notice、detector_suppressed、raw HUD 是否被阻断。",
+                "pass": "只显示 deferred 可观测记录，不真实开口，不泄漏 raw HUD 文本。",
             }
         )
     return checklist
