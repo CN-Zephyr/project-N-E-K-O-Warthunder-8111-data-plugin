@@ -71,14 +71,25 @@ def build_v2_release_matrix(
     readiness = build_v2_readiness(sample_root=sample_root, player_name=player_name)
     live = readiness.get("live_evidence") or {}
     missing = set(live.get("missing") or [])
+    capability_evidence = live.get("capability_evidence") if isinstance(live.get("capability_evidence"), dict) else {}
     implemented = set((readiness.get("offline_scope") or {}).get("implemented_events") or [])
     live_status = str(live.get("status") or "unknown")
 
     rows = [
-        _capability_row(capability, implemented=implemented, missing=missing, live_status=live_status)
+        _capability_row(
+            capability,
+            implemented=implemented,
+            missing=missing,
+            live_status=live_status,
+            evidence=capability_evidence.get(capability["id"]) if isinstance(capability_evidence, dict) else None,
+        )
         for capability in CAPABILITIES
     ]
-    live_pending = [row["id"] for row in rows if row["live_evidence_status"] != "complete"]
+    live_pending = [
+        row["id"]
+        for row in rows
+        if row["live_evidence_status"] in {"needs_live_sample", "not_checked", "needs_review"}
+    ]
     blocked_real_output = [
         row["id"]
         for row in rows
@@ -116,13 +127,19 @@ def _capability_row(
     implemented: set[str],
     missing: set[str],
     live_status: str,
+    evidence: Any = None,
 ) -> dict[str, Any]:
     required = list(capability["requires"])
-    missing_requirements = [item for item in required if item in missing]
+    evidence_detail = evidence if isinstance(evidence, dict) else {}
+    missing_requirements = list(evidence_detail.get("missing_requirements") or [])
+    if not evidence_detail:
+        missing_requirements = [item for item in required if item in missing]
     if live_status == "complete":
         evidence = "complete"
     elif live_status == "not_checked":
         evidence = "not_checked"
+    elif evidence_detail:
+        evidence = str(evidence_detail.get("status") or "needs_live_sample")
     elif missing_requirements:
         evidence = "needs_live_sample"
     else:
@@ -135,6 +152,8 @@ def _capability_row(
         "code_status": "complete" if capability["id"] in implemented else "missing_from_offline_gate",
         "offline_gate_status": "passed" if capability["id"] in implemented else "failed",
         "live_evidence_status": evidence,
+        "observed_count": int(evidence_detail.get("observed_count") or 0),
+        "trigger_count": int(evidence_detail.get("trigger_count") or 0),
         "missing_requirements": missing_requirements,
         "real_output_policy": capability["real_output_policy"],
         "raw_text_allowed": False,
@@ -160,14 +179,14 @@ def render_text(payload: dict[str, Any]) -> str:
         f"offline_gate_complete: {summary.get('offline_gate_complete')}",
         f"live_evidence_complete: {summary.get('live_evidence_complete')}",
         "",
-        "| capability | code | offline | live evidence | real output | missing |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| capability | code | offline | live evidence | observed/triggered | real output | missing |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in payload.get("capabilities") or []:
         missing = ", ".join(row.get("missing_requirements") or []) or "-"
         lines.append(
             "| {id} | {code_status} | {offline_gate_status} | {live_evidence_status} | "
-            "{real_output_policy} | {missing} |".format(**row, missing=missing)
+            "{observed_count}/{trigger_count} | {real_output_policy} | {missing} |".format(**row, missing=missing)
         )
     lines.extend(
         [

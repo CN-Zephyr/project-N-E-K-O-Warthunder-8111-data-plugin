@@ -64,6 +64,34 @@ def _v2_live_frame(event_id: int, *, timestamp: float, proximity_distance_m: int
     }
 
 
+def _v2_generic_frame(event_id: int, *, timestamp: float) -> dict:
+    frame = _v2_live_frame(event_id, timestamp=timestamp, proximity_distance_m=1400, target_distance_m=4200)
+    frame["proximity"] = {
+        "events": [
+            {
+                "id": event_id,
+                "kind": "enter",
+                "type": "tank",
+                "category": "enemy_ground",
+                "is_air": False,
+                "distance_m": 1500,
+                "clock": 2,
+                "relative_deg": 40,
+                "text": "unsafe raw generic proximity",
+            }
+        ]
+    }
+    return frame
+
+
+def _v2_air_frame(event_id: int, *, timestamp: float) -> dict:
+    frame = _v2_live_frame(event_id, timestamp=timestamp, proximity_distance_m=1400, target_distance_m=4200)
+    frame["proximity"]["events"][0]["clock"] = 2
+    frame["proximity"]["events"][0]["relative_deg"] = 45
+    frame["proximity"]["events"][0]["text"] = "unsafe raw air proximity"
+    return frame
+
+
 def test_v2_readiness_no_sample_marks_offline_complete_without_live_claim():
     from neko_warthunder.tools.v2_readiness import build_v2_readiness
 
@@ -92,6 +120,8 @@ def test_v2_readiness_with_complete_sample_closes_live_evidence_safely():
         _write_jsonl(
             root / "captures" / "run" / "processed_8112.jsonl",
             [
+                {"data": _v2_generic_frame(90, timestamp=0.0)},
+                {"data": _v2_air_frame(99, timestamp=0.5)},
                 {"data": _v2_live_frame(100, timestamp=1.0, proximity_distance_m=850, target_distance_m=1200)},
                 {"data": _v2_live_frame(101, timestamp=2.0, proximity_distance_m=700, target_distance_m=1100)},
             ],
@@ -101,6 +131,12 @@ def test_v2_readiness_with_complete_sample_closes_live_evidence_safely():
     assert payload["verdict"] == "v2_complete_with_sample_evidence"
     assert payload["live_evidence"]["status"] == "complete"
     assert payload["live_evidence"]["missing"] == []
+    evidence = payload["live_evidence"]["capability_evidence"]
+    assert evidence["enemy_on_six"]["trigger_count"] == 1
+    assert evidence["tailing_risk"]["observed_count"] == 2
+    assert evidence["tailing_risk"]["trigger_count"] == 1
+    assert evidence["ground_target_nearby"]["observed_count"] == 2
+    assert evidence["ground_target_nearby"]["trigger_count"] == 1
     assert payload["release_scope"]["v2_live_evidence_complete"] is True
     text = json.dumps(payload, ensure_ascii=False)
     assert "unsafe raw rear proximity" not in text
@@ -131,4 +167,5 @@ def test_v2_readiness_cli_text_names_remaining_actions():
     assert rc == 0
     assert "# neko_warthunder V2 readiness" in text
     assert "live_evidence: needs_live_sample" in text
+    assert "capability_evidence: -" in text
     assert "capture_local_telemetry_sample" in text

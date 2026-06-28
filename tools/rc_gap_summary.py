@@ -46,11 +46,16 @@ _MISSING_ACTIONS = {
     "powertrain_failure": "wait_for_powertrain_profile_or_sample",
     "hud_notice_severity": "verify_hud_notice_severity_mapping",
     "proximity_events": "capture_proximity_sample",
+    "generic_enemy_proximity_events": "capture_generic_enemy_proximity_sample",
+    "enemy_nearby_trigger": "capture_generic_enemy_proximity_sample",
     "proximity_air_events": "capture_air_proximity_sample",
+    "air_threat_nearby_trigger": "capture_air_proximity_trigger_sample",
     "proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
+    "enemy_on_six_trigger": "capture_rear_threat_or_six_oclock_sample",
     "tailing_risk_trigger": "capture_sustained_close_rear_sample",
     "situation": "capture_situation_sample",
     "ground_targets": "capture_ground_target_sample",
+    "ground_target_live_sample": "capture_live_ground_target_sample",
     "ground_target_close_candidates": "fly_closer_to_ground_target_sample",
     "ground_target_trigger": "capture_ground_target_trigger_sample",
 }
@@ -109,6 +114,8 @@ def _tracks_from_checks(checks: dict[str, dict[str, Any]]) -> dict[str, dict[str
             "missing": missing,
             "next_actions": [_MISSING_ACTIONS.get(item, f"capture_{item}") for item in missing],
         }
+        if check_name == "proximity_awareness" and check.get("capability_evidence"):
+            tracks[track_name]["capability_evidence"] = check.get("capability_evidence")
 
     free_text = checks.get("free_text_safety") or {}
     if free_text.get("status") == "dry_run_only":
@@ -186,12 +193,32 @@ def render_text(summary: dict[str, Any]) -> str:
     lines.append("tracks:")
     for name, track in (summary.get("tracks") or {}).items():
         missing = ", ".join(track.get("missing") or []) or "-"
-        lines.append(f"- {name}: {track.get('status')} missing={missing}")
+        evidence = _render_capability_evidence(track.get("capability_evidence"))
+        suffix = f" evidence={evidence}" if evidence else ""
+        lines.append(f"- {name}: {track.get('status')} missing={missing}{suffix}")
     lines.append("")
     lines.append("sample_unproven_items: " + (", ".join(summary.get("sample_unproven_items") or []) or "-"))
     lines.append("blocked_release_items: " + (", ".join(summary.get("blocked_release_items") or []) or "-"))
     lines.append("next_actions: " + (", ".join(summary.get("next_actions") or []) or "-"))
     return "\n".join(lines) + "\n"
+
+
+def _render_capability_evidence(value: Any) -> str:
+    evidence = value if isinstance(value, dict) else {}
+    if not evidence:
+        return ""
+    parts: list[str] = []
+    for capability in sorted(evidence):
+        detail = evidence.get(capability) if isinstance(evidence.get(capability), dict) else {}
+        parts.append(
+            "{capability}:{status}:{trigger}/{observed}".format(
+                capability=capability,
+                status=detail.get("status") or "unknown",
+                trigger=detail.get("trigger_count", 0),
+                observed=detail.get("observed_count", 0),
+            )
+        )
+    return ",".join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:

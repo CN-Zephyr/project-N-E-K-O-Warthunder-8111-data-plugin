@@ -68,6 +68,7 @@ def build_v2_readiness(
             "status": evidence_status,
             "sample_root": str(sample_root) if sample_root is not None else "",
             "missing": missing,
+            "capability_evidence": dict((v2_sample or {}).get("capability_evidence") or {}),
             "next_actions": _next_actions(sample_actions, evidence_status),
             "notes": _notes(evidence_status),
         },
@@ -155,9 +156,28 @@ def render_text(payload: dict[str, Any]) -> str:
         "events: " + ", ".join(offline["implemented_events"]),
         f"live_evidence: {evidence['status']}",
         "missing: " + (", ".join(evidence["missing"]) or "-"),
+        "capability_evidence: " + _fmt_capability_evidence(evidence.get("capability_evidence")),
         "next_actions: " + (", ".join(evidence["next_actions"]) or "-"),
     ]
     return "\n".join(lines) + "\n"
+
+
+def _fmt_capability_evidence(value: Any) -> str:
+    evidence = value if isinstance(value, dict) else {}
+    if not evidence:
+        return "-"
+    parts: list[str] = []
+    for capability in sorted(evidence):
+        detail = evidence.get(capability) if isinstance(evidence.get(capability), dict) else {}
+        parts.append(
+            "{capability}:{status}:{trigger}/{observed}".format(
+                capability=capability,
+                status=detail.get("status") or "unknown",
+                trigger=detail.get("trigger_count", 0),
+                observed=detail.get("observed_count", 0),
+            )
+        )
+    return ", ".join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:

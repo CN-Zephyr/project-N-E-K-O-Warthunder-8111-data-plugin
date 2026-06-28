@@ -163,6 +163,34 @@ def _v2_live_frame(event_id: int, *, timestamp: float, proximity_distance_m: int
     }
 
 
+def _v2_generic_live_frame(event_id: int, *, timestamp: float) -> dict:
+    frame = _v2_live_frame(event_id, timestamp=timestamp, proximity_distance_m=1400, target_distance_m=4200)
+    frame["proximity"] = {
+        "events": [
+            {
+                "id": event_id,
+                "kind": "enter",
+                "type": "tank",
+                "category": "enemy_ground",
+                "is_air": False,
+                "distance_m": 1500,
+                "clock": 2,
+                "relative_deg": 40,
+                "text": "raw generic proximity",
+            }
+        ]
+    }
+    return frame
+
+
+def _v2_air_live_frame(event_id: int, *, timestamp: float) -> dict:
+    frame = _v2_live_frame(event_id, timestamp=timestamp, proximity_distance_m=1400, target_distance_m=4200)
+    frame["proximity"]["events"][0]["clock"] = 2
+    frame["proximity"]["events"][0]["relative_deg"] = 45
+    frame["proximity"]["events"][0]["text"] = "raw air proximity"
+    return frame
+
+
 def test_sample_replay_discovers_processed_jsonl_and_gzip_frames():
     from neko_warthunder.tools.sample_replay import discover_sample_files
 
@@ -279,6 +307,7 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
         "no_manual_identity_frames",
         "no_awards_items",
         "no_proximity_events",
+        "no_generic_enemy_proximity_events",
         "no_proximity_air_events",
         "no_proximity_rear_events",
         "no_situation_frames",
@@ -371,12 +400,30 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["replay_degrade"]["output_blocked"] is True
     assert checks["replay_degrade"]["prompt_allowed"] is False
     assert checks["profile_calibration"]["status"] == "needs_more_samples"
-    assert checks["proximity_awareness"]["status"] == "ready_for_review"
+    assert checks["proximity_awareness"]["status"] == "needs_more_samples"
+    assert checks["proximity_awareness"]["missing"] == [
+        "proximity_events",
+        "generic_enemy_proximity_events",
+        "proximity_air_events",
+        "proximity_rear_events",
+        "ground_target_live_sample",
+    ]
     assert checks["proximity_awareness"]["events"] == 1
     assert checks["proximity_awareness"]["ground_target_items"] == 1
     assert checks["proximity_awareness"]["rear_close_events"] == 0
     assert checks["proximity_awareness"]["tailing_risk_events"] == 0
     assert checks["proximity_awareness"]["ground_target_close_items"] == 1
+    evidence = checks["proximity_awareness"]["capability_evidence"]
+    assert evidence["enemy_nearby"]["status"] == "needs_live_sample"
+    assert evidence["enemy_nearby"]["observed_count"] == 0
+    assert evidence["enemy_nearby"]["trigger_count"] == 0
+    assert evidence["enemy_on_six"]["status"] == "needs_live_sample"
+    assert evidence["enemy_on_six"]["observed_count"] == 0
+    assert evidence["enemy_on_six"]["trigger_count"] == 0
+    assert evidence["tailing_risk"]["status"] == "needs_live_sample"
+    assert evidence["tailing_risk"]["missing_requirements"] == ["proximity_rear_close_events"]
+    assert evidence["ground_target_nearby"]["status"] == "needs_live_sample"
+    assert evidence["ground_target_nearby"]["missing_requirements"] == ["ground_target_live_sample"]
 
 
 def test_sample_replay_v2_proximity_readiness_requires_real_triggers():
@@ -385,6 +432,8 @@ def test_sample_replay_v2_proximity_readiness_requires_real_triggers():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         rows = [
+            {"data": _v2_generic_live_frame(90, timestamp=0.0)},
+            {"data": _v2_air_live_frame(99, timestamp=0.5)},
             {"data": _v2_live_frame(100, timestamp=1.0, proximity_distance_m=850, target_distance_m=1200)},
             {"data": _v2_live_frame(101, timestamp=2.0, proximity_distance_m=700, target_distance_m=1100)},
         ]
@@ -405,8 +454,20 @@ def test_sample_replay_v2_proximity_readiness_requires_real_triggers():
     assert checks["proximity_awareness"]["enemy_on_six_events"] == 1
     assert checks["proximity_awareness"]["tailing_risk_events"] == 1
     assert checks["proximity_awareness"]["ground_target_events"] == 1
+    evidence = checks["proximity_awareness"]["capability_evidence"]
+    assert evidence["enemy_nearby"]["status"] == "covered_by_current_sample"
+    assert evidence["air_threat_nearby"]["status"] == "covered_by_current_sample"
+    assert evidence["enemy_on_six"]["status"] == "covered_by_current_sample"
+    assert evidence["tailing_risk"]["status"] == "covered_by_current_sample"
+    assert evidence["ground_target_nearby"]["status"] == "covered_by_current_sample"
+    assert evidence["tailing_risk"]["observed_count"] == 2
+    assert evidence["tailing_risk"]["trigger_count"] == 1
+    assert evidence["ground_target_nearby"]["observed_count"] == 2
+    assert evidence["ground_target_nearby"]["trigger_count"] == 1
     assert "no_tailing_risk_trigger" not in report["coverage_gaps"]
     assert "no_ground_target_trigger" not in report["coverage_gaps"]
+    assert "tailing_risk=1/2/covered_by_current_sample" in text
+    assert "ground_target_nearby=1/2/covered_by_current_sample" in text
     assert "raw rear proximity" not in text
     assert "raw objective label" not in text
 
@@ -603,6 +664,7 @@ def test_local_20260620_sample_replay_if_present():
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
+        "no_generic_enemy_proximity_events",
         "no_proximity_rear_events",
         "no_ground_target_close_candidates",
         "no_oil_overheat_notice_codes",
