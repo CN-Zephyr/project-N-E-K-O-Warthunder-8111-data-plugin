@@ -382,7 +382,22 @@ def test_dashboard_context_includes_data_layer_process_snapshot():
             "text": "raw proximity text",
         }
     ]
-    plugin.state.situation = {"air_threats": 1}
+    plugin.state.situation = {
+        "has_player": True,
+        "enemy_count": 2,
+        "ally_count": 1,
+        "air_threat_count": 1,
+        "ground_targets": [
+            {
+                "kind": "bombing_point",
+                "label": "raw objective label",
+                "grid": "B4",
+                "distance_m": 2400,
+                "bearing_deg": 90,
+                "relative_deg": -20,
+            }
+        ],
+    }
     plugin._takeoff_radio_altitude_grace_active = True
 
     result = asyncio.run(plugin.dashboard_context())
@@ -398,8 +413,22 @@ def test_dashboard_context_includes_data_layer_process_snapshot():
     assert result["awareness"]["proximity_event_count"] == 1
     assert result["awareness"]["latest_proximity"]["target_type"] == "fighter"
     assert result["awareness"]["latest_proximity"]["distance_m"] == 1400
-    assert result["awareness"]["situation"] == {"air_threats": 1}
+    assert result["awareness"]["situation"] == {
+        "has_player": True,
+        "enemy_count": 2,
+        "ally_count": 1,
+        "air_threat_count": 1,
+        "ground_target_count": 1,
+    }
+    assert result["awareness"]["nearest_ground_target"] == {
+        "kind": "bombing_point",
+        "grid": "B4",
+        "distance_m": 2400,
+        "bearing_deg": 90,
+        "relative_deg": -20,
+    }
     assert "raw proximity text" not in repr(result["awareness"])
+    assert "raw objective label" not in repr(result["awareness"])
 
 
 def test_manual_pause_suppresses_detected_event_before_dispatcher():

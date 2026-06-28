@@ -49,6 +49,15 @@ def _sample_frame_with_oil_notice() -> dict:
     return frame
 
 
+def _sample_frame_with_situation_without_ground_targets() -> dict:
+    frame = _sample_frame()
+    frame["situation"] = {"has_player": True, "enemy_count": 1, "ground_targets": []}
+    frame["proximity"] = {
+        "events": [{"id": 1, "is_air": True, "distance_m": 1800, "clock": 6, "text": "unsafe proximity"}]
+    }
+    return frame
+
+
 def test_live_test_plan_markdown_turns_readiness_into_operational_steps():
     from neko_warthunder.tools.live_test_plan import build_markdown_plan
 
@@ -104,6 +113,25 @@ def test_live_test_plan_includes_runtime_output_followups():
     assert "output_backpressure" in text
     assert "event_expired" in text
     assert "kill_coalesced" in text
+
+
+def test_live_test_plan_includes_ground_target_sample_action():
+    from neko_warthunder.tools.live_test_plan import build_compact_plan, build_markdown_plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _write_jsonl(
+            root / "captures" / "cap" / "processed_8112.jsonl",
+            [{"data": _sample_frame_with_situation_without_ground_targets()}],
+        )
+
+        payload = build_compact_plan(root, player_name="Pilot")
+        text = build_markdown_plan(root, player_name="Pilot")
+
+    actions = {step["action"] for step in payload["steps"]}
+    assert "capture_ground_target_sample" in actions
+    assert "situation.ground_targets" in text
+    assert "unsafe proximity" not in text
 
 
 def test_live_test_plan_includes_deferred_powertrain_hud_notice_check():

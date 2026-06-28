@@ -90,7 +90,12 @@ def _coverage_frame() -> dict:
                 }
             ]
         },
-        "situation": {"air_threats": 1},
+        "situation": {
+            "air_threat_count": 1,
+            "ground_targets": [
+                {"kind": "bombing_point", "label": "raw objective label", "grid": "B4", "distance_m": 2400}
+            ],
+        },
     }
 
 
@@ -193,12 +198,15 @@ def test_sample_replay_reports_safe_contract_coverage_without_raw_text():
     assert coverage["proximity_air_events"] == 1
     assert coverage["proximity_rear_events"] == 1
     assert coverage["situation_frames"] == 1
+    assert coverage["ground_target_items"] == 1
+    assert coverage["ground_target_live_items"] == 0
     assert "coverage:" in text
     assert "RawVictim" not in text
     assert "RawKiller" not in text
     assert "raw notice" not in text
     assert "raw award" not in text
     assert "raw proximity" not in text
+    assert "raw objective label" not in text
 
 
 def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
@@ -312,6 +320,7 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["profile_calibration"]["status"] == "needs_more_samples"
     assert checks["proximity_awareness"]["status"] == "ready_for_review"
     assert checks["proximity_awareness"]["events"] == 1
+    assert checks["proximity_awareness"]["ground_target_items"] == 1
 
 
 def test_sample_replay_replay_true_contract_is_suppressed_without_output():
@@ -426,10 +435,17 @@ def test_sample_replay_session_summary_includes_prioritized_live_test_plan():
     } in plan
     assert {
         "area": "proximity_awareness",
-        "label": "V2 接近威胁感知",
+        "label": "V2 接近/目标态势感知",
         "status": "needs_more_samples",
         "priority": "P2",
-        "action": "capture_rear_threat_or_six_oclock_sample",
+        "action": "capture_proximity_sample",
+    } in plan
+    assert {
+        "area": "proximity_awareness",
+        "label": "V2 接近/目标态势感知",
+        "status": "needs_more_samples",
+        "priority": "P2",
+        "action": "capture_situation_sample",
     } in plan
     assert {
         "area": "runtime_output",
@@ -491,12 +507,15 @@ def test_local_20260620_sample_replay_if_present():
     assert report["coverage"]["proximity_air_events"] == 4615
     assert report["coverage"]["proximity_rear_events"] == 0
     assert report["coverage"]["situation_frames"] == 9970
+    assert report["coverage"]["ground_target_items"] == 3253
+    assert report["coverage"]["ground_target_live_items"] == 3253
     assert "no_manual_identity_frames" not in report["coverage_gaps"]
     assert report["coverage_gaps"] == [
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
         "no_proximity_rear_events",
+        "no_ground_target_trigger",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",

@@ -79,6 +79,7 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "overspeed":      EventSpec("overspeed", CAT_SAFETY_CRITICAL, 8, True, 15, 6, 7),
     "overheat":       EventSpec("overheat", CAT_SAFETY_IMPORTANT, 6, False, 30, 5, SEV_IMPORTANT),
     "low_fuel":       EventSpec("low_fuel", CAT_SAFETY_MINOR, 4, False, -1, 3, 4),
+    "ground_target_nearby": EventSpec("ground_target_nearby", CAT_MAP_AWARENESS, 2, False, 35, 2, 2),
     "enemy_nearby":   EventSpec("enemy_nearby", CAT_MAP_AWARENESS, 2, False, 25, 2, 2),
     "air_threat_nearby": EventSpec("air_threat_nearby", CAT_MAP_AWARENESS, 3, False, 20, 3, 3),
     "enemy_on_six":   EventSpec("enemy_on_six", CAT_MAP_AWARENESS, 4, False, 20, 4, 4),

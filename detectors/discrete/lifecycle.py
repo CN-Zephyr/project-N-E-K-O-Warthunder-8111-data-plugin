@@ -15,6 +15,7 @@ from ...core.contracts import BattleEvent, BattleState
 from .._base import DiscreteDetector
 from .notices import HudNoticeDetector
 from .proximity import ProximityDetector
+from .situation import GroundTargetDetector
 
 _END_STATUSES = frozenset({"win", "won", "victory", "fail", "failed", "lost", "defeat", "left", "ended", "finished"})
 
@@ -166,4 +167,5 @@ def build_discrete_detectors(player_name: str) -> list[DiscreteDetector]:
         KillDetector(player_name),
         HudNoticeDetector(),
         ProximityDetector(),
+        GroundTargetDetector(),
     ]

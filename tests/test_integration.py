@@ -44,6 +44,7 @@ def test_dispatcher_builds_prompt_for_each_event_and_recovery():
         "overspeed": {"ias_kmh": 760, "mach": 0.82},
         "overheat": {"temp_c": 118},
         "low_fuel": {"fuel_fraction": 0.07},
+        "ground_target_nearby": {"grid": "B4", "distance_m": 2400},
         "enemy_nearby": {"distance_m": 1200, "compass": "E"},
         "air_threat_nearby": {"distance_m": 1800, "clock": 2},
         "enemy_on_six": {"distance_m": 700, "clock": 6},

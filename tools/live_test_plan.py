@@ -96,6 +96,13 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "fail": "后方 proximity 出现但插件无事件，或 raw proximity 文本 / 玩家名进入 prompt，或 critical 被后方威胁抢占。",
         "data_gap": "如果没有后方 / 六点钟 proximity，只记录为缺 rear-threat 样本；已有普通空中 proximity 不等于完成 enemy_on_six 验证。",
     },
+    "capture_ground_target_sample": {
+        "operation": "空战或对地任务中靠近轰炸点/任务目标点，保持 dry_run=true，记录一段 situation.ground_targets 样本。",
+        "monitor": "situation.ground_targets[].grid / distance_m、ground_target_nearby、observe.last_decision、dry_run 输出。",
+        "pass": "近距离 ground target 触发 ground_target_nearby，prompt 只包含任务目标点 / 网格 / 距离等安全摘要，COMBAT_STRESS 下低优先级目标提示可被压住。",
+        "fail": "ground_targets 存在但插件无事件，或目标 label/raw 文本进入 prompt，或目标点提示抢占 critical 安全事件。",
+        "data_gap": "如果没有 ground_targets，只记录为缺对地任务目标样本；普通 proximity 不等于完成目标点验证。",
+    },
     "verify_output_backpressure": {
         "operation": "dry_run=false 时连续触发同优先级或更低优先级事件，观察是否被输出背压压住。",
         "monitor": "tools/live_monitor.py Summary、observe.last_output_status、output_backpressure、event_expired、push_message 时延。",
@@ -250,6 +257,15 @@ def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
                 "user_action": "若出现 replay，继续观察不要手动触发输出。",
                 "monitor": "replay=true、detector_suppressed/replay、output_blocked。",
                 "pass": "replay 帧静默，live_monitor 显示 replay suppressed，不真实开口。",
+            }
+        )
+    if "capture_ground_target_sample" in actions:
+        checklist.append(
+            {
+                "order": "6b",
+                "user_action": "空战/对地任务中靠近任务目标点。",
+                "monitor": "situation.ground_targets、ground_target_nearby、observe.last_decision。",
+                "pass": "只输出任务目标点的网格/距离安全摘要，不读取 label/raw 文本。",
             }
         )
     if "verify_output_backpressure" in actions or "verify_kill_coalescing" in actions:

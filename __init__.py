@@ -401,6 +401,9 @@ class NekoWarthunderPlugin(NekoPluginBase):
     def _awareness_snapshot(self, s: BattleState) -> dict[str, Any]:
         events = [item for item in s.proximity_events if isinstance(item, dict)]
         latest = events[-1] if events else {}
+        situation = s.situation if isinstance(s.situation, dict) else {}
+        ground_targets = [item for item in situation.get("ground_targets", []) if isinstance(item, dict)]
+        nearest_ground_target = ground_targets[0] if ground_targets else {}
         return {
             "proximity_event_count": len(events),
             "latest_proximity": {
@@ -414,7 +417,22 @@ class NekoWarthunderPlugin(NekoPluginBase):
             }
             if latest
             else None,
-            "situation": dict(s.situation or {}),
+            "situation": {
+                "has_player": situation.get("has_player"),
+                "enemy_count": situation.get("enemy_count"),
+                "ally_count": situation.get("ally_count"),
+                "air_threat_count": situation.get("air_threat_count"),
+                "ground_target_count": len(ground_targets),
+            },
+            "nearest_ground_target": {
+                "kind": nearest_ground_target.get("kind"),
+                "grid": nearest_ground_target.get("grid"),
+                "distance_m": nearest_ground_target.get("distance_m"),
+                "bearing_deg": nearest_ground_target.get("bearing_deg"),
+                "relative_deg": nearest_ground_target.get("relative_deg"),
+            }
+            if nearest_ground_target
+            else None,
         }
 
     def _dashboard_payload(self, s: BattleState) -> dict[str, Any]:

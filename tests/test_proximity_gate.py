@@ -13,8 +13,9 @@ def test_proximity_gate_passes_and_reports_safe_summary():
     result = run_gate()
 
     assert result["status"] == "pass"
-    assert result["emitted"] == ["enemy_nearby", "air_threat_nearby", "enemy_on_six"]
+    assert result["emitted"] == ["enemy_nearby", "air_threat_nearby", "enemy_on_six", "ground_target_nearby"]
     assert result["combat_stress_low_priority"] == "dropped"
+    assert result["ground_target_low_priority"] == "dropped"
     assert result["critical_preempt"] == "low_alt_danger"
     assert result["push_text_safe"] is True
     assert UNSAFE not in json.dumps(result, ensure_ascii=False)
@@ -31,4 +32,4 @@ def test_proximity_gate_cli_outputs_json():
 
     assert rc == 0
     assert payload["status"] == "pass"
-    assert payload["emitted"][-1] == "enemy_on_six"
+    assert payload["emitted"][-1] == "ground_target_nearby"

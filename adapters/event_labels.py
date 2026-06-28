@@ -9,6 +9,7 @@ _EVENT_LABELS: dict[str, str] = {
     "overspeed": "超速风险",
     "overheat": "过热风险",
     "low_fuel": "低油量",
+    "ground_target_nearby": "任务目标接近",
     "enemy_nearby": "敌方接近",
     "air_threat_nearby": "空中威胁接近",
     "enemy_on_six": "后方威胁",

@@ -24,6 +24,7 @@ _INTENT: dict[str, str] = {
     "overspeed": "速度过头，提醒 {MASTER_NAME} 收油门改出、别把翼子拉掉",
     "overheat": "发动机过热，建议 {MASTER_NAME} 收油门散热",
     "low_fuel": "油不多了，提醒 {MASTER_NAME} 留意返航/续航",
+    "ground_target_nearby": "附近有任务目标点，提醒 {MASTER_NAME} 看方位，别飞过头",
     "enemy_nearby": "附近有敌方目标接近，提醒 {MASTER_NAME} 保持观察、别被偷",
     "air_threat_nearby": "有空中威胁接近，提醒 {MASTER_NAME} 抬头看方位",
     "enemy_on_six": "后方有威胁接近，提醒 {MASTER_NAME} 不要让对面贴住",
@@ -58,6 +59,7 @@ def _fact_line(event: BattleEvent) -> str:
     kill_fact = _kill_fact(event.event_id, p)
     death_fact = _death_fact(event.event_id, p)
     proximity_fact = _proximity_fact(event.event_id, p)
+    objective_fact = _objective_fact(event.event_id, p)
     has_radio_altitude = p.get("radio_altitude_m") is not None
     order = [
         ("ias_kmh", "IAS {:.0f}km/h"),
@@ -76,6 +78,8 @@ def _fact_line(event: BattleEvent) -> str:
         bits.append(death_fact)
     if proximity_fact:
         bits.append(proximity_fact)
+    if objective_fact:
+        bits.append(objective_fact)
     if has_radio_altitude:
         try:
             bits.append("AGL {:.0f}m".format(p["radio_altitude_m"]))
@@ -148,6 +152,25 @@ def _proximity_fact(event_id: str, payload: dict[str, Any]) -> str:
         pass
 
     return base if not detail else f"{base}（{'，'.join(detail)}）"
+
+
+def _objective_fact(event_id: str, payload: dict[str, Any]) -> str:
+    if event_id != "ground_target_nearby":
+        return ""
+
+    detail: list[str] = []
+    grid = payload.get("grid")
+    if isinstance(grid, str) and grid:
+        detail.append(f"{grid}网格")
+
+    distance = payload.get("distance_m")
+    try:
+        if distance is not None:
+            detail.append("距离{:.0f}m".format(float(distance)))
+    except (TypeError, ValueError):
+        pass
+
+    return "任务目标点接近" if not detail else f"任务目标点接近（{'，'.join(detail)}）"
 
 
 class NekoDispatcher:

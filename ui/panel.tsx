@@ -105,7 +105,20 @@ type AwarenessState = {
     compass?: string | null
     clock?: number | null
   } | null
-  situation?: Record<string, unknown>
+  situation?: {
+    has_player?: boolean | null
+    enemy_count?: number | null
+    ally_count?: number | null
+    air_threat_count?: number | null
+    ground_target_count?: number | null
+  }
+  nearest_ground_target?: {
+    kind?: string | null
+    grid?: string | null
+    distance_m?: number | null
+    bearing_deg?: number | null
+    relative_deg?: number | null
+  } | null
 }
 
 type DashboardState = {
@@ -304,6 +317,8 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
   const takeoffProtection = state.takeoff_protection || {}
   const awareness = state.awareness || {}
   const latestProximity = awareness.latest_proximity || {}
+  const situation = awareness.situation || {}
+  const nearestGroundTarget = awareness.nearest_ground_target || {}
   const observe = state.observe || {}
   const lastEvent = observe.last_event
   const lastDecision = observe.last_decision
@@ -452,12 +467,16 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
               { key: "awareness.latest.category", label: "目标分类", value: text(latestProximity.category) },
               { key: "awareness.latest.is_air", label: "空中目标", value: badge(latestProximity.is_air ?? undefined) },
               { key: "awareness.latest.distance_m", label: "距离", value: numberText(latestProximity.distance_m, "m") },
-              { key: "awareness.latest.compass", label: "方位", value: text(latestProximity.compass) },
-              { key: "awareness.latest.clock", label: "钟点", value: latestProximity.clock ? `${latestProximity.clock}点钟` : "-" },
-              { key: "awareness.situation", label: "态势摘要", value: text(JSON.stringify(awareness.situation || {})) },
-            ]}
-          />
-        </Card>
+                { key: "awareness.latest.compass", label: "方位", value: text(latestProximity.compass) },
+                { key: "awareness.latest.clock", label: "钟点", value: latestProximity.clock ? `${latestProximity.clock}点钟` : "-" },
+                { key: "awareness.situation.enemy_count", label: "敌方单位", value: text(situation.enemy_count) },
+                { key: "awareness.situation.air_threat_count", label: "空中威胁", value: text(situation.air_threat_count) },
+                { key: "awareness.situation.ground_target_count", label: "任务目标", value: text(situation.ground_target_count) },
+                { key: "awareness.ground_target.grid", label: "最近目标网格", value: text(nearestGroundTarget.grid) },
+                { key: "awareness.ground_target.distance_m", label: "最近目标距离", value: numberText(nearestGroundTarget.distance_m, "m") },
+              ]}
+            />
+          </Card>
 
         <Card title="安全控制">
           <KeyValue

@@ -114,6 +114,9 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             "proximity_rear_events": 0,
             "proximity_raw_text_fields": 0,
             "situation_frames": 0,
+            "ground_target_frames": 0,
+            "ground_target_items": 0,
+            "ground_target_live_items": 0,
         },
     }
 
@@ -220,8 +223,15 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
         if rear_by_clock or rear_by_relative:
             coverage["proximity_rear_events"] += 1
 
-    if isinstance(payload.get("situation"), dict) and payload.get("situation"):
+    situation = payload.get("situation") if isinstance(payload.get("situation"), dict) else {}
+    if situation:
         coverage["situation_frames"] += 1
+    ground_targets = situation.get("ground_targets") if isinstance(situation.get("ground_targets"), list) else []
+    if ground_targets:
+        coverage["ground_target_frames"] += 1
+        coverage["ground_target_items"] += len(ground_targets)
+        if payload.get("replay") is not True:
+            coverage["ground_target_live_items"] += len(ground_targets)
 
 
 def _count_raw_text_items(items: list[Any]) -> int:
@@ -359,6 +369,11 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         and replay_chosen_events == 0
         and replay_dry_run_outputs == 0
     )
+    events = report.get("events") or {}
+    ground_target_events = sum(
+        int(count) for key, count in events.items() if str(key).startswith("ground_target_nearby/")
+    )
+
     proximity_missing: list[str] = []
     if int(coverage.get("proximity_events", 0)) == 0:
         proximity_missing.append("proximity_events")
@@ -368,6 +383,10 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         proximity_missing.append("proximity_rear_events")
     if int(coverage.get("situation_frames", 0)) == 0:
         proximity_missing.append("situation")
+    if int(coverage.get("situation_frames", 0)) > 0 and int(coverage.get("ground_target_items", 0)) == 0:
+        proximity_missing.append("ground_targets")
+    if int(coverage.get("ground_target_live_items", 0)) > 0 and ground_target_events == 0:
+        proximity_missing.append("ground_target_trigger")
 
     return {
         "numeric_safety": {
@@ -413,6 +432,10 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "events": int(coverage.get("proximity_events", 0)),
             "air_events": int(coverage.get("proximity_air_events", 0)),
             "rear_events": int(coverage.get("proximity_rear_events", 0)),
+            "situation_frames": int(coverage.get("situation_frames", 0)),
+            "ground_target_items": int(coverage.get("ground_target_items", 0)),
+            "ground_target_live_items": int(coverage.get("ground_target_live_items", 0)),
+            "ground_target_events": ground_target_events,
             "raw_text_fields": int(coverage.get("proximity_raw_text_fields", 0)),
         },
     }
@@ -494,12 +517,22 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     proximity = checks.get("proximity_awareness") or {}
     proximity_missing = set(proximity.get("missing") or [])
     if proximity.get("status") == "needs_more_samples":
-        action = "capture_proximity_sample"
-        if "proximity_rear_events" in proximity_missing:
-            action = "capture_rear_threat_or_six_oclock_sample"
-        elif "proximity_air_events" in proximity_missing:
-            action = "capture_air_proximity_sample"
-        add("proximity_awareness", "V2 接近威胁感知", "needs_more_samples", "P2", action)
+        actions: list[str] = []
+        if "proximity_events" in proximity_missing:
+            actions.append("capture_proximity_sample")
+        else:
+            if "proximity_air_events" in proximity_missing:
+                actions.append("capture_air_proximity_sample")
+            if "proximity_rear_events" in proximity_missing:
+                actions.append("capture_rear_threat_or_six_oclock_sample")
+        if "situation" in proximity_missing:
+            actions.append("capture_situation_sample")
+        elif "ground_targets" in proximity_missing or "ground_target_trigger" in proximity_missing:
+            actions.append("capture_ground_target_sample")
+        if not actions:
+            actions.append("capture_proximity_sample")
+        for action in _dedupe(actions):
+            add("proximity_awareness", "V2 接近/目标态势感知", "needs_more_samples", "P2", action)
 
     add("runtime_output", "T-Output 真实开口背压", "needs_live_review", "P2", "verify_output_backpressure")
     add("runtime_output", "T-Kill-Coalesce 多杀合并", "needs_live_review", "P2", "verify_kill_coalescing")
@@ -522,6 +555,8 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
         "no_proximity_air_events": "capture_air_proximity_sample",
         "no_proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
         "no_situation_frames": "capture_situation_sample",
+        "no_ground_target_items": "capture_ground_target_sample",
+        "no_ground_target_trigger": "capture_ground_target_sample",
     }
     return [mapping[gap] for gap in gaps if gap in mapping]
 
@@ -578,6 +613,15 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         gaps.append("no_proximity_rear_events")
     if coverage.get("situation_frames", 0) == 0:
         gaps.append("no_situation_frames")
+    if coverage.get("situation_frames", 0) > 0 and coverage.get("ground_target_items", 0) == 0:
+        gaps.append("no_ground_target_items")
+    ground_target_events = sum(
+        int(count)
+        for key, count in (report.get("events") or {}).items()
+        if str(key).startswith("ground_target_nearby/")
+    )
+    if coverage.get("ground_target_live_items", 0) > 0 and ground_target_events == 0:
+        gaps.append("no_ground_target_trigger")
 
     notice_codes = coverage.get("hud_notice_codes") or {}
     if notice_codes and notice_codes.get("oil_overheat", 0) == 0:
@@ -638,6 +682,8 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
         "proximity_air_events",
         "proximity_rear_events",
         "situation_frames",
+        "ground_target_items",
+        "ground_target_live_items",
     ):
         parts.append(f"{key}={coverage.get(key, 0)}")
     parts.append(f"combat_self_source={_fmt_counts(coverage.get('combat_self_source') or {})}")

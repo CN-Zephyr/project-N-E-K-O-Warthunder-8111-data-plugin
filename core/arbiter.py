@@ -168,7 +168,7 @@ def _top(events: list[BattleEvent]) -> BattleEvent:
 def _event_allowed(event: BattleEvent, scenario: str) -> tuple[bool, str]:
     if not category_allowed(scenario, event.category):
         return False, f"scenario_gated({scenario})"
-    if scenario == "COMBAT_STRESS" and event.event_id == "enemy_nearby":
+    if scenario == "COMBAT_STRESS" and event.event_id in {"enemy_nearby", "ground_target_nearby"}:
         return False, "scenario_gated(COMBAT_STRESS:map_low_priority)"
     return True, ""
 

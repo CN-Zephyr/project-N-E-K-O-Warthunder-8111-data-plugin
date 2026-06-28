@@ -113,16 +113,27 @@ def test_parse_proximity_and_situation_from_v2_contract():
             }
         ],
     }
-    payload["situation"] = {"air_threats": 1, "ground_threats": 0}
+    payload["situation"] = {
+        "air_threat_count": 1,
+        "ground_targets": [{"kind": "bombing_point", "label": "轰炸点", "grid": "B4", "distance_m": 2400}],
+    }
 
     s = parse_telemetry(payload)
 
     assert s.proximity_events == payload["proximity"]["events"]
     assert s.proximity["thresholds_m"]["vs_air"] == 3000
-    assert s.situation == {"air_threats": 1, "ground_threats": 0}
+    assert s.situation == payload["situation"]
     assert s.raw["proximity"]["events"][0]["text"] == "unsafe raw text must stay raw-only"
 
 
 def test_v16_event_catalog_entries_are_not_marked_blocked():
-    for event_id in ("overspeed", "you_killed", "you_died", "enemy_nearby", "air_threat_nearby", "enemy_on_six"):
+    for event_id in (
+        "overspeed",
+        "you_killed",
+        "you_died",
+        "ground_target_nearby",
+        "enemy_nearby",
+        "air_threat_nearby",
+        "enemy_on_six",
+    ):
         assert EVENT_CATALOG[event_id].blocked is False

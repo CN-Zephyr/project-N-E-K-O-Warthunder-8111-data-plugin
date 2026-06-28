@@ -28,7 +28,7 @@ def test_preflight_plan_contains_documented_checks():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
-            "proximity awareness gate",
+            "proximity/objective awareness gate",
             "plugin check",
             "runtime smoke",
             "synthetic replay",
@@ -95,7 +95,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
-            "proximity awareness gate",
+            "proximity/objective awareness gate",
             "runtime smoke",
             "synthetic replay",
         ]
@@ -113,10 +113,10 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 192/192 passed" in text
+        assert "baseline: logic self-check should report 197/197 passed" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
-        assert "proximity awareness gate must pass" in text
+        assert "proximity/objective awareness gate must pass" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
         assert "watch live_monitor Summary first" in text
@@ -126,7 +126,7 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "uv run python tools/free_text_gate.py" in text
         assert "replay degrade gate" in text
         assert "uv run python tools/replay_gate.py" in text
-        assert "proximity awareness gate" in text
+        assert "proximity/objective awareness gate" in text
         assert "uv run python tools/proximity_gate.py" in text
         assert "runtime smoke" in text
         assert "tools/live_monitor.py --count 1" in text

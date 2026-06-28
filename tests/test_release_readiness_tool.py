@@ -28,7 +28,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
-            "proximity awareness gate",
+            "proximity/objective awareness gate",
             "synthetic replay",
             "plugin check",
             "local sample replay",
@@ -54,7 +54,7 @@ def test_release_readiness_plan_does_not_require_running_services():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
-            "proximity awareness gate",
+            "proximity/objective awareness gate",
             "synthetic replay",
         ]
 
@@ -117,7 +117,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert payload["status"] == "plan"
     assert payload["verdict"] == "not_run"
     assert "replay degrade gate" in [check["name"] for check in payload["checks"]]
-    assert "proximity awareness gate" in [check["name"] for check in payload["checks"]]
+    assert "proximity/objective awareness gate" in [check["name"] for check in payload["checks"]]
 
 
 def test_release_readiness_cli_text_names_next_step():
@@ -133,5 +133,5 @@ def test_release_readiness_cli_text_names_next_step():
     assert rc == 0
     assert "# neko_warthunder v1 release readiness" in text
     assert "replay degrade gate" in text
-    assert "proximity awareness gate" in text
+    assert "proximity/objective awareness gate" in text
     assert "final live smoke" in text

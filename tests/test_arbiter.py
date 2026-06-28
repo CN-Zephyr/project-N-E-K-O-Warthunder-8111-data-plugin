@@ -118,6 +118,15 @@ def test_map_awareness_allowed_in_flight_but_low_priority_dropped_in_combat_stre
     assert any(c["result"] == "dropped" and "map_low_priority" in c["reason"] for c in chain)
 
 
+def test_ground_target_awareness_is_low_priority_map_awareness():
+    in_flight, _ = _arb().decide([BattleEvent("ground_target_nearby", level="warning")], IN_FLIGHT, 1000.0)
+    combat, chain = _arb().decide([BattleEvent("ground_target_nearby", level="warning")], COMBAT_STRESS, 1000.0)
+
+    assert in_flight is not None and in_flight.event_id == "ground_target_nearby"
+    assert combat is None
+    assert any(c["result"] == "dropped" and "map_low_priority" in c["reason"] for c in chain)
+
+
 def test_air_and_rear_threats_allowed_in_combat_stress():
     air, _ = _arb().decide([BattleEvent("air_threat_nearby", level="warning")], COMBAT_STRESS, 1000.0)
     rear, _ = _arb().decide([BattleEvent("enemy_on_six", level="warning")], COMBAT_STRESS, 1000.0)
