@@ -89,6 +89,13 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "fail": "severity 不稳定时继续使用保守默认档位。",
         "data_gap": "只有 unknown severity 时，继续补数据层映射。",
     },
+    "capture_rear_threat_or_six_oclock_sample": {
+        "operation": "空战中让敌机或空中目标进入后方 5/6/7 点钟区域，保持 dry_run=true，尽量保留一段接近到脱离的样本。",
+        "monitor": "proximity.events[].clock / relative_deg、observe.last_event、observe.last_decision、enemy_on_six dry_run 输出。",
+        "pass": "后方 proximity 新 id 触发 enemy_on_six，prompt 只包含后方威胁 / 钟点 / 距离等安全摘要，critical 安全事件仍优先。",
+        "fail": "后方 proximity 出现但插件无事件，或 raw proximity 文本 / 玩家名进入 prompt，或 critical 被后方威胁抢占。",
+        "data_gap": "如果没有后方 / 六点钟 proximity，只记录为缺 rear-threat 样本；已有普通空中 proximity 不等于完成 enemy_on_six 验证。",
+    },
     "verify_output_backpressure": {
         "operation": "dry_run=false 时连续触发同优先级或更低优先级事件，观察是否被输出背压压住。",
         "monitor": "tools/live_monitor.py Summary、observe.last_output_status、output_backpressure、event_expired、push_message 时延。",

@@ -21,7 +21,7 @@
 |---|---|---|---|
 | `processed.flags` / `alerts` | **电平型**（每帧出现） | ConditionDetector：**我们**做边沿+debounce+迟滞+re-arm | stall/aoa/altitude/fuel/overheat/overspeed（数据层 v1.6 已给 flag，插件侧待验证） |
 | `hud_notices` / `combat.feed` | **已边沿型**（带递增 id） | DiscreteDetector：**按 id 去重**，每个新 id 一次（fire-once） | overheat 技术通知 / you_killed / you_died |
-| `proximity.events` | **已边沿型**（首次进入触发一次，带 id/kind） | DiscreteDetector：按 id 去重（合作者的例子，**v2**，v1 不消费） | 敌机接近 |
+| `proximity.events` | **已边沿型**（首次进入触发一次，带 id/kind） | DiscreteDetector：按 id 去重（V2 已消费，生成安全 generic 接近威胁事件） | enemy_nearby / air_threat_nearby / enemy_on_six |
 | `state` / `vehicle_type` / `mission_status` | **状态跳变型** | 检测跳变沿一次 | spawn / alive-state / battle_end |
 
 > 一句话：**已边沿型（带 id）= 数据层已替我们 fire-once，我们只按 id 去重消费、绝不再 edge-detect；电平型 = fire-once 由我们的 re-arm 保证。**
