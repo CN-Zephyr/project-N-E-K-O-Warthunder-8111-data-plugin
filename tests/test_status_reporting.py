@@ -369,6 +369,20 @@ def test_dashboard_context_includes_data_layer_process_snapshot():
     plugin.state.altitude_m = 1067.0
     plugin.state.ias_kmh = 120.0
     plugin.state.flags = {"altitude_low": True}
+    plugin.state.proximity_events = [
+        {
+            "id": 3,
+            "kind": "enter",
+            "type": "fighter",
+            "category": "enemy_air",
+            "is_air": True,
+            "distance_m": 1400,
+            "compass": "N",
+            "clock": 12,
+            "text": "raw proximity text",
+        }
+    ]
+    plugin.state.situation = {"air_threats": 1}
     plugin._takeoff_radio_altitude_grace_active = True
 
     result = asyncio.run(plugin.dashboard_context())
@@ -381,6 +395,11 @@ def test_dashboard_context_includes_data_layer_process_snapshot():
     assert result["takeoff_protection"]["enter_m"] == 10.0
     assert result["takeoff_protection"]["exit_m"] == 40.0
     assert result["takeoff_protection"]["suppresses"] == ["low_alt_danger", "overspeed"]
+    assert result["awareness"]["proximity_event_count"] == 1
+    assert result["awareness"]["latest_proximity"]["target_type"] == "fighter"
+    assert result["awareness"]["latest_proximity"]["distance_m"] == 1400
+    assert result["awareness"]["situation"] == {"air_threats": 1}
+    assert "raw proximity text" not in repr(result["awareness"])
 
 
 def test_manual_pause_suppresses_detected_event_before_dispatcher():

@@ -398,6 +398,25 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "suppresses": ["low_alt_danger", "overspeed"] if active else [],
         }
 
+    def _awareness_snapshot(self, s: BattleState) -> dict[str, Any]:
+        events = [item for item in s.proximity_events if isinstance(item, dict)]
+        latest = events[-1] if events else {}
+        return {
+            "proximity_event_count": len(events),
+            "latest_proximity": {
+                "kind": latest.get("kind"),
+                "target_type": latest.get("type"),
+                "category": latest.get("category"),
+                "is_air": latest.get("is_air"),
+                "distance_m": latest.get("distance_m"),
+                "compass": latest.get("compass"),
+                "clock": latest.get("clock"),
+            }
+            if latest
+            else None,
+            "situation": dict(s.situation or {}),
+        }
+
     def _dashboard_payload(self, s: BattleState) -> dict[str, Any]:
         return {
             "enabled": self.cfg.enabled,
@@ -418,6 +437,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "data_layer": self.data_layer_manager.snapshot(),
             "telemetry": self._telemetry_snapshot(s),
             "takeoff_protection": self._takeoff_protection_snapshot(s),
+            "awareness": self._awareness_snapshot(s),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),
         }

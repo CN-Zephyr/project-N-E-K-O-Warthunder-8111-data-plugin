@@ -95,6 +95,34 @@ def test_parse_hud_notices_feed_without_losing_raw_contract():
     assert s.raw["hud_notices"]["feed"][0]["text"] == "水温过高"
 
 
+def test_parse_proximity_and_situation_from_v2_contract():
+    payload = _sample()
+    payload["proximity"] = {
+        "thresholds_m": {"vs_air": 3000},
+        "events": [
+            {
+                "id": 7,
+                "kind": "enter",
+                "type": "fighter",
+                "category": "enemy_air",
+                "is_air": True,
+                "distance_m": 1800,
+                "compass": "NW",
+                "clock": 10,
+                "text": "unsafe raw text must stay raw-only",
+            }
+        ],
+    }
+    payload["situation"] = {"air_threats": 1, "ground_threats": 0}
+
+    s = parse_telemetry(payload)
+
+    assert s.proximity_events == payload["proximity"]["events"]
+    assert s.proximity["thresholds_m"]["vs_air"] == 3000
+    assert s.situation == {"air_threats": 1, "ground_threats": 0}
+    assert s.raw["proximity"]["events"][0]["text"] == "unsafe raw text must stay raw-only"
+
+
 def test_v16_event_catalog_entries_are_not_marked_blocked():
-    for event_id in ("overspeed", "you_killed", "you_died"):
+    for event_id in ("overspeed", "you_killed", "you_died", "enemy_nearby", "air_threat_nearby", "enemy_on_six"):
         assert EVENT_CATALOG[event_id].blocked is False

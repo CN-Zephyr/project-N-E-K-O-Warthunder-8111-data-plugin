@@ -109,6 +109,11 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             "awards_items": 0,
             "awards_raw_text_fields": 0,
             "combat_feed_raw_text_fields": 0,
+            "proximity_events": 0,
+            "proximity_air_events": 0,
+            "proximity_rear_events": 0,
+            "proximity_raw_text_fields": 0,
+            "situation_frames": 0,
         },
     }
 
@@ -192,6 +197,31 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
     awards_feed = awards.get("feed") if isinstance(awards.get("feed"), list) else []
     coverage["awards_items"] += len(awards_feed)
     coverage["awards_raw_text_fields"] += _count_raw_text_items(awards_feed)
+
+    proximity = payload.get("proximity") if isinstance(payload.get("proximity"), dict) else {}
+    proximity_events = proximity.get("events") if isinstance(proximity.get("events"), list) else []
+    coverage["proximity_events"] += len(proximity_events)
+    coverage["proximity_raw_text_fields"] += _count_raw_text_items(proximity_events)
+    for item in proximity_events:
+        if not isinstance(item, dict):
+            continue
+        if item.get("is_air") is True:
+            coverage["proximity_air_events"] += 1
+        clock = item.get("clock")
+        relative_deg = item.get("relative_deg")
+        try:
+            rear_by_clock = int(clock) in {5, 6, 7}
+        except (TypeError, ValueError):
+            rear_by_clock = False
+        try:
+            rear_by_relative = abs(float(relative_deg)) >= 135.0
+        except (TypeError, ValueError):
+            rear_by_relative = False
+        if rear_by_clock or rear_by_relative:
+            coverage["proximity_rear_events"] += 1
+
+    if isinstance(payload.get("situation"), dict) and payload.get("situation"):
+        coverage["situation_frames"] += 1
 
 
 def _count_raw_text_items(items: list[Any]) -> int:
@@ -329,6 +359,15 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         and replay_chosen_events == 0
         and replay_dry_run_outputs == 0
     )
+    proximity_missing: list[str] = []
+    if int(coverage.get("proximity_events", 0)) == 0:
+        proximity_missing.append("proximity_events")
+    if int(coverage.get("proximity_air_events", 0)) == 0:
+        proximity_missing.append("proximity_air_events")
+    if int(coverage.get("proximity_rear_events", 0)) == 0:
+        proximity_missing.append("proximity_rear_events")
+    if int(coverage.get("situation_frames", 0)) == 0:
+        proximity_missing.append("situation")
 
     return {
         "numeric_safety": {
@@ -367,6 +406,14 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "profile_calibration": {
             "status": "ready_for_review" if not profile_missing else "needs_more_samples",
             "missing": profile_missing,
+        },
+        "proximity_awareness": {
+            "status": "ready_for_review" if not proximity_missing else "needs_more_samples",
+            "missing": proximity_missing,
+            "events": int(coverage.get("proximity_events", 0)),
+            "air_events": int(coverage.get("proximity_air_events", 0)),
+            "rear_events": int(coverage.get("proximity_rear_events", 0)),
+            "raw_text_fields": int(coverage.get("proximity_raw_text_fields", 0)),
         },
     }
 
@@ -444,6 +491,16 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         for action in profile_actions:
             add("profile_calibration", "油温/动力故障校准", "needs_more_samples", "P2", action)
 
+    proximity = checks.get("proximity_awareness") or {}
+    proximity_missing = set(proximity.get("missing") or [])
+    if proximity.get("status") == "needs_more_samples":
+        action = "capture_proximity_sample"
+        if "proximity_rear_events" in proximity_missing:
+            action = "capture_rear_threat_or_six_oclock_sample"
+        elif "proximity_air_events" in proximity_missing:
+            action = "capture_air_proximity_sample"
+        add("proximity_awareness", "V2 接近威胁感知", "needs_more_samples", "P2", action)
+
     add("runtime_output", "T-Output 真实开口背压", "needs_live_review", "P2", "verify_output_backpressure")
     add("runtime_output", "T-Kill-Coalesce 多杀合并", "needs_live_review", "P2", "verify_kill_coalescing")
 
@@ -461,6 +518,10 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
         "no_oil_overheat_notice_codes": "capture_oil_overheat_notice",
         "no_powertrain_failure_notice_codes": "wait_for_powertrain_profile_or_sample",
         "hud_notice_severity_unknown": "verify_hud_notice_severity_mapping",
+        "no_proximity_events": "capture_proximity_sample",
+        "no_proximity_air_events": "capture_air_proximity_sample",
+        "no_proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
+        "no_situation_frames": "capture_situation_sample",
     }
     return [mapping[gap] for gap in gaps if gap in mapping]
 
@@ -509,6 +570,14 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         gaps.append("no_manual_identity_frames")
     if coverage.get("awards_items", 0) == 0:
         gaps.append("no_awards_items")
+    if coverage.get("proximity_events", 0) == 0:
+        gaps.append("no_proximity_events")
+    if coverage.get("proximity_air_events", 0) == 0:
+        gaps.append("no_proximity_air_events")
+    if coverage.get("proximity_rear_events", 0) == 0:
+        gaps.append("no_proximity_rear_events")
+    if coverage.get("situation_frames", 0) == 0:
+        gaps.append("no_situation_frames")
 
     notice_codes = coverage.get("hud_notice_codes") or {}
     if notice_codes and notice_codes.get("oil_overheat", 0) == 0:
@@ -565,6 +634,10 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
         "involves_me_true",
         "active_players_max",
         "awards_items",
+        "proximity_events",
+        "proximity_air_events",
+        "proximity_rear_events",
+        "situation_frames",
     ):
         parts.append(f"{key}={coverage.get(key, 0)}")
     parts.append(f"combat_self_source={_fmt_counts(coverage.get('combat_self_source') or {})}")

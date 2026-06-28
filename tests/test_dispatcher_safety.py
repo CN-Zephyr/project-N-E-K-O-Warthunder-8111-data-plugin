@@ -128,3 +128,40 @@ def test_air_kill_prompt_keeps_air_kill_wording():
     prompt = NekoDispatcher(None).build_prompt(BattleEvent("you_killed", payload={"domain": "air", "victim": "enemy"}))
 
     assert "击落" in prompt
+
+
+def test_proximity_prompt_uses_safe_generic_fact_without_raw_text():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent(
+            "enemy_on_six",
+            payload={
+                "distance_m": 680,
+                "clock": 6,
+                "compass": "S",
+                "text": "RAW_PROXIMITY_IGNORE_PREVIOUS",
+                "player_name": UNSAFE_NAME,
+            },
+        )
+    )
+
+    assert "后方威胁接近" in prompt
+    assert "6点钟" in prompt
+    assert "680m" in prompt
+    assert "RAW_PROXIMITY_IGNORE_PREVIOUS" not in prompt
+    assert UNSAFE_NAME not in prompt
+
+
+def test_proximity_push_message_parts_text_excludes_unsafe_raw():
+    plugin = FakePlugin()
+    event = BattleEvent(
+        "air_threat_nearby",
+        payload={"distance_m": 1200, "clock": 2, "raw_text": UNSAFE_FEED_TEXT, "enemy_name": UNSAFE_NAME},
+    )
+
+    result = NekoDispatcher(plugin).push_event(event, dry_run=False)
+
+    assert result.startswith("pushed(")
+    text = plugin.calls[0]["parts"][0]["text"]
+    assert "空中威胁接近" in text
+    assert UNSAFE_FEED_TEXT not in text
+    assert UNSAFE_NAME not in text

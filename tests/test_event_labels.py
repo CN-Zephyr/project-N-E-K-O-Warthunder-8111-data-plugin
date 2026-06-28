@@ -9,7 +9,9 @@ def test_event_display_label_maps_internal_ids_to_plugin_language():
     assert display_event_id("you_killed") == "击杀确认"
     assert display_event_id("you_died") == "被击毁"
     assert display_event_id("low_alt_danger") == "低空危险"
+    assert display_event_id("enemy_on_six") == "后方威胁"
     assert display_event_key("overspeed/critical") == "超速风险 / critical"
+    assert display_event_key("air_threat_nearby/warning") == "空中威胁接近 / warning"
 
 
 def test_event_display_label_keeps_unknown_ids_debuggable():

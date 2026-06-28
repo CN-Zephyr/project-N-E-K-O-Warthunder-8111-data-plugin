@@ -8,6 +8,7 @@ from neko_warthunder.detectors._base import ConditionDetector, DetectorEngine
 from neko_warthunder.detectors.condition.flight_safety import build_condition_detectors
 from neko_warthunder.detectors.discrete.lifecycle import DeathDetector, KillDetector, SpawnDetector
 from neko_warthunder.detectors.discrete.notices import HudNoticeDetector
+from neko_warthunder.detectors.discrete.proximity import ProximityDetector
 
 
 def _st(flags=None):
@@ -336,3 +337,59 @@ def test_hud_notice_overheat_requires_live_vehicle():
         hud_notices=[{"id": 9, "code": "oil_overheat", "severity": "warning", "text": "油温过高"}],
     )
     assert det.feed(C.BattleState(in_battle=True, vehicle_valid=True), cur) is None
+
+
+def test_proximity_detector_emits_enemy_nearby_once_by_id():
+    det = ProximityDetector()
+    cur = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        proximity_events=[
+            {"id": 1, "kind": "enter", "type": "tank", "category": "enemy_ground", "distance_m": 950, "compass": "E"}
+        ],
+    )
+
+    ev = det.feed(C.BattleState(), cur)
+
+    assert ev is not None and ev.event_id == "enemy_nearby"
+    assert ev.payload == {
+        "kind": "enter",
+        "target_type": "tank",
+        "category": "enemy_ground",
+        "is_air": False,
+        "distance_m": 950.0,
+        "compass": "E",
+    }
+    assert det.feed(cur, cur) is None
+
+
+def test_proximity_detector_promotes_air_and_rear_threats():
+    det = ProximityDetector()
+    air = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        proximity_events=[{"id": 2, "is_air": True, "distance_m": 1800, "clock": 2}],
+    )
+    rear = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        proximity_events=[
+            {"id": 2, "is_air": True, "distance_m": 1800, "clock": 2},
+            {"id": 3, "is_air": True, "distance_m": 700, "clock": 6, "text": "unsafe raw proximity text"},
+        ],
+    )
+
+    air_event = det.feed(C.BattleState(), air)
+    rear_event = det.feed(air, rear)
+
+    assert air_event is not None and air_event.event_id == "air_threat_nearby"
+    assert rear_event is not None and rear_event.event_id == "enemy_on_six"
+    assert "text" not in rear_event.payload
+
+
+def test_proximity_detector_suppresses_dead_or_invalid_vehicle():
+    det = ProximityDetector()
+    event = {"id": 1, "is_air": True, "distance_m": 1200}
+
+    assert det.feed(C.BattleState(), C.BattleState(in_battle=True, vehicle_valid=False, proximity_events=[event])) is None
+    assert det.feed(C.BattleState(), C.BattleState(in_battle=True, vehicle_valid=True, dead=True, proximity_events=[event])) is None

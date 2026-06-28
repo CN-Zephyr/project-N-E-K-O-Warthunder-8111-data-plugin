@@ -57,6 +57,12 @@ def build_checks(
             ["uv", "run", "python", "tools/replay_gate.py"],
             review_hint="replay=true must not emit candidates, prompts, or push_message output",
         ),
+        Check(
+            "proximity awareness gate",
+            plugin,
+            ["uv", "run", "python", "tools/proximity_gate.py"],
+            review_hint="V2 proximity.events prompts must stay generic/safe and obey Arbiter gating",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():

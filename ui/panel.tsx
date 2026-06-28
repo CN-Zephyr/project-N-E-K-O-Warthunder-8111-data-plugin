@@ -94,6 +94,20 @@ type ObserveState = {
   observability_enabled?: boolean
 }
 
+type AwarenessState = {
+  proximity_event_count?: number
+  latest_proximity?: {
+    kind?: string | null
+    target_type?: string | null
+    category?: string | null
+    is_air?: boolean | null
+    distance_m?: number | null
+    compass?: string | null
+    clock?: number | null
+  } | null
+  situation?: Record<string, unknown>
+}
+
 type DashboardState = {
   enabled?: boolean
   dry_run?: boolean
@@ -113,6 +127,7 @@ type DashboardState = {
   data_layer?: DataLayerState
   telemetry?: TelemetryState
   takeoff_protection?: TakeoffProtectionState
+  awareness?: AwarenessState
   safety?: SafetyState
   observe?: ObserveState
 }
@@ -287,6 +302,8 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
   const dataLayer = state.data_layer || {}
   const telemetry = state.telemetry || {}
   const takeoffProtection = state.takeoff_protection || {}
+  const awareness = state.awareness || {}
+  const latestProximity = awareness.latest_proximity || {}
   const observe = state.observe || {}
   const lastEvent = observe.last_event
   const lastDecision = observe.last_decision
@@ -422,6 +439,22 @@ export default function NekoWarthunderPanel(props: PluginSurfaceProps<DashboardS
               { key: "takeoff.exit_m", label: "解除阈值", value: numberText(takeoffProtection.exit_m, "m") },
               { key: "takeoff.low_alt_grace_seconds", label: "时间保护", value: numberText(takeoffProtection.low_alt_grace_seconds, "s") },
               { key: "takeoff.suppresses", label: "当前压制", value: listText(takeoffProtection.suppresses) },
+            ]}
+          />
+        </Card>
+
+        <Card title="接近感知">
+          <KeyValue
+            items={[
+              { key: "awareness.proximity_event_count", label: "接近事件数", value: text(awareness.proximity_event_count) },
+              { key: "awareness.latest.kind", label: "最近类型", value: text(latestProximity.kind) },
+              { key: "awareness.latest.target_type", label: "目标类型", value: text(latestProximity.target_type) },
+              { key: "awareness.latest.category", label: "目标分类", value: text(latestProximity.category) },
+              { key: "awareness.latest.is_air", label: "空中目标", value: badge(latestProximity.is_air ?? undefined) },
+              { key: "awareness.latest.distance_m", label: "距离", value: numberText(latestProximity.distance_m, "m") },
+              { key: "awareness.latest.compass", label: "方位", value: text(latestProximity.compass) },
+              { key: "awareness.latest.clock", label: "钟点", value: latestProximity.clock ? `${latestProximity.clock}点钟` : "-" },
+              { key: "awareness.situation", label: "态势摘要", value: text(JSON.stringify(awareness.situation || {})) },
             ]}
           />
         </Card>

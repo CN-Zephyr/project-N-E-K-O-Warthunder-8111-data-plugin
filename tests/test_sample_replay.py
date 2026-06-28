@@ -76,6 +76,21 @@ def _coverage_frame() -> dict:
         },
         "hud_notices": {"feed": [{"id": 1, "code": "engine_overheat", "severity": "critical", "text": "raw notice"}]},
         "awards": {"feed": [{"id": 1, "code": "final_blow", "text": "raw award"}]},
+        "proximity": {
+            "events": [
+                {
+                    "id": 1,
+                    "kind": "enter",
+                    "type": "fighter",
+                    "category": "enemy_air",
+                    "is_air": True,
+                    "distance_m": 1600,
+                    "clock": 6,
+                    "text": "raw proximity",
+                }
+            ]
+        },
+        "situation": {"air_threats": 1},
     }
 
 
@@ -88,6 +103,8 @@ def _coverage_gap_frame() -> dict:
     ]
     frame["hud_notices"] = {"feed": [{"id": 2, "code": "engine_overheat", "text": "unsafe notice"}]}
     frame.pop("awards", None)
+    frame.pop("proximity", None)
+    frame.pop("situation", None)
     return frame
 
 
@@ -172,11 +189,16 @@ def test_sample_replay_reports_safe_contract_coverage_without_raw_text():
     assert coverage["hud_notice_codes"]["engine_overheat"] == 1
     assert coverage["hud_notice_severities"]["critical"] == 1
     assert coverage["awards_items"] == 1
+    assert coverage["proximity_events"] == 1
+    assert coverage["proximity_air_events"] == 1
+    assert coverage["proximity_rear_events"] == 1
+    assert coverage["situation_frames"] == 1
     assert "coverage:" in text
     assert "RawVictim" not in text
     assert "RawKiller" not in text
     assert "raw notice" not in text
     assert "raw award" not in text
+    assert "raw proximity" not in text
 
 
 def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
@@ -195,6 +217,10 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
         "combat_feed_missing_ownership_fields",
         "no_manual_identity_frames",
         "no_awards_items",
+        "no_proximity_events",
+        "no_proximity_air_events",
+        "no_proximity_rear_events",
+        "no_situation_frames",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",
@@ -202,6 +228,7 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
     assert "no_overspeed_critical_flags" in text
     assert "no_manual_identity_frames" in text
     assert "no_awards_items" in text
+    assert "no_proximity_events" in text
     assert "no_oil_overheat_notice_codes" in text
     assert "no_powertrain_failure_notice_codes" in text
     assert "LegacyKiller" not in text
@@ -283,6 +310,8 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["replay_degrade"]["output_blocked"] is True
     assert checks["replay_degrade"]["prompt_allowed"] is False
     assert checks["profile_calibration"]["status"] == "needs_more_samples"
+    assert checks["proximity_awareness"]["status"] == "ready_for_review"
+    assert checks["proximity_awareness"]["events"] == 1
 
 
 def test_sample_replay_replay_true_contract_is_suppressed_without_output():
@@ -396,6 +425,13 @@ def test_sample_replay_session_summary_includes_prioritized_live_test_plan():
         "action": "wait_for_powertrain_profile_or_sample",
     } in plan
     assert {
+        "area": "proximity_awareness",
+        "label": "V2 接近威胁感知",
+        "status": "needs_more_samples",
+        "priority": "P2",
+        "action": "capture_rear_threat_or_six_oclock_sample",
+    } in plan
+    assert {
         "area": "runtime_output",
         "label": "T-Output 真实开口背压",
         "status": "needs_live_review",
@@ -451,11 +487,16 @@ def test_local_20260620_sample_replay_if_present():
     assert report["coverage"]["awards_items"] == 1932
     assert report["flags"]["overspeed_warn"] == 2
     assert report["coverage"]["hud_notice_codes"]["engine_overheat"] == 414
+    assert report["coverage"]["proximity_events"] == 4615
+    assert report["coverage"]["proximity_air_events"] == 4615
+    assert report["coverage"]["proximity_rear_events"] == 0
+    assert report["coverage"]["situation_frames"] == 9970
     assert "no_manual_identity_frames" not in report["coverage_gaps"]
     assert report["coverage_gaps"] == [
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
+        "no_proximity_rear_events",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",

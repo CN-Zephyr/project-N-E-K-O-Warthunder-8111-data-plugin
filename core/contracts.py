@@ -42,6 +42,7 @@ CAT_SAFETY_CRITICAL = "safety_critical"      # stall / low_alt / overspeed（触
 CAT_SAFETY_IMPORTANT = "safety_important"    # overheat（不触发 CRITICAL_RISK、不抢占）
 CAT_SAFETY_MINOR = "safety_minor"            # low_fuel
 CAT_COMBAT_KILL = "combat_kill"              # you_killed
+CAT_MAP_AWARENESS = "map_awareness"          # proximity / situation awareness（v2，低优先级）
 CAT_CHATTER = "chatter"                      # 陪伴闲聊（v1 暂不主动产）
 
 SEV_WARNING = 2
@@ -78,6 +79,9 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "overspeed":      EventSpec("overspeed", CAT_SAFETY_CRITICAL, 8, True, 15, 6, 7),
     "overheat":       EventSpec("overheat", CAT_SAFETY_IMPORTANT, 6, False, 30, 5, SEV_IMPORTANT),
     "low_fuel":       EventSpec("low_fuel", CAT_SAFETY_MINOR, 4, False, -1, 3, 4),
+    "enemy_nearby":   EventSpec("enemy_nearby", CAT_MAP_AWARENESS, 2, False, 25, 2, 2),
+    "air_threat_nearby": EventSpec("air_threat_nearby", CAT_MAP_AWARENESS, 3, False, 20, 3, 3),
+    "enemy_on_six":   EventSpec("enemy_on_six", CAT_MAP_AWARENESS, 4, False, 20, 4, 4),
     "you_killed":     EventSpec("you_killed", CAT_COMBAT_KILL, 5, False, 8, 3, 3),
     "you_died":       EventSpec("you_died", CAT_LIFECYCLE, 10, True, -1, SEV_CRITICAL, SEV_CRITICAL),
     "spawn":          EventSpec("spawn", CAT_LIFECYCLE, 5, False, -1, SEV_LIFECYCLE, SEV_LIFECYCLE),
@@ -88,8 +92,8 @@ EVENT_CATALOG: dict[str, EventSpec] = {
 SCENARIO_GATING: dict[str, frozenset[str]] = {
     OUT_OF_BATTLE: frozenset({CAT_CHATTER}),
     SPAWNING:      frozenset({CAT_LIFECYCLE, CAT_COMBAT_KILL}),       # 放 spawn/death + 明确归属击杀；安全事件仍受 grace 抑制
-    IN_FLIGHT:     frozenset({CAT_LIFECYCLE, CAT_SAFETY_CRITICAL, CAT_SAFETY_IMPORTANT, CAT_SAFETY_MINOR, CAT_COMBAT_KILL, CAT_CHATTER}),
-    COMBAT_STRESS: frozenset({CAT_LIFECYCLE, CAT_SAFETY_CRITICAL, CAT_SAFETY_IMPORTANT, CAT_COMBAT_KILL}),
+    IN_FLIGHT:     frozenset({CAT_LIFECYCLE, CAT_SAFETY_CRITICAL, CAT_SAFETY_IMPORTANT, CAT_SAFETY_MINOR, CAT_COMBAT_KILL, CAT_MAP_AWARENESS, CAT_CHATTER}),
+    COMBAT_STRESS: frozenset({CAT_LIFECYCLE, CAT_SAFETY_CRITICAL, CAT_SAFETY_IMPORTANT, CAT_COMBAT_KILL, CAT_MAP_AWARENESS}),
     CRITICAL_RISK: frozenset({CAT_LIFECYCLE, CAT_SAFETY_CRITICAL}),  # 只放危急本身 + 死亡
     DEAD:          frozenset({CAT_LIFECYCLE, CAT_CHATTER}),
     BATTLE_ENDED:  frozenset({CAT_LIFECYCLE, CAT_CHATTER}),
@@ -222,6 +226,9 @@ class BattleState:
     hud_events: list[dict[str, Any]] = field(default_factory=list)
     hud_notices: list[dict[str, Any]] = field(default_factory=list)
     combat: dict[str, Any] = field(default_factory=dict)
+    proximity: dict[str, Any] = field(default_factory=dict)
+    proximity_events: list[dict[str, Any]] = field(default_factory=list)
+    situation: dict[str, Any] = field(default_factory=dict)
     mission_status: str | None = None
 
     # 派生（本插件算）

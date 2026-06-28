@@ -107,3 +107,41 @@ def test_window_flush_dropped_if_scenario_changed():
     c, chain = arb.decide([], DEAD, 1013.0)                         # 窗口到点但场景已切 DEAD
     assert c is None
     assert any("scenario_gated_on_flush" in x["reason"] for x in chain)
+
+
+def test_map_awareness_allowed_in_flight_but_low_priority_dropped_in_combat_stress():
+    in_flight, _ = _arb().decide([BattleEvent("enemy_nearby", level="warning")], IN_FLIGHT, 1000.0)
+    combat, chain = _arb().decide([BattleEvent("enemy_nearby", level="warning")], COMBAT_STRESS, 1000.0)
+
+    assert in_flight is not None and in_flight.event_id == "enemy_nearby"
+    assert combat is None
+    assert any(c["result"] == "dropped" and "map_low_priority" in c["reason"] for c in chain)
+
+
+def test_air_and_rear_threats_allowed_in_combat_stress():
+    air, _ = _arb().decide([BattleEvent("air_threat_nearby", level="warning")], COMBAT_STRESS, 1000.0)
+    rear, _ = _arb().decide([BattleEvent("enemy_on_six", level="warning")], COMBAT_STRESS, 1000.0)
+
+    assert air is not None and air.event_id == "air_threat_nearby"
+    assert rear is not None and rear.event_id == "enemy_on_six"
+
+
+def test_map_awareness_does_not_compete_with_critical_risk():
+    chosen, chain = _arb().decide(
+        [BattleEvent("enemy_on_six", level="warning"), BattleEvent("low_alt_danger", level="critical")],
+        CRITICAL_RISK,
+        1000.0,
+    )
+
+    assert chosen is not None and chosen.event_id == "low_alt_danger"
+    assert any(c["event_id"] == "enemy_on_six" and c["result"] == "dropped" for c in chain)
+
+
+def test_map_awareness_suppressed_in_spawning_and_dead():
+    spawning, spawning_chain = _arb().decide([BattleEvent("air_threat_nearby", level="warning")], SPAWNING, 1000.0)
+    dead, dead_chain = _arb().decide([BattleEvent("enemy_on_six", level="warning")], DEAD, 1000.0)
+
+    assert spawning is None
+    assert dead is None
+    assert any(c["reason"] == "scenario_gated(SPAWNING)" for c in spawning_chain)
+    assert any(c["reason"] == "scenario_gated(DEAD)" for c in dead_chain)

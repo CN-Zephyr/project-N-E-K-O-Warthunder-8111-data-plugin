@@ -24,6 +24,9 @@ _INTENT: dict[str, str] = {
     "overspeed": "速度过头，提醒 {MASTER_NAME} 收油门改出、别把翼子拉掉",
     "overheat": "发动机过热，建议 {MASTER_NAME} 收油门散热",
     "low_fuel": "油不多了，提醒 {MASTER_NAME} 留意返航/续航",
+    "enemy_nearby": "附近有敌方目标接近，提醒 {MASTER_NAME} 保持观察、别被偷",
+    "air_threat_nearby": "有空中威胁接近，提醒 {MASTER_NAME} 抬头看方位",
+    "enemy_on_six": "后方有威胁接近，提醒 {MASTER_NAME} 不要让对面贴住",
     "you_killed": "为 {MASTER_NAME} 刚才的击杀庆祝/调侃一句",
     "you_died": "{MASTER_NAME} 刚才阵亡/载具损失了，按事实简短共情安慰一句",
     "spawn": "出场跟 {MASTER_NAME} 打个招呼、就位",
@@ -54,6 +57,7 @@ def _fact_line(event: BattleEvent) -> str:
     bits: list[str] = []
     kill_fact = _kill_fact(event.event_id, p)
     death_fact = _death_fact(event.event_id, p)
+    proximity_fact = _proximity_fact(event.event_id, p)
     has_radio_altitude = p.get("radio_altitude_m") is not None
     order = [
         ("ias_kmh", "IAS {:.0f}km/h"),
@@ -70,6 +74,8 @@ def _fact_line(event: BattleEvent) -> str:
         bits.append(kill_fact)
     if death_fact:
         bits.append(death_fact)
+    if proximity_fact:
+        bits.append(proximity_fact)
     if has_radio_altitude:
         try:
             bits.append("AGL {:.0f}m".format(p["radio_altitude_m"]))
@@ -115,6 +121,33 @@ def _death_fact(event_id: str, payload: dict[str, Any]) -> str:
             return "己方空中载具被击落"
         return "己方载具被击毁"
     return "己方载具损失"
+
+
+def _proximity_fact(event_id: str, payload: dict[str, Any]) -> str:
+    if event_id not in {"enemy_nearby", "air_threat_nearby", "enemy_on_six"}:
+        return ""
+    if event_id == "enemy_on_six":
+        base = "后方威胁接近"
+    elif event_id == "air_threat_nearby":
+        base = "空中威胁接近"
+    else:
+        base = "敌方目标接近"
+
+    detail: list[str] = []
+    clock = payload.get("clock")
+    if isinstance(clock, int) and 1 <= clock <= 12:
+        detail.append(f"{clock}点钟")
+    elif payload.get("compass"):
+        detail.append(f"{payload['compass']}方向")
+
+    distance = payload.get("distance_m")
+    try:
+        if distance is not None:
+            detail.append("距离{:.0f}m".format(float(distance)))
+    except (TypeError, ValueError):
+        pass
+
+    return base if not detail else f"{base}（{'，'.join(detail)}）"
 
 
 class NekoDispatcher:

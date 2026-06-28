@@ -37,8 +37,9 @@ class Arbiter:
         # [1] Scenario 门控 + [2] cooldown 去重
         survivors: list[BattleEvent] = []
         for c in candidates:
-            if not category_allowed(scenario, c.category):
-                chain.append(_rec(c, "dropped", f"scenario_gated({scenario})"))
+            allowed, gate_reason = _event_allowed(c, scenario)
+            if not allowed:
+                chain.append(_rec(c, "dropped", gate_reason))
                 continue
             cd = c.spec.cooldown_seconds
             last_at, last_level = self._last_fired.get(c.event_id, (-1e9, ""))
@@ -97,8 +98,9 @@ class Arbiter:
             chosen = self._kill_window
             self._kill_window = None
             self._kill_window_started_at = 0.0
-            if not category_allowed(scenario, chosen.category):
-                chain.append(_rec(chosen, "dropped", f"scenario_gated_on_flush({scenario})"))
+            allowed, gate_reason = _event_allowed(chosen, scenario)
+            if not allowed:
+                chain.append(_rec(chosen, "dropped", gate_reason.replace("scenario_gated", "scenario_gated_on_flush", 1)))
                 return None, chain
             self._fire(chosen, now, critical=False)
             chain.append(_rec(chosen, "spoken", "kill_coalesced"))
@@ -108,8 +110,9 @@ class Arbiter:
             chosen = self._window_best
             self._window_best = None
             # flush 时按【当前】scenario 重新门控：缓冲期内场景可能已切到 DEAD/BATTLE_ENDED/OUT_OF_BATTLE
-            if not category_allowed(scenario, chosen.category):
-                chain.append(_rec(chosen, "dropped", f"scenario_gated_on_flush({scenario})"))
+            allowed, gate_reason = _event_allowed(chosen, scenario)
+            if not allowed:
+                chain.append(_rec(chosen, "dropped", gate_reason.replace("scenario_gated", "scenario_gated_on_flush", 1)))
                 return None, chain
             self._fire(chosen, now, critical=False)
             chain.append(_rec(chosen, "spoken", "window_flush"))
@@ -160,6 +163,14 @@ def _rank(e: BattleEvent) -> tuple[int, int, float]:
 
 def _top(events: list[BattleEvent]) -> BattleEvent:
     return max(events, key=_rank)
+
+
+def _event_allowed(event: BattleEvent, scenario: str) -> tuple[bool, str]:
+    if not category_allowed(scenario, event.category):
+        return False, f"scenario_gated({scenario})"
+    if scenario == "COMBAT_STRESS" and event.event_id == "enemy_nearby":
+        return False, "scenario_gated(COMBAT_STRESS:map_low_priority)"
+    return True, ""
 
 
 def _rec(e: BattleEvent, result: str, reason: str) -> dict[str, Any]:
