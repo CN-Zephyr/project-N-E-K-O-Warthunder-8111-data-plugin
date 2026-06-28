@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-- 离线逻辑基线：`253/253 passed`。
+- 离线逻辑基线：`254/254 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
@@ -31,11 +31,18 @@ uv run python tools\release_readiness.py
 uv run python tools\release_readiness.py --run
 ```
 
+默认 `--run` 是快门禁：即使本机存在 ignored 的 `local_samples/` 大样本，也不会自动跑样本报告。需要把样本证据一起纳入时显式运行：
+
+```powershell
+uv run python tools\release_readiness.py --run --include-local-sample
+```
+
 机器可读输出：
 
 ```powershell
 uv run python tools\release_readiness.py --json
 uv run python tools\release_readiness.py --run --json
+uv run python tools\release_readiness.py --run --include-local-sample --json
 ```
 
 最终真机前交接包：
@@ -86,7 +93,7 @@ This output separates `sample_unproven_items`, `blocked_release_items`, `remaini
 - `tools/rc_handoff_report.py`
 - `tools/final_smoke_packet.py`
 - 可选：宿主存在时运行 `plugin check`
-- 可选：本地样本存在时运行 `sample_replay`、`offline_report`、`live_test_plan`
+- 可选：加 `--include-local-sample` 时运行 `sample_replay`、`offline_report`、`live_test_plan` 等本地样本检查
 
 ## 已知限制
 

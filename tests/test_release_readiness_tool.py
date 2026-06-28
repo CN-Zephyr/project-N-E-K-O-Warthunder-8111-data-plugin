@@ -16,9 +16,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         host = root / "N.E.K.O"
-        sample = root / "plugin" / "local_samples" / "data_process_20260620"
         host.mkdir()
-        sample.mkdir(parents=True)
 
         checks = release_readiness.build_checks(plugin_root=root / "plugin", host_root=host)
         names = [check.name for check in checks]
@@ -39,14 +37,6 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "RC handoff report",
             "synthetic replay",
             "plugin check",
-            "local sample replay",
-            "V2 readiness with local sample",
-            "V2 release matrix with local sample",
-            "V2 completion gate with local sample",
-            "RC handoff report with local sample",
-            "offline readiness report",
-            "rc gap summary",
-            "live test plan",
             "final smoke packet",
         ]
         assert checks[2].cmd == ["uv", "run", "python", "tools/rc_audit.py"]
@@ -61,6 +51,34 @@ def test_release_readiness_plan_lists_offline_release_gates():
         assert checks[12].cmd == ["uv", "run", "python", "tools/rc_handoff_report.py", "--no-sample"]
         assert checks[13].cmd == ["uv", "run", "python", "tools/replay.py"]
         assert checks[-1].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py", "--offline-gates-passed"]
+
+
+def test_release_readiness_can_include_local_sample_checks_explicitly():
+    from neko_warthunder.tools import release_readiness
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        sample = root / "plugin" / "local_samples" / "data_process_20260620"
+        sample.mkdir(parents=True)
+
+        checks = release_readiness.build_checks(
+            plugin_root=root / "plugin",
+            host_root=root / "missing-host",
+            include_local_sample=True,
+        )
+        names = [check.name for check in checks]
+
+        assert names[-9:] == [
+            "local sample replay",
+            "V2 readiness with local sample",
+            "V2 release matrix with local sample",
+            "V2 completion gate with local sample",
+            "RC handoff report with local sample",
+            "offline readiness report",
+            "rc gap summary",
+            "live test plan",
+            "final smoke packet",
+        ]
 
 
 def test_release_readiness_plan_does_not_require_running_services():

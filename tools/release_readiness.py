@@ -40,6 +40,7 @@ def build_checks(
     plugin_root: str | pathlib.Path,
     host_root: str | pathlib.Path | None = None,
     sample_rel: str = "local_samples/data_process_20260620",
+    include_local_sample: bool = False,
 ) -> list[Check]:
     plugin = pathlib.Path(plugin_root).resolve()
     host = pathlib.Path(host_root).resolve() if host_root is not None else plugin.parent / "N.E.K.O"
@@ -124,7 +125,7 @@ def build_checks(
                 ["uv", "run", "python", "-m", "plugin.neko_plugin_cli.cli", "check", str(plugin)],
             )
         )
-    if sample.exists():
+    if include_local_sample and sample.exists():
         checks.extend(
             [
                 Check(
@@ -403,14 +404,27 @@ def main(argv: list[str] | None = None) -> int:
         help="N.E.K.O host repository root for optional plugin check.",
     )
     parser.add_argument("--run", action="store_true", help="Execute checks instead of printing the plan.")
+    parser.add_argument(
+        "--include-local-sample",
+        action="store_true",
+        help="Also run local sample reports when local_samples/data_process_20260620 exists.",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args(argv)
 
-    checks = build_checks(plugin_root=args.plugin_root, host_root=args.host_root)
-    sample_summary = _load_sample_summary(args.plugin_root, "local_samples/data_process_20260620")
+    checks = build_checks(
+        plugin_root=args.plugin_root,
+        host_root=args.host_root,
+        include_local_sample=args.include_local_sample,
+    )
+    sample_summary = (
+        _load_sample_summary(args.plugin_root, "local_samples/data_process_20260620")
+        if args.include_local_sample
+        else None
+    )
     sample_root = pathlib.Path(args.plugin_root).resolve() / "local_samples/data_process_20260620"
     v2_summary = build_v2_readiness(
-        sample_root=sample_root if sample_root.exists() else None,
+        sample_root=sample_root if args.include_local_sample and sample_root.exists() else None,
         player_name="tl0sr2",
     )
     payload = (

@@ -20,7 +20,7 @@
 - `T-V2-Completion-Gate: V2 completion gate` is complete. `tools/v2_completion_gate.py` now aggregates V2 readiness, release matrix, and output policy into one pass/fail handoff gate: code/offline scope may be complete while live-only evidence remains explicitly pending.
 - `T-Final-Smoke-Packet: final smoke packet` is complete. `tools/final_smoke_packet.py` now renders the last live-smoke handoff packet with go/no-go, required commands, v1/v2 handoff status, V2 live-evidence gaps, a per-capability V2 matrix with observed/triggered counts and real-output policy, remaining live actions, and the dry-run/raw-text safety boundary.
 - `T-RC-Handoff-Report: maintainer handoff report` is complete. `tools/rc_handoff_report.py` now renders a human-readable v1/v2 RC summary that combines release scope, V2 completion, final-smoke go/no-go, the dry-run/raw-text safety boundary, and remaining live-evidence actions without depending on War Thunder or host services.
-- `T-Release-Readiness: v1 RC offline gate aggregator` is complete. `tools/release_readiness.py` runs deterministic no-host checks and reports whether the branch is ready for the final live smoke. Its `release_scope` now separates offline gate status, free-text real-output blockers, sample-unproven items, and next live actions; its `handoff` / `handoff_status` combines v1 release state with V2 code/offline/live-evidence status for maintainer handoff.
+- `T-Release-Readiness: v1 RC offline gate aggregator` is complete. `tools/release_readiness.py` runs deterministic no-host checks and reports whether the branch is ready for the final live smoke. It now keeps local sample report generation explicit via `--include-local-sample`, so the default `--run` remains a fast release gate even when large ignored samples exist locally. Its `release_scope` separates offline gate status, free-text real-output blockers, sample-unproven items, and next live actions; its `handoff` / `handoff_status` combines v1 release state with V2 code/offline/live-evidence status for maintainer handoff.
 - `T-Observe: runtime decision timeline` is implemented in lightweight form: always-on last summaries plus an opt-in in-memory debug ring buffer.
 - `T-Live: live monitor summary tool` is complete for safe, read-only runtime summaries during real-machine tests.
 - `T-Output: output backpressure guard` is complete for real `push_message` calls. It suppresses same-or-lower-priority real pushes during `output_backpressure_seconds` while allowing higher-priority events through. Real battle-event pushes also use `coalesce_key=neko_warthunder:battle_event` so the host proactive queue can replace stale unreleased battle cues with the newest event. Events older than `output_event_max_age_seconds` are dropped before real push with `event_expired`.
@@ -29,7 +29,7 @@
 - L9 takeoff tuning is implemented with radio-altitude-first semantics. `radio_altitude_m` is the preferred AGL source for low-altitude/takeoff decisions; `altitude_m` is treated as MSL/field-elevation context when AGL is available.
 - Takeoff/rollout protection keeps the original `takeoff_low_alt_grace_seconds=45` window and adds `takeoff_radio_altitude_enter_m=10` / `takeoff_radio_altitude_exit_m=40` hysteresis. It suppresses `low_alt_danger` during takeoff grace and also suppresses runway-roll `overspeed` while radio-altitude protection is active. Stall, overheat, low_fuel, and death events are not suppressed by this guard.
 - Hosted UI panel has completed a first information-architecture pass: connection status, battle status, safety controls, latest decision, and latest output are grouped in Chinese.
-- Logic self-check currently passes: `253/253`.
+- Logic self-check currently passes: `254/254`.
 - Real-machine smoke passed on 2026-06-21 and 2026-06-23 for Hosted UI context/actions, safety pause/resume, spawn, overspeed warning/critical, low_fuel warning/critical, low-altitude warning/critical, stall warning/critical, overheat warning/critical, identity manual seam, owned kill/death ownership, you_killed / you_died Arbiter decisions, dry-run dispatcher output, and `dry_run=false` push output.
 - 2026-06-23: plugin status reporting was deduped and throttled to avoid host-side `report_status` / ZMQ backpressure spam while still reporting immediately on real state changes.
 - 2026-06-24 live `dry_run=false` testing showed the plugin can push events quickly while the host reply may arrive late and mix older event context. Mitigations now include plugin-side real-output backpressure, host proactive-queue coalescing via `coalesce_key`, and real-push TTL expiry; the next live test should verify they reduce stale queued replies without blocking critical interrupts.
@@ -75,6 +75,7 @@ Run the full offline gate from the standalone plugin repository root:
 ```powershell
 uv run python tools\preflight.py --run
 uv run python tools\release_readiness.py --run
+uv run python tools\release_readiness.py --run --include-local-sample  # optional slow sample evidence
 ```
 
 For single-check reruns or troubleshooting:
@@ -86,9 +87,9 @@ uv run pytest -c tests\pytest.ini tests -q
 
 Notes:
 
-- `tools/release_readiness.py --run` is the no-host gate aggregator. It runs deterministic checks, including RC docs audit, release defaults gate, V2 readiness summary, V2 release matrix, V2 output policy gate, V2 completion gate, and RC handoff report, and returns `ready_for_final_live_smoke` only when the branch is ready for the final focused live smoke.
+- `tools/release_readiness.py --run` is the no-host gate aggregator. It runs deterministic checks, including RC docs audit, release defaults gate, V2 readiness summary, V2 release matrix, V2 output policy gate, V2 completion gate, and RC handoff report, and returns `ready_for_final_live_smoke` only when the branch is ready for the final focused live smoke. Use `--include-local-sample` only when you intentionally want the slower local sample replay/report checks included.
 - `tools/preflight.py --run` also runs the free-text, replay, deferred HUD, and proximity release gates, plugin check, synthetic replay, local sample replay, the offline readiness report, RC gap summary, and the live test plan when the relevant local paths exist. Use `--report-output <path>` to save the Markdown report; parent directories are created automatically. The printed preflight plan points local sample replay users to `session_summary`, the Markdown / JSON report, the machine-readable gap summary, and the live operation plan as review entries.
-- `tests/run_logic_tests.py` is the no-host logic self-check and should report `253/253 passed`.
+- `tests/run_logic_tests.py` is the no-host logic self-check and should report `254/254 passed`.
 - The standalone pytest entry uses `tests/pytest.ini` so pytest does not import the host SDK-dependent plugin entrypoint while collecting tests.
 - If an older handoff note still shows the pre-T4 test count, treat it as stale unless it explicitly refers to an older test entry point.
 - The real-machine checklist is in `docs/真机验证-checklist.md`; it now includes the 2026-06-21 dry-run smoke result, the next unified live-test order, and links to the 2026-06-20 offline sample replay report in `docs/样本回放-20260620.md`.
