@@ -521,6 +521,10 @@ class NekoWarthunderPlugin(NekoPluginBase):
             "data_layer": self.data_layer_manager.snapshot(),
             "telemetry": self._telemetry_snapshot(s),
             "takeoff_protection": self._takeoff_protection_snapshot(s),
+            "output_policy": {
+                "v2_live_verified_real_output_enabled": self.cfg.v2_live_verified_real_output_enabled,
+                "v2_live_evidence_gated_events": ["enemy_on_six", "tailing_risk", "ground_target_nearby"],
+            },
             "awareness": self._awareness_snapshot(s),
             "safety": self.safety.snapshot(),
             "observe": self.timeline.snapshot(),

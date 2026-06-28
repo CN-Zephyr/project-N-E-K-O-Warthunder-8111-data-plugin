@@ -70,6 +70,8 @@ def build_packet(
         "safety_boundary": {
             "dry_run_first": True,
             "free_text_real_output_allowed": bool(release_scope.get("free_text_real_output_allowed")),
+            "v2_live_verified_real_output_enabled": False,
+            "v2_live_evidence_gated_events": ["enemy_on_six", "tailing_risk", "ground_target_nearby"],
             "raw_text_printed": False,
             "do_not_claim_live_only_without_sample": True,
         },
@@ -117,7 +119,7 @@ def render_text(packet: dict[str, Any]) -> str:
         [
             "",
             "remaining_live_actions: " + (", ".join(packet.get("remaining_live_actions") or []) or "-"),
-            "safety: dry_run_first=true, raw_text_printed=false",
+            "safety: dry_run_first=true, v2_live_verified_real_output_enabled=false, raw_text_printed=false",
         ]
     )
     return "\n".join(lines) + "\n"

@@ -16,6 +16,7 @@ from .runtime_timeline import RuntimeTimeline
 from .text_safety import sanitize_event_payload
 
 BATTLE_EVENT_COALESCE_KEY = "neko_warthunder:battle_event"
+V2_LIVE_EVIDENCE_GATED_EVENTS = frozenset({"enemy_on_six", "tailing_risk", "ground_target_nearby"})
 
 # 每个事件的"要求行"意图（不写最终台词，台词归角色 LLM）。
 _INTENT: dict[str, str] = {
@@ -52,6 +53,11 @@ def _output_event_max_age_seconds(plugin: Any) -> float:
         return max(0.0, float(getattr(cfg, "output_event_max_age_seconds", 8.0)))
     except (TypeError, ValueError):
         return 8.0
+
+
+def _v2_live_verified_real_output_enabled(plugin: Any) -> bool:
+    cfg = getattr(plugin, "cfg", None)
+    return bool(getattr(cfg, "v2_live_verified_real_output_enabled", False))
 
 
 def _fact_line(event: BattleEvent) -> str:
@@ -220,6 +226,23 @@ class NekoDispatcher:
                     safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
                 )
             return f"dry_run(event={event.event_id}/{event.edge}/{event.level}, prio={event.priority}, preempt={event.preempt_eligible})"
+        if self._is_v2_live_evidence_gated(event):
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_suppressed",
+                    outcome="dropped",
+                    reason="v2_live_evidence_pending",
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=False,
+                    kind="event",
+                    ai_behavior="respond",
+                    pushed=False,
+                    safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                )
+            return f"suppressed(event={event.event_id}/{event.edge}, reason=v2_live_evidence_pending)"
         now = self._clock()
         if self._is_expired(event, now):
             if self.timeline:
@@ -314,6 +337,11 @@ class NekoDispatcher:
         if max_age <= 0 or event.ts <= 0:
             return False
         return now >= event.ts and now - event.ts > max_age
+
+    def _is_v2_live_evidence_gated(self, event: BattleEvent) -> bool:
+        if event.event_id not in V2_LIVE_EVIDENCE_GATED_EVENTS:
+            return False
+        return not _v2_live_verified_real_output_enabled(self.plugin)
 
     def push_context(self, text: str) -> None:
         """注入/恢复常驻场景上下文（ai_behavior='read'，不触发回复）。"""

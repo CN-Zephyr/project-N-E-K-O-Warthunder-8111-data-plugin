@@ -66,3 +66,4 @@ player_name = ""
 observability_enabled = false
 observability_max_events = 100
 observability_include_prompt_preview = false
+v2_live_verified_real_output_enabled = false

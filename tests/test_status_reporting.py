@@ -410,6 +410,10 @@ def test_dashboard_context_includes_data_layer_process_snapshot():
     assert result["takeoff_protection"]["enter_m"] == 10.0
     assert result["takeoff_protection"]["exit_m"] == 40.0
     assert result["takeoff_protection"]["suppresses"] == ["low_alt_danger", "overspeed"]
+    assert result["output_policy"] == {
+        "v2_live_verified_real_output_enabled": False,
+        "v2_live_evidence_gated_events": ["enemy_on_six", "tailing_risk", "ground_target_nearby"],
+    }
     assert result["awareness"]["proximity_event_count"] == 1
     assert result["awareness"]["latest_proximity"]["target_type"] == "fighter"
     assert result["awareness"]["latest_proximity"]["distance_m"] == 1400

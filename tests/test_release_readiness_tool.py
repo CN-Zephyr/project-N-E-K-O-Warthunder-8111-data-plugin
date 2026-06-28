@@ -33,6 +33,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "proximity/objective awareness gate",
             "V2 readiness summary",
             "V2 release matrix",
+            "V2 output policy gate",
             "synthetic replay",
             "plugin check",
             "local sample replay",
@@ -49,7 +50,8 @@ def test_release_readiness_plan_lists_offline_release_gates():
         assert checks[6].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
         assert checks[7].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
         assert checks[8].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
-        assert checks[9].cmd == ["uv", "run", "python", "tools/replay.py"]
+        assert checks[9].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
+        assert checks[10].cmd == ["uv", "run", "python", "tools/replay.py"]
         assert checks[-1].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py", "--offline-gates-passed"]
 
 
@@ -72,6 +74,7 @@ def test_release_readiness_plan_does_not_require_running_services():
             "proximity/objective awareness gate",
             "V2 readiness summary",
             "V2 release matrix",
+            "V2 output policy gate",
             "synthetic replay",
             "final smoke packet",
         ]
@@ -143,6 +146,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert "proximity/objective awareness gate" in [check["name"] for check in payload["checks"]]
     assert "V2 readiness summary" in [check["name"] for check in payload["checks"]]
     assert "V2 release matrix" in [check["name"] for check in payload["checks"]]
+    assert "V2 output policy gate" in [check["name"] for check in payload["checks"]]
     assert "final smoke packet" in [check["name"] for check in payload["checks"]]
 
 
@@ -163,6 +167,7 @@ def test_release_readiness_cli_text_names_next_step():
     assert "proximity/objective awareness gate" in text
     assert "V2 readiness summary" in text
     assert "V2 release matrix" in text
+    assert "V2 output policy gate" in text
     assert "final smoke packet" in text
     assert "final live smoke" in text
     assert "ship_status:" in text

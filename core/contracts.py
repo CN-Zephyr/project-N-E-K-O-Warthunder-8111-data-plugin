@@ -146,6 +146,7 @@ class WtConfig:
     observability_enabled: bool = False
     observability_max_events: int = 100
     observability_include_prompt_preview: bool = False
+    v2_live_verified_real_output_enabled: bool = False
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any] | None) -> "WtConfig":
@@ -176,6 +177,7 @@ class WtConfig:
             observability_enabled=bool(raw.get("observability_enabled", False)),
             observability_max_events=int(_clamp(raw.get("observability_max_events"), 100, 1, 1000)),
             observability_include_prompt_preview=bool(raw.get("observability_include_prompt_preview", False)),
+            v2_live_verified_real_output_enabled=bool(raw.get("v2_live_verified_real_output_enabled", False)),
         )
 
     def to_dict(self) -> dict[str, Any]:

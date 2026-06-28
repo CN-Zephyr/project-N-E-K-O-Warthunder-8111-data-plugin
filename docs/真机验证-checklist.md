@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `232/232 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-V2-Output-Policy V2 真实输出策略门禁、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `239/239 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -69,7 +69,7 @@
 
 > 目标：先在 `dry_run=true` 下验证 v1.6 DTO 接缝和 T-Observe 解释能力；只有数值安全事件 dry_run 稳定后，才考虑 `dry_run=false`。
 
-1. **离线门禁**：按 `docs/统一测试前-离线检查.md` 跑完逻辑测试、pytest、free-text release gate、replay degrade gate、deferred HUD notice gate、proximity/objective awareness gate、V2 readiness summary、V2 release matrix、final smoke packet、plugin check、合成 replay、本地样本 replay；进入最终真机前可直接运行 `uv run python tools\release_readiness.py --run`。
+1. **离线门禁**：按 `docs/统一测试前-离线检查.md` 跑完逻辑测试、pytest、free-text release gate、replay degrade gate、deferred HUD notice gate、proximity/objective awareness gate、V2 readiness summary、V2 release matrix、V2 output policy gate、final smoke packet、plugin check、合成 replay、本地样本 replay；进入最终真机前可直接运行 `uv run python tools\release_readiness.py --run`。
 2. **启动链路**：启动 N.E.K.O 宿主、Hosted UI、数据层 `:8112`，确认三项 health 正常。
    - 当前工作区通过 junction 挂载独立插件仓库；手动启动宿主时不要设置 `PLUGIN_CONFIG_ROOT` 指向外层工作区，避免重复扫到独立仓库目录或加载旧副本。若宿主没有发现 `neko_warthunder`，先检查 `N.E.K.O\plugin\plugins\neko_warthunder` 是否仍是指向独立仓库的 junction，再调用 `/plugins/refresh` 与 `/plugin/neko_warthunder/start`。
    - 若出现 `neko_warthunder_1`，或 `dry_run=true` 下 `test_say` 返回 `pushed=true`，说明运行副本没有对齐；先停止测试并修复运行路径。
@@ -94,7 +94,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `232/232 passed`，free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/v2_output_policy_gate.py`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `239/239 passed`，free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，V2 output policy gate 会证明后方/尾随/目标点事件在真机证据补齐前默认不真实推送，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -136,7 +136,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`232/232 passed`。
+   预期：`239/239 passed`。
 
    额外 free-text 去桩前门禁：
 

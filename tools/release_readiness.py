@@ -90,6 +90,12 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"],
             review_hint="V2 capabilities must separate code/offline completion from live evidence and real-output policy",
         ),
+        Check(
+            "V2 output policy gate",
+            plugin,
+            ["uv", "run", "python", "tools/v2_output_policy_gate.py"],
+            review_hint="live-evidence-gated V2 capabilities must stay dry_run-first unless explicitly verified",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():

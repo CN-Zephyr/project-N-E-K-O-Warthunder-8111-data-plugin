@@ -69,6 +69,8 @@ def test_final_smoke_packet_without_sample_requires_offline_gate_by_default():
     assert payload["safety_boundary"] == {
         "dry_run_first": True,
         "free_text_real_output_allowed": False,
+        "v2_live_verified_real_output_enabled": False,
+        "v2_live_evidence_gated_events": ["enemy_on_six", "tailing_risk", "ground_target_nearby"],
         "raw_text_printed": False,
         "do_not_claim_live_only_without_sample": True,
     }

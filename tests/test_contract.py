@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from neko_warthunder.adapters.telemetry_client import parse_telemetry
-from neko_warthunder.core.contracts import EVENT_CATALOG
+from neko_warthunder.core.contracts import EVENT_CATALOG, WtConfig
 
 
 def _sample() -> dict:
@@ -138,3 +138,9 @@ def test_v16_event_catalog_entries_are_not_marked_blocked():
         "tailing_risk",
     ):
         assert EVENT_CATALOG[event_id].blocked is False
+
+
+def test_v2_live_verified_real_output_config_defaults_closed_and_can_be_enabled():
+    assert WtConfig().v2_live_verified_real_output_enabled is False
+    assert WtConfig.from_mapping({}).v2_live_verified_real_output_enabled is False
+    assert WtConfig.from_mapping({"v2_live_verified_real_output_enabled": True}).v2_live_verified_real_output_enabled is True
