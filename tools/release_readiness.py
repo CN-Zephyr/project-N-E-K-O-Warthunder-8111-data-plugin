@@ -77,6 +77,12 @@ def build_checks(
             ["uv", "run", "python", "tools/proximity_gate.py"],
             review_hint="V2 proximity.events / situation.ground_targets prompts must stay generic/safe and obey Arbiter gating",
         ),
+        Check(
+            "V2 readiness summary",
+            plugin,
+            ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"],
+            review_hint="V2 offline scope must be complete without claiming live-only sample evidence",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
@@ -95,6 +101,12 @@ def build_checks(
                     plugin,
                     ["uv", "run", "python", "tools/sample_replay.py", sample_rel, "tl0sr2"],
                     review_hint="review session_summary and remaining live scope",
+                ),
+                Check(
+                    "V2 readiness with local sample",
+                    plugin,
+                    ["uv", "run", "python", "tools/v2_readiness.py", sample_rel, "tl0sr2"],
+                    review_hint="V2 sample evidence summary for rear/six threat and objective proximity",
                 ),
                 Check(
                     "offline readiness report",

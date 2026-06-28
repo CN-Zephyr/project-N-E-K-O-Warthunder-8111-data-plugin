@@ -30,10 +30,12 @@ def test_preflight_plan_contains_documented_checks():
             "replay degrade gate",
             "deferred HUD notice gate",
             "proximity/objective awareness gate",
+            "V2 readiness summary",
             "plugin check",
             "runtime smoke",
             "synthetic replay",
             "local sample replay",
+            "V2 readiness with local sample",
             "offline readiness report",
             "rc gap summary",
             "live test plan",
@@ -50,12 +52,13 @@ def test_preflight_plan_contains_documented_checks():
         assert "powertrain_failure" in checks[4].review_hint
         assert checks[5].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
         assert "proximity.events" in checks[5].review_hint
-        assert checks[6].cwd == host_root.resolve()
-        assert checks[6].cmd[-1] == str(plugin_root.resolve())
-        assert checks[7].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[7].review_hint
-        assert "paused" in checks[7].review_hint
-        assert "8112" in checks[7].review_hint
+        assert checks[6].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
+        assert checks[7].cwd == host_root.resolve()
+        assert checks[7].cmd[-1] == str(plugin_root.resolve())
+        assert checks[8].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[8].review_hint
+        assert "paused" in checks[8].review_hint
+        assert "8112" in checks[8].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -81,6 +84,14 @@ def test_preflight_plan_contains_documented_checks():
             "tl0sr2",
         ]
         assert checks[-4].cmd == [
+            "uv",
+            "run",
+            "python",
+            "tools/v2_readiness.py",
+            "local_samples/data_process_20260620",
+            "tl0sr2",
+        ]
+        assert checks[-5].cmd == [
             "uv",
             "run",
             "python",
@@ -110,6 +121,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "replay degrade gate",
             "deferred HUD notice gate",
             "proximity/objective awareness gate",
+            "V2 readiness summary",
             "runtime smoke",
             "synthetic replay",
         ]
@@ -127,11 +139,12 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 219/219 passed" in text
+        assert "baseline: logic self-check should report 223/223 passed" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
         assert "deferred HUD notice gate must pass" in text
         assert "proximity/objective awareness gate must pass" in text
+        assert "V2 readiness summary must separate offline-complete code" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
         assert "watch live_monitor Summary first" in text
@@ -145,6 +158,8 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "uv run python tools/deferred_hud_gate.py" in text
         assert "proximity/objective awareness gate" in text
         assert "uv run python tools/proximity_gate.py" in text
+        assert "V2 readiness summary" in text
+        assert "uv run python tools/v2_readiness.py --no-sample" in text
         assert "runtime smoke" in text
         assert "tools/live_monitor.py --count 1" in text
         assert "dry_run / paused / Hosted UI / 8112 ownership / duplicate plugin scan risk" in text
@@ -167,6 +182,7 @@ def test_preflight_plan_points_sample_replay_to_session_summary():
         text = output.getvalue()
         assert rc == 0
         assert "local sample replay" in text
+        assert "V2 readiness with local sample" in text
         assert "review: session_summary" in text
         assert "next validation steps" in text
         assert "Operator quick checklist" in text

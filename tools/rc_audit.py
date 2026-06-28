@@ -46,10 +46,12 @@ STALE_BASELINES = [
     "205 passed",
     "209/209 passed",
     "209 passed",
+    "219/219 passed",
+    "219 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "219/219 passed",
+    "223/223 passed",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",
@@ -57,6 +59,8 @@ REQUIRED_SNIPPETS = [
     "replay degrade gate",
     "deferred HUD notice gate",
     "proximity/objective awareness gate",
+    "V2 readiness summary",
+    "tools/v2_readiness.py",
     "RC gap summary",
     "ready_for_final_live_smoke",
     "no_ground_target_close_candidates",
