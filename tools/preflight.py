@@ -49,6 +49,12 @@ def build_checks(
             ["uv", "run", "python", "tools/free_text_gate.py"],
             "hudmsg / combat.feed / awards raw text must stay out of prompt and push_message text",
         ),
+        Check(
+            "replay degrade gate",
+            plugin,
+            ["uv", "run", "python", "tools/replay_gate.py"],
+            "replay=true frames must not emit Detector candidates, prompts, or push_message output",
+        ),
     ]
     if host.exists():
         checks.append(
@@ -117,8 +123,9 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 171/171 passed")
+    print("- baseline: logic self-check should report 180/180 passed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
+    print("- replay degrade gate must pass before replay=true traffic can be considered safe")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")
     print("- if this fails: stop before real-machine testing and fix the failed check")
