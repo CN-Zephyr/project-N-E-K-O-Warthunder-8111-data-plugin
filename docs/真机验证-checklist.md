@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `223/223 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `225/225 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -94,7 +94,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `223/223 passed`，free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），`release_scope.ship_status=offline_gates_passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `225/225 passed`，free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），`release_scope.ship_status=offline_gates_passed`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -136,7 +136,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`223/223 passed`。
+   预期：`225/225 passed`。
 
    额外 free-text 去桩前门禁：
 

@@ -157,6 +157,30 @@ def test_release_readiness_cli_text_names_next_step():
     assert "ship_status:" in text
 
 
+def test_release_readiness_plan_can_include_v2_sample_evidence():
+    from neko_warthunder.tools import release_readiness
+
+    sample_summary = {"blocked_release_items": [], "sample_unproven_items": [], "next_actions": []}
+    v2_summary = {
+        "release_scope": {
+            "v2_code_complete": True,
+            "v2_offline_gate_complete": True,
+            "v2_live_evidence_complete": False,
+        },
+        "live_evidence": {
+            "status": "needs_live_sample",
+            "missing": ["proximity_rear_events"],
+            "next_actions": ["capture_rear_threat_or_six_oclock_sample"],
+        },
+    }
+
+    payload = release_readiness.plan_payload([], sample_summary=sample_summary, v2_summary=v2_summary)
+
+    assert payload["status"] == "plan"
+    assert payload["handoff"]["v2"]["live_evidence_status"] == "needs_live_sample"
+    assert payload["handoff"]["v2"]["missing"] == ["proximity_rear_events"]
+
+
 def test_release_readiness_scope_summarizes_sample_gaps_without_raw_text():
     from neko_warthunder.tools import release_readiness
 
@@ -176,6 +200,42 @@ def test_release_readiness_scope_summarizes_sample_gaps_without_raw_text():
     assert scope["sample_unproven_items"] == ["v2_proximity_objective"]
     assert "fly_closer_to_ground_target_sample" in scope["next_actions"]
     assert "raw" not in json.dumps(scope, ensure_ascii=False).lower()
+
+
+def test_release_readiness_handoff_separates_v1_scope_and_v2_live_evidence():
+    from neko_warthunder.tools import release_readiness
+
+    release_scope = {
+        "ship_status": "offline_gates_passed",
+        "final_live_smoke_required": True,
+        "real_output_blockers": ["v1_free_text_output"],
+        "sample_unproven_items": ["v2_proximity_objective"],
+        "next_actions": ["run_free_text_dry_run_safety_check"],
+        "free_text_real_output_allowed": False,
+    }
+    v2_summary = {
+        "release_scope": {
+            "v2_code_complete": True,
+            "v2_offline_gate_complete": True,
+            "v2_live_evidence_complete": False,
+        },
+        "live_evidence": {
+            "status": "needs_live_sample",
+            "missing": ["proximity_rear_events", "ground_target_close_candidates"],
+            "next_actions": ["capture_rear_threat_or_six_oclock_sample"],
+        },
+    }
+
+    handoff = release_readiness.build_handoff(release_scope, v2_summary)
+
+    assert handoff["status"] == "ready_for_final_live_smoke"
+    assert handoff["v1"]["real_output_blockers"] == ["v1_free_text_output"]
+    assert handoff["v1"]["free_text_real_output_allowed"] is False
+    assert handoff["v2"]["code_complete"] is True
+    assert handoff["v2"]["offline_gate_complete"] is True
+    assert handoff["v2"]["live_evidence_complete"] is False
+    assert handoff["v2"]["missing"] == ["proximity_rear_events", "ground_target_close_candidates"]
+    assert "capture_rear_threat_or_six_oclock_sample" in handoff["next_actions"]
 
 
 def test_release_readiness_run_json_is_single_parseable_payload():
@@ -200,3 +260,5 @@ def test_release_readiness_run_json_is_single_parseable_payload():
     assert rc == 0
     assert payload["status"] == "pass"
     assert payload["release_scope"]["ship_status"] == "offline_gates_passed"
+    assert payload["handoff"]["status"] == "ready_for_final_live_smoke"
+    assert payload["handoff"]["v2"]["offline_gate_complete"] is True

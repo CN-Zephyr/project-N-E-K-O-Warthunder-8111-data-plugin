@@ -23,6 +23,7 @@ if "neko_warthunder" not in sys.modules:
     sys.modules["neko_warthunder"] = _pkg
 
 from neko_warthunder.tools.rc_gap_summary import build_gap_summary  # noqa: E402
+from neko_warthunder.tools.v2_readiness import build_v2_readiness  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -165,7 +166,13 @@ def run_checks(checks: Sequence[Check], *, stream_output: bool = True) -> dict[s
     }
 
 
-def plan_payload(checks: Sequence[Check], *, sample_summary: dict[str, Any] | None = None) -> dict[str, Any]:
+def plan_payload(
+    checks: Sequence[Check],
+    *,
+    sample_summary: dict[str, Any] | None = None,
+    v2_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    release_scope = _plan_scope(sample_summary)
     return {
         "status": "plan",
         "verdict": "not_run",
@@ -180,7 +187,8 @@ def plan_payload(checks: Sequence[Check], *, sample_summary: dict[str, Any] | No
             for check in checks
         ],
         "next_step": "run with --run; if pass, proceed to final live smoke",
-        "release_scope": _plan_scope(sample_summary),
+        "release_scope": release_scope,
+        "handoff": build_handoff(release_scope, v2_summary or build_v2_readiness(sample_root=None)),
     }
 
 
@@ -200,6 +208,59 @@ def build_release_scope(sample_summary: dict[str, Any] | None = None) -> dict[st
             "free-text real output stays blocked unless its dry_run safety validation passes",
         ],
     }
+
+
+def build_handoff(release_scope: dict[str, Any], v2_summary: dict[str, Any]) -> dict[str, Any]:
+    v2_release = v2_summary.get("release_scope") or {}
+    v2_evidence = v2_summary.get("live_evidence") or {}
+    real_output_blockers = list(release_scope.get("real_output_blockers") or [])
+    sample_unproven = list(release_scope.get("sample_unproven_items") or [])
+    v2_next = list(v2_evidence.get("next_actions") or [])
+    release_next = list(release_scope.get("next_actions") or [])
+    return {
+        "status": _handoff_status(release_scope, v2_release),
+        "v1": {
+            "ship_status": release_scope.get("ship_status"),
+            "final_live_smoke_required": bool(release_scope.get("final_live_smoke_required")),
+            "real_output_blockers": real_output_blockers,
+            "sample_unproven_items": sample_unproven,
+            "free_text_real_output_allowed": bool(release_scope.get("free_text_real_output_allowed")),
+        },
+        "v2": {
+            "code_complete": bool(v2_release.get("v2_code_complete")),
+            "offline_gate_complete": bool(v2_release.get("v2_offline_gate_complete")),
+            "live_evidence_complete": bool(v2_release.get("v2_live_evidence_complete")),
+            "live_evidence_status": v2_evidence.get("status"),
+            "missing": list(v2_evidence.get("missing") or []),
+        },
+        "next_actions": _dedupe(release_next + v2_next),
+        "notes": [
+            "use release_readiness --run as the handoff entry point",
+            "V2 code/offline gate completion is separate from live sample evidence",
+            "free-text real output remains blocked unless dry_run safety validation passes",
+        ],
+    }
+
+
+def _handoff_status(release_scope: dict[str, Any], v2_release: dict[str, Any]) -> str:
+    if release_scope.get("ship_status") == "blocked_before_live_smoke":
+        return "blocked_before_live_smoke"
+    if not v2_release.get("v2_offline_gate_complete"):
+        return "blocked_before_live_smoke"
+    if release_scope.get("ship_status") == "not_run":
+        return "not_run"
+    return "ready_for_final_live_smoke"
+
+
+def _dedupe(items: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
 
 
 def _blocked_scope(check_name: str) -> dict[str, Any]:
@@ -238,6 +299,8 @@ def _load_sample_summary(plugin_root: str | pathlib.Path, sample_rel: str) -> di
 
 def render_text(payload: dict[str, Any]) -> str:
     scope = payload.get("release_scope") or {}
+    handoff = payload.get("handoff") or {}
+    v2 = handoff.get("v2") or {}
     lines = [
         "# neko_warthunder v1 release readiness",
         f"status: {payload['status']}",
@@ -247,6 +310,10 @@ def render_text(payload: dict[str, Any]) -> str:
         "real_output_blockers: " + (", ".join(scope.get("real_output_blockers") or []) or "-"),
         "sample_unproven_items: " + (", ".join(scope.get("sample_unproven_items") or []) or "-"),
         "scope_next_actions: " + (", ".join(scope.get("next_actions") or []) or "-"),
+        f"handoff_status: {handoff.get('status', '-')}",
+        f"v2_offline_gate_complete: {v2.get('offline_gate_complete', '-')}",
+        f"v2_live_evidence_complete: {v2.get('live_evidence_complete', '-')}",
+        "v2_missing: " + (", ".join(v2.get("missing") or []) or "-"),
         "",
         "checks:",
     ]
@@ -275,9 +342,19 @@ def main(argv: list[str] | None = None) -> int:
 
     checks = build_checks(plugin_root=args.plugin_root, host_root=args.host_root)
     sample_summary = _load_sample_summary(args.plugin_root, "local_samples/data_process_20260620")
-    payload = run_checks(checks, stream_output=not args.json) if args.run else plan_payload(checks, sample_summary=sample_summary)
+    sample_root = pathlib.Path(args.plugin_root).resolve() / "local_samples/data_process_20260620"
+    v2_summary = build_v2_readiness(
+        sample_root=sample_root if sample_root.exists() else None,
+        player_name="tl0sr2",
+    )
+    payload = (
+        run_checks(checks, stream_output=not args.json)
+        if args.run
+        else plan_payload(checks, sample_summary=sample_summary, v2_summary=v2_summary)
+    )
     if args.run and payload.get("status") == "pass":
         payload["release_scope"] = build_release_scope(sample_summary)
+        payload["handoff"] = build_handoff(payload["release_scope"], v2_summary)
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
     else:

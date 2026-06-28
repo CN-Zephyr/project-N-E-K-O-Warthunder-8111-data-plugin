@@ -48,10 +48,15 @@ STALE_BASELINES = [
     "209 passed",
     "219/219 passed",
     "219 passed",
+    "223/223 passed",
+    "223 passed",
+    "224/224 passed",
+    "224 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "223/223 passed",
+    "225/225 passed",
+    "handoff_status",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",
