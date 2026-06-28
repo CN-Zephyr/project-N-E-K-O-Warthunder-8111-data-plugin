@@ -36,12 +36,14 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "V2 release matrix",
             "V2 output policy gate",
             "V2 completion gate",
+            "RC handoff report",
             "synthetic replay",
             "plugin check",
             "local sample replay",
             "V2 readiness with local sample",
             "V2 release matrix with local sample",
             "V2 completion gate with local sample",
+            "RC handoff report with local sample",
             "offline readiness report",
             "rc gap summary",
             "live test plan",
@@ -56,7 +58,8 @@ def test_release_readiness_plan_lists_offline_release_gates():
         assert checks[9].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
         assert checks[10].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
         assert checks[11].cmd == ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"]
-        assert checks[12].cmd == ["uv", "run", "python", "tools/replay.py"]
+        assert checks[12].cmd == ["uv", "run", "python", "tools/rc_handoff_report.py", "--no-sample"]
+        assert checks[13].cmd == ["uv", "run", "python", "tools/replay.py"]
         assert checks[-1].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py", "--offline-gates-passed"]
 
 
@@ -82,6 +85,7 @@ def test_release_readiness_plan_does_not_require_running_services():
             "V2 release matrix",
             "V2 output policy gate",
             "V2 completion gate",
+            "RC handoff report",
             "synthetic replay",
             "final smoke packet",
         ]
@@ -156,6 +160,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert "V2 release matrix" in [check["name"] for check in payload["checks"]]
     assert "V2 output policy gate" in [check["name"] for check in payload["checks"]]
     assert "V2 completion gate" in [check["name"] for check in payload["checks"]]
+    assert "RC handoff report" in [check["name"] for check in payload["checks"]]
     assert "final smoke packet" in [check["name"] for check in payload["checks"]]
 
 
@@ -179,6 +184,7 @@ def test_release_readiness_cli_text_names_next_step():
     assert "V2 release matrix" in text
     assert "V2 output policy gate" in text
     assert "V2 completion gate" in text
+    assert "RC handoff report" in text
     assert "final smoke packet" in text
     assert "final live smoke" in text
     assert "ship_status:" in text

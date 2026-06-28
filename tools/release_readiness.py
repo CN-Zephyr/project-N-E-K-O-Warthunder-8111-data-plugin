@@ -108,6 +108,12 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"],
             review_hint="V2 code/offline scope must be complete without claiming missing live-only evidence",
         ),
+        Check(
+            "RC handoff report",
+            plugin,
+            ["uv", "run", "python", "tools/rc_handoff_report.py", "--no-sample"],
+            review_hint="maintainer handoff must separate v1 release scope, V2 completion, safety boundary, and live evidence gaps",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
@@ -144,6 +150,22 @@ def build_checks(
                     plugin,
                     ["uv", "run", "python", "tools/v2_completion_gate.py", sample_rel, "tl0sr2"],
                     review_hint="single V2 done/pending verdict for release handoff without raw telemetry text",
+                ),
+                Check(
+                    "RC handoff report with local sample",
+                    plugin,
+                    [
+                        "uv",
+                        "run",
+                        "python",
+                        "tools/rc_handoff_report.py",
+                        "--sample-rel",
+                        sample_rel,
+                        "--player-name",
+                        "tl0sr2",
+                        "--offline-gates-passed",
+                    ],
+                    review_hint="human-readable RC handoff with local sample gaps and dry_run-first safety boundary",
                 ),
                 Check(
                     "offline readiness report",

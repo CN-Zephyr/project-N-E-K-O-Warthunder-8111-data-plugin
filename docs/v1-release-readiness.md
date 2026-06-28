@@ -1,10 +1,10 @@
-# v1 Release Readiness
+﻿# v1 Release Readiness
 
 > 状态：准备发布候选前的离线门禁说明。本文不替代真机 smoke，只回答“现在代码能不能进入最后一轮真机验收”。
 
 ## 当前结论
 
-- 离线逻辑基线：`245/245 passed`。
+- 离线逻辑基线：`249/249 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
@@ -15,6 +15,7 @@
 - `tools/v2_output_policy_gate.py` 已作为 V2 真实输出策略门禁。它会证明 `enemy_on_six`、`tailing_risk`、`ground_target_nearby` 在缺少真机证据前默认真实输出关闭，只保留 dry_run 可观察；显式开启 `v2_live_verified_real_output_enabled=true` 后才允许真实 `push_message`。
 - `tools/v2_completion_gate.py` 已作为 V2 完成度门禁。它把 readiness、能力矩阵和真实输出策略合并成一个 pass/fail 结论：V2 code/offline scope 可以完成，但 live-only 证据必须继续显式标记为 pending。
 - `tools/final_smoke_packet.py` 已作为最终真机前交接包入口。它会输出 `go_no_go`、`handoff_status`、必跑命令、V2 live evidence 缺口、remaining live actions 和 dry_run / raw text 安全边界。
+- `tools/rc_handoff_report.py` 已作为维护者 RC 交接报告入口。它会把 V1 release scope、V2 completion、final smoke go/no-go、安全边界和下一步 live evidence 动作合并成人类可读结论，适合给合作者汇报“V2 工程完成但真机证据仍 pending”。
 
 ## 推荐命令
 
@@ -43,12 +44,19 @@ uv run python tools\final_smoke_packet.py
 uv run python tools\final_smoke_packet.py --json
 ```
 
+维护者 RC 交接报告：
+```powershell
+uv run python tools\rc_handoff_report.py --no-sample
+uv run python tools\rc_handoff_report.py --no-sample --json
+```
+
 默认输出会提示 `go_no_go=review_required_run_offline_gate`。只有在本轮已经跑过并通过
 `uv run python tools\release_readiness.py --run` 后，才使用：
 
 ```powershell
 uv run python tools\final_smoke_packet.py --offline-gates-passed
 uv run python tools\final_smoke_packet.py --offline-gates-passed --json
+uv run python tools\rc_handoff_report.py --offline-gates-passed
 ```
 
 完整真机前预检仍可使用：
@@ -75,6 +83,7 @@ This output separates `sample_unproven_items`, `blocked_release_items`, `remaini
 - `tools/replay.py`
 - `tools/v2_output_policy_gate.py`
 - `tools/v2_completion_gate.py`
+- `tools/rc_handoff_report.py`
 - `tools/final_smoke_packet.py`
 - 可选：宿主存在时运行 `plugin check`
 - 可选：本地样本存在时运行 `sample_replay`、`offline_report`、`live_test_plan`
