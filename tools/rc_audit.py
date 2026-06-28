@@ -60,10 +60,12 @@ STALE_BASELINES = [
     "232 passed",
     "239/239 passed",
     "239 passed",
+    "242/242 passed",
+    "242 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "242/242 passed",
+    "245/245 passed",
     "release defaults gate",
     "tools/release_defaults_gate.py",
     "handoff_status",
@@ -73,6 +75,8 @@ REQUIRED_SNIPPETS = [
     "tools/v2_release_matrix.py",
     "V2 output policy gate",
     "tools/v2_output_policy_gate.py",
+    "V2 completion gate",
+    "tools/v2_completion_gate.py",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",

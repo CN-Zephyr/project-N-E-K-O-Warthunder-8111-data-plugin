@@ -102,6 +102,12 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_output_policy_gate.py"],
             review_hint="live-evidence-gated V2 capabilities must stay dry_run-first unless explicitly verified",
         ),
+        Check(
+            "V2 completion gate",
+            plugin,
+            ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"],
+            review_hint="V2 code/offline scope must be complete without claiming missing live-only evidence",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
@@ -132,6 +138,12 @@ def build_checks(
                     plugin,
                     ["uv", "run", "python", "tools/v2_release_matrix.py", sample_rel, "tl0sr2"],
                     review_hint="V2 capability matrix showing live-evidence pending rows and dry_run-first policy",
+                ),
+                Check(
+                    "V2 completion gate with local sample",
+                    plugin,
+                    ["uv", "run", "python", "tools/v2_completion_gate.py", sample_rel, "tl0sr2"],
+                    review_hint="single V2 done/pending verdict for release handoff without raw telemetry text",
                 ),
                 Check(
                     "offline readiness report",

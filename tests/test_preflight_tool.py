@@ -34,6 +34,7 @@ def test_preflight_plan_contains_documented_checks():
             "V2 readiness summary",
             "V2 release matrix",
             "V2 output policy gate",
+            "V2 completion gate",
             "final smoke packet",
             "plugin check",
             "runtime smoke",
@@ -41,6 +42,7 @@ def test_preflight_plan_contains_documented_checks():
             "local sample replay",
             "V2 readiness with local sample",
             "V2 release matrix with local sample",
+            "V2 completion gate with local sample",
             "offline readiness report",
             "rc gap summary",
             "live test plan",
@@ -62,13 +64,14 @@ def test_preflight_plan_contains_documented_checks():
         assert checks[7].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
         assert checks[8].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
         assert checks[9].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
-        assert checks[10].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
-        assert checks[11].cwd == host_root.resolve()
-        assert checks[11].cmd[-1] == str(plugin_root.resolve())
-        assert checks[12].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[12].review_hint
-        assert "paused" in checks[12].review_hint
-        assert "8112" in checks[12].review_hint
+        assert checks[10].cmd == ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"]
+        assert checks[11].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
+        assert checks[12].cwd == host_root.resolve()
+        assert checks[12].cmd[-1] == str(plugin_root.resolve())
+        assert checks[13].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[13].review_hint
+        assert "paused" in checks[13].review_hint
+        assert "8112" in checks[13].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -97,7 +100,7 @@ def test_preflight_plan_contains_documented_checks():
             "uv",
             "run",
             "python",
-            "tools/v2_release_matrix.py",
+            "tools/v2_completion_gate.py",
             "local_samples/data_process_20260620",
             "tl0sr2",
         ]
@@ -105,11 +108,19 @@ def test_preflight_plan_contains_documented_checks():
             "uv",
             "run",
             "python",
-            "tools/v2_readiness.py",
+            "tools/v2_release_matrix.py",
             "local_samples/data_process_20260620",
             "tl0sr2",
         ]
         assert checks[-6].cmd == [
+            "uv",
+            "run",
+            "python",
+            "tools/v2_readiness.py",
+            "local_samples/data_process_20260620",
+            "tl0sr2",
+        ]
+        assert checks[-7].cmd == [
             "uv",
             "run",
             "python",
@@ -143,6 +154,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "V2 readiness summary",
             "V2 release matrix",
             "V2 output policy gate",
+            "V2 completion gate",
             "final smoke packet",
             "runtime smoke",
             "synthetic replay",
@@ -161,7 +173,7 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 242/242 passed" in text
+        assert "baseline: logic self-check should report 245/245 passed" in text
         assert "release defaults gate must keep dry_run-first" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
@@ -170,6 +182,7 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "V2 readiness summary must separate offline-complete code" in text
         assert "V2 release matrix must show" in text
         assert "V2 output policy gate must keep" in text
+        assert "V2 completion gate must prove" in text
         assert "final smoke packet must summarize go/no-go" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
@@ -192,6 +205,8 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "uv run python tools/v2_release_matrix.py --no-sample" in text
         assert "V2 output policy gate" in text
         assert "uv run python tools/v2_output_policy_gate.py" in text
+        assert "V2 completion gate" in text
+        assert "uv run python tools/v2_completion_gate.py --no-sample" in text
         assert "final smoke packet" in text
         assert "uv run python tools/final_smoke_packet.py" in text
         assert "runtime smoke" in text
@@ -218,6 +233,7 @@ def test_preflight_plan_points_sample_replay_to_session_summary():
         assert "local sample replay" in text
         assert "V2 readiness with local sample" in text
         assert "V2 release matrix with local sample" in text
+        assert "V2 completion gate with local sample" in text
         assert "review: session_summary" in text
         assert "next validation steps" in text
         assert "Operator quick checklist" in text

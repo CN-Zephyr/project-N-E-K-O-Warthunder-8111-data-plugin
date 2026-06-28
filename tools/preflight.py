@@ -92,6 +92,12 @@ def build_checks(
             "V2 live-evidence-gated capabilities must suppress real output until explicitly verified",
         ),
         Check(
+            "V2 completion gate",
+            plugin,
+            ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"],
+            "V2 code/offline scope must be complete while live-only evidence remains explicit",
+        ),
+        Check(
             "final smoke packet",
             plugin,
             ["uv", "run", "python", "tools/final_smoke_packet.py"],
@@ -150,6 +156,14 @@ def build_checks(
         )
         checks.append(
             Check(
+                "V2 completion gate with local sample",
+                plugin,
+                ["uv", "run", "python", "tools/v2_completion_gate.py", sample_rel, "tl0sr2"],
+                "single V2 done/pending verdict for handoff without claiming missing live-only evidence",
+            )
+        )
+        checks.append(
+            Check(
                 "offline readiness report",
                 plugin,
                 _offline_report_cmd(sample_rel, report_output),
@@ -189,7 +203,7 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 242/242 passed")
+    print("- baseline: logic self-check should report 245/245 passed")
     print("- release defaults gate must keep dry_run-first and unverified real output closed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
@@ -198,6 +212,7 @@ def print_plan(checks: Sequence[Check]) -> None:
     print("- V2 readiness summary must separate offline-complete code from live-only sample evidence")
     print("- V2 release matrix must show which capabilities are dry_run-first until live evidence exists")
     print("- V2 output policy gate must keep unverified V2 capabilities from real push")
+    print("- V2 completion gate must prove V2 code/offline completion without claiming missing live evidence")
     print("- final smoke packet must summarize go/no-go, commands, V2 evidence, and safety boundary")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")

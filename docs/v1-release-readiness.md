@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-- 离线逻辑基线：`242/242 passed`。
+- 离线逻辑基线：`245/245 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
@@ -13,6 +13,7 @@
 - `tools/v2_readiness.py` 已作为 V2 proximity/objective 收口汇总入口。它会先跑离线 gate，再按需合并本地样本证据，输出 `v2_code_complete`、`v2_offline_gate_complete`、`v2_live_evidence_complete`，避免把缺真机样本误判为代码未完成。
 - `tools/v2_release_matrix.py` 已作为 V2 能力矩阵入口。它会把每个 V2 能力拆成 code/offline/live-evidence/real-output-policy 行，帮助维护者确认哪些能力可以进入最终 dry_run smoke，哪些仍需保持 dry_run-first 等待真机证据。
 - `tools/v2_output_policy_gate.py` 已作为 V2 真实输出策略门禁。它会证明 `enemy_on_six`、`tailing_risk`、`ground_target_nearby` 在缺少真机证据前默认真实输出关闭，只保留 dry_run 可观察；显式开启 `v2_live_verified_real_output_enabled=true` 后才允许真实 `push_message`。
+- `tools/v2_completion_gate.py` 已作为 V2 完成度门禁。它把 readiness、能力矩阵和真实输出策略合并成一个 pass/fail 结论：V2 code/offline scope 可以完成，但 live-only 证据必须继续显式标记为 pending。
 - `tools/final_smoke_packet.py` 已作为最终真机前交接包入口。它会输出 `go_no_go`、`handoff_status`、必跑命令、V2 live evidence 缺口、remaining live actions 和 dry_run / raw text 安全边界。
 
 ## 推荐命令
@@ -73,6 +74,7 @@ This output separates `sample_unproven_items`, `blocked_release_items`, `remaini
 - `tools/replay_gate.py`
 - `tools/replay.py`
 - `tools/v2_output_policy_gate.py`
+- `tools/v2_completion_gate.py`
 - `tools/final_smoke_packet.py`
 - 可选：宿主存在时运行 `plugin check`
 - 可选：本地样本存在时运行 `sample_replay`、`offline_report`、`live_test_plan`
