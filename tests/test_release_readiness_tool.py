@@ -26,6 +26,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
         assert names == [
             "logic self-check",
             "pytest",
+            "rc docs audit",
             "free-text release gate",
             "replay degrade gate",
             "proximity/objective awareness gate",
@@ -35,9 +36,10 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "offline readiness report",
             "live test plan",
         ]
-        assert checks[3].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
-        assert checks[4].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
-        assert checks[5].cmd == ["uv", "run", "python", "tools/replay.py"]
+        assert checks[2].cmd == ["uv", "run", "python", "tools/rc_audit.py"]
+        assert checks[4].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
+        assert checks[5].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
+        assert checks[6].cmd == ["uv", "run", "python", "tools/replay.py"]
 
 
 def test_release_readiness_plan_does_not_require_running_services():
@@ -52,6 +54,7 @@ def test_release_readiness_plan_does_not_require_running_services():
         assert names == [
             "logic self-check",
             "pytest",
+            "rc docs audit",
             "free-text release gate",
             "replay degrade gate",
             "proximity/objective awareness gate",
@@ -116,6 +119,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert rc == 0
     assert payload["status"] == "plan"
     assert payload["verdict"] == "not_run"
+    assert "rc docs audit" in [check["name"] for check in payload["checks"]]
     assert "replay degrade gate" in [check["name"] for check in payload["checks"]]
     assert "proximity/objective awareness gate" in [check["name"] for check in payload["checks"]]
 

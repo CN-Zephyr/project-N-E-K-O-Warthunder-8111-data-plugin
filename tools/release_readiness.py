@@ -46,6 +46,12 @@ def build_checks(
         Check("logic self-check", plugin, ["uv", "run", "python", "tests/run_logic_tests.py"]),
         Check("pytest", plugin, ["uv", "run", "pytest", "-c", "tests/pytest.ini", "tests", "-q"]),
         Check(
+            "rc docs audit",
+            plugin,
+            ["uv", "run", "python", "tools/rc_audit.py"],
+            review_hint="release/status docs must not contain stale baselines or pre-V2 blocker language",
+        ),
+        Check(
             "free-text release gate",
             plugin,
             ["uv", "run", "python", "tools/free_text_gate.py"],
