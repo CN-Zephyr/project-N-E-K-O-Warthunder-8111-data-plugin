@@ -112,6 +112,14 @@ def build_checks(
         )
         checks.append(
             Check(
+                "rc gap summary",
+                plugin,
+                ["uv", "run", "python", "tools/rc_gap_summary.py", sample_rel, "tl0sr2"],
+                "compact v1/v2 remaining gap summary for release handoff without raw telemetry text",
+            )
+        )
+        checks.append(
+            Check(
                 "live test plan",
                 plugin,
                 ["uv", "run", "python", "tools/live_test_plan.py", sample_rel, "tl0sr2"],
@@ -135,7 +143,7 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 209/209 passed")
+    print("- baseline: logic self-check should report 213/213 passed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
     print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")

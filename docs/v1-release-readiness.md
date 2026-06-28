@@ -1,10 +1,10 @@
-﻿# v1 Release Readiness
+# v1 Release Readiness
 
 > 状态：准备发布候选前的离线门禁说明。本文不替代真机 smoke，只回答“现在代码能不能进入最后一轮真机验收”。
 
 ## 当前结论
 
-- 离线逻辑基线：`209/209 passed`。
+- 离线逻辑基线：`213/213 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
@@ -37,6 +37,15 @@ uv run python tools\release_readiness.py --run --json
 ```powershell
 uv run python tools\preflight.py --run
 ```
+
+## RC gap summary
+
+```powershell
+uv run python tools\rc_gap_summary.py local_samples\data_process_20260620 tl0sr2
+uv run python tools\rc_gap_summary.py local_samples\data_process_20260620 tl0sr2 --json
+```
+
+This output separates `sample_unproven_items`, `blocked_release_items`, `remaining_gaps`, and `next_actions` without raw telemetry text.
 
 ## Release Readiness 覆盖项
 

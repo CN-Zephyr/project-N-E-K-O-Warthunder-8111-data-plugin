@@ -101,6 +101,12 @@ def build_checks(
                     review_hint="safe Markdown readiness report",
                 ),
                 Check(
+                    "rc gap summary",
+                    plugin,
+                    ["uv", "run", "python", "tools/rc_gap_summary.py", sample_rel, "tl0sr2"],
+                    review_hint="machine-readable v1/v2 remaining gap summary without raw telemetry text",
+                ),
+                Check(
                     "live test plan",
                     plugin,
                     ["uv", "run", "python", "tools/live_test_plan.py", sample_rel, "tl0sr2"],

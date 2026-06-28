@@ -35,6 +35,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "plugin check",
             "local sample replay",
             "offline readiness report",
+            "rc gap summary",
             "live test plan",
         ]
         assert checks[2].cmd == ["uv", "run", "python", "tools/rc_audit.py"]
