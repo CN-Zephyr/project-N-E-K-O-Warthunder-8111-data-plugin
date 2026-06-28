@@ -133,6 +133,7 @@ class RuntimeTimeline:
                     "safety_status": metadata.get("safety_status"),
                     "dispatcher_status": metadata.get("dispatcher_status"),
                     "kind": metadata.get("kind"),
+                    "source": metadata.get("source"),
                     "ai_behavior": metadata.get("ai_behavior"),
                     "pushed": metadata.get("pushed"),
                     "message": safe_summary,

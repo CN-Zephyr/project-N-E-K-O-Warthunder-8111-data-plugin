@@ -415,6 +415,14 @@ def test_live_monitor_explains_deferred_hud_notice_without_raw_text():
     assert "raw failure text" not in text
 
 
+def test_live_monitor_explains_free_text_blocked_reason():
+    from neko_warthunder.tools.live_monitor import _format_reason_detail
+
+    text = _format_reason_detail("free_text_blocked", kind="decision")
+
+    assert text == "free_text_blocked=free-text source observed; prompt/output remains blocked by T-Safety"
+
+
 def test_live_monitor_summary_includes_actionable_output_reason():
     from neko_warthunder.tools.live_monitor import monitor_once, render_text_report
 

@@ -41,6 +41,13 @@ from .detectors.discrete.lifecycle import build_discrete_detectors
 
 _CONFIG_SECTION = "neko_warthunder"
 _DEFERRED_HUD_NOTICE_CODES = frozenset({"powertrain_failure"})
+_BLOCKED_FREE_TEXT_SOURCES = {
+    "awards": ("free_text_awards", ("awards", "feed")),
+    "combat_feed": ("free_text_combat_feed", ("combat", "feed")),
+    "hud_notices": ("free_text_hud_notices", ("hud_notices", "feed")),
+    "hudmsg": ("free_text_hudmsg", ("hudmsg",)),
+    "hud_events": ("free_text_hud_events", ("hud_events",)),
+}
 
 
 @neko_plugin
@@ -75,6 +82,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
         self._last_status_report_at = 0.0
         self._last_status_report_snapshot: dict[str, Any] | None = None
         self._deferred_hud_notice_ids: set[int] = set()
+        self._blocked_free_text_sources_seen: set[str] = set()
         self._takeoff_radio_altitude_grace_active = False
 
     # ------------------------------------------------------------------ 配置
@@ -188,6 +196,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
                 dry_run=self.cfg.dry_run,
             )
             return
+        self._record_blocked_free_text_sources(cur)
         self._record_deferred_hud_notices(cur)
         candidates = self._suppress_takeoff_grace(candidates, cur, now)
         for candidate in candidates:
@@ -225,6 +234,63 @@ class NekoWarthunderPlugin(NekoPluginBase):
             except Exception as exc:  # noqa: BLE001 — 投递失败计入安全门，不杀循环
                 self.logger.warning(f"dispatch failed: {type(exc).__name__}: {exc}")
                 self.safety.record_failure(now)
+
+    def _record_blocked_free_text_sources(self, cur: BattleState) -> None:
+        if not cur.in_battle:
+            self._blocked_free_text_sources_seen.clear()
+            return
+
+        seen = getattr(self, "_blocked_free_text_sources_seen", None)
+        if seen is None:
+            seen = set()
+            self._blocked_free_text_sources_seen = seen
+
+        for source, (event_id, path) in _BLOCKED_FREE_TEXT_SOURCES.items():
+            if source in seen:
+                continue
+            count = self._free_text_source_count(cur, path)
+            if count <= 0:
+                continue
+            seen.add(source)
+            self.timeline.record_stage(
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="free_text_blocked",
+                event_id=event_id,
+                scenario=cur.scenario,
+                in_battle=cur.in_battle,
+                replay=cur.replay,
+                dry_run=self.cfg.dry_run,
+                source=source,
+                safe_summary=f"free_text/{source}/blocked/{count}",
+            )
+            self.timeline.record_decision(
+                event_id=event_id,
+                stage="detector_suppressed",
+                outcome="suppressed",
+                reason="free_text_blocked",
+                scenario=cur.scenario,
+                safety_status=self.safety.status(),
+                dry_run=self.cfg.dry_run,
+            )
+
+    @staticmethod
+    def _free_text_source_count(cur: BattleState, path: tuple[str, ...]) -> int:
+        value: Any = cur.raw
+        for key in path:
+            if not isinstance(value, dict):
+                return 0
+            value = value.get(key)
+        if isinstance(value, list):
+            return len(value)
+        if isinstance(value, dict):
+            nested = value.get("feed")
+            if isinstance(nested, list):
+                return len(nested)
+            return 1 if value else 0
+        if isinstance(value, str):
+            return 1 if value.strip() else 0
+        return 0
 
     def _record_deferred_hud_notices(self, cur: BattleState) -> None:
         if not (cur.in_battle and cur.vehicle_valid and not cur.dead):

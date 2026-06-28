@@ -498,6 +498,55 @@ def test_powertrain_failure_notice_is_observed_as_deferred_without_speech():
         module.time.time = original_time
 
 
+def test_free_text_sources_are_observed_as_blocked_without_speech():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 101.0])
+    try:
+        raw = {
+            "awards": {"feed": [{"id": 1, "text": "raw award text"}]},
+            "combat": {"feed": [{"id": 10, "is_my_kill": False, "text": "raw combat feed text"}]},
+            "hud_notices": {"feed": [{"id": 20, "code": "generic_notice", "text": "raw hud notice text"}]},
+            "hudmsg": "raw hudmsg text",
+            "hud_events": [{"id": 30, "text": "raw hud event text"}],
+        }
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=True)
+        cur = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            combat=raw["combat"],
+            hud_notices=raw["hud_notices"]["feed"],
+            hud_events=raw["hud_events"],
+            raw=raw,
+        )
+
+        plugin._evaluate(prev, cur)
+        plugin._evaluate(cur, cur)
+
+        observe = plugin.timeline.snapshot()
+        records = [item for item in observe["recent_timeline"] if item.get("reason") == "free_text_blocked"]
+        assert plugin.pushed_events == []
+        assert len(records) == 5
+        assert {item["source"] for item in records} == {
+            "awards",
+            "combat_feed",
+            "hud_notices",
+            "hudmsg",
+            "hud_events",
+        }
+        assert observe["last_decision"]["stage"] == "detector_suppressed"
+        assert observe["last_decision"]["outcome"] == "suppressed"
+        assert observe["last_decision"]["reason"] == "free_text_blocked"
+        assert observe["last_decision"]["event_id"] == "free_text_hud_events"
+        assert "raw award text" not in repr(observe)
+        assert "raw combat feed text" not in repr(observe)
+        assert "raw hud notice text" not in repr(observe)
+        assert "raw hudmsg text" not in repr(observe)
+        assert "raw hud event text" not in repr(observe)
+    finally:
+        module.time.time = original_time
+
+
 def test_test_say_is_blocked_by_dry_run():
     plugin = _plugin_for_action_tests()
     plugin.cfg.dry_run = True
