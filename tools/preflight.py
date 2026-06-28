@@ -43,6 +43,12 @@ def build_checks(
     checks = [
         Check("logic self-check", plugin, ["uv", "run", "python", "tests/run_logic_tests.py"]),
         Check("pytest", plugin, ["uv", "run", "pytest", "-c", "tests/pytest.ini", "tests", "-q"]),
+        Check(
+            "free-text release gate",
+            plugin,
+            ["uv", "run", "python", "tools/free_text_gate.py"],
+            "hudmsg / combat.feed / awards raw text must stay out of prompt and push_message text",
+        ),
     ]
     if host.exists():
         checks.append(
@@ -111,7 +117,8 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 158/158 passed")
+    print("- baseline: logic self-check should report 171/171 passed")
+    print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")
     print("- if this fails: stop before real-machine testing and fix the failed check")

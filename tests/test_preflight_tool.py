@@ -26,6 +26,7 @@ def test_preflight_plan_contains_documented_checks():
         assert names == [
             "logic self-check",
             "pytest",
+            "free-text release gate",
             "plugin check",
             "runtime smoke",
             "synthetic replay",
@@ -35,12 +36,15 @@ def test_preflight_plan_contains_documented_checks():
         ]
         assert checks[0].cwd == plugin_root.resolve()
         assert checks[0].cmd == ["uv", "run", "python", "tests/run_logic_tests.py"]
-        assert checks[2].cwd == host_root.resolve()
-        assert checks[2].cmd[-1] == str(plugin_root.resolve())
-        assert checks[3].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[3].review_hint
-        assert "paused" in checks[3].review_hint
-        assert "8112" in checks[3].review_hint
+        assert checks[2].cmd == ["uv", "run", "python", "tools/free_text_gate.py"]
+        assert "hudmsg" in checks[2].review_hint
+        assert "push_message" in checks[2].review_hint
+        assert checks[3].cwd == host_root.resolve()
+        assert checks[3].cmd[-1] == str(plugin_root.resolve())
+        assert checks[4].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[4].review_hint
+        assert "paused" in checks[4].review_hint
+        assert "8112" in checks[4].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -79,7 +83,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
         assert "local sample replay" not in names
         assert "offline readiness report" not in names
         assert "live test plan" not in names
-        assert names == ["logic self-check", "pytest", "runtime smoke", "synthetic replay"]
+        assert names == ["logic self-check", "pytest", "free-text release gate", "runtime smoke", "synthetic replay"]
 
 
 def test_preflight_dry_run_prints_commands_without_running():
@@ -94,12 +98,15 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 158/158 passed" in text
+        assert "baseline: logic self-check should report 171/171 passed" in text
+        assert "free-text release gate must pass" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
         assert "watch live_monitor Summary first" in text
         assert "uv run python tests/run_logic_tests.py" in text
         assert "uv run pytest -c tests/pytest.ini tests -q" in text
+        assert "free-text release gate" in text
+        assert "uv run python tools/free_text_gate.py" in text
         assert "runtime smoke" in text
         assert "tools/live_monitor.py --count 1" in text
         assert "dry_run / paused / Hosted UI / 8112 ownership / duplicate plugin scan risk" in text

@@ -6,13 +6,14 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 
 - M1 scaffold + M2 Battle Awareness 主链路已实现。
 - T1A Hosted UI Integration + T1B Minimal Panel 已完成，surface/context/action smoke 已通过。
-- T4 集成测试已完成；T-Safety output text sanitizer 已完成；T-Observe runtime decision timeline 已完成轻量实现；T-Live live monitor summary tool 已完成；T-Output output backpressure guard 已完成；T-Kill-Coalesce 多杀合并已完成；L8 data-layer subprocess orchestration 已完成最小编排；`/api/identity` Hosted UI/action 接缝已完成；当前逻辑自检以 `168/168 passed` 为准。
+- T4 集成测试已完成；T-Safety output text sanitizer 已完成；T-Observe runtime decision timeline 已完成轻量实现；T-Live live monitor summary tool 已完成；T-Output output backpressure guard 已完成；T-Kill-Coalesce 多杀合并已完成；L8 data-layer subprocess orchestration 已完成最小编排；`/api/identity` Hosted UI/action 接缝已完成；当前逻辑自检以 `171/171 passed` 为准。
 - 2026-06-21 / 2026-06-23 真机 smoke 已通过：Hosted UI context/action、pause/resume 安全门、spawn、overspeed warning/critical、low_fuel warning/critical、low_alt warning/critical、stall warning/critical、overheat warning/critical、identity manual seam、owned kill/death ownership、`you_killed` / `you_died` dry_run 决策链路、`dry_run=false` 真实 push 输出均正常。
 - 数据层 `v1.6` 已合并到当前独立插件仓库，包含 `overspeed_warn` / `overspeed_critical`、增强 `combat.feed`、`is_my_kill` / `is_my_death`、`/api/identity`、`replay: true` 降级、`hud_notices`、`awards`。
 - 数据层字段缺口不再是“等待字段补齐”；插件侧已分项接入 `v1.6` DTO，剩余重点是真机 / 样本接缝验证。
 - 插件侧已按 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death` 生成 `you_killed` / `you_died`，击杀/死亡 prompt 已按 `domain` / `cause` 使用 generic 空/陆/海措辞，不复读 raw victim 玩家名；已提供面板 `set_identity` action 调用数据层 `/api/identity` 设置/清除玩家名，并可从安全化 `active_players` 候选一键选择自己；在 `replay=true` 时静默 Detector 输出。
 - 插件侧已接入 `hud_notices.feed[].code` 中的 `engine_overheat` / `oil_overheat`，可映射为现有 `overheat` 事件；raw HUD 文本不进入 prompt。
 - `T-Safety: output text sanitizer` 已实现，位于 `NekoDispatcher` / prompt builder 前；prompt 和 `push_message.parts[].text` 只能使用 safe / generic 文案，且已覆盖 hudmsg / combat.feed / awards 常见自由文本字段族。
+- `tools/free_text_gate.py` 已纳入离线 preflight，作为 hudmsg / combat.feed / awards 去桩前的发布门禁：合成恶意玩家名、HUD、combat feed、award payload 后，验证 prompt 与 `push_message.parts[].text` 不含 raw 文本；这些路径在真机 dry_run 安全验证前仍保持 dry_run-only。
 - `T-Observe` 已接入 Hosted UI `observe` context：普通模式保留最近一次事件/决策/输出摘要，debug 模式才返回内存 ring buffer timeline。
 - `T-Output` 已在真实 `push_message` 前接入输出背压：`output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，避免主机回复队列堆积；更高优先级事件仍可通过。真实战场事件 push 现在会带统一 `coalesce_key=neko_warthunder:battle_event`，让宿主队列中尚未释放的旧战场 cue 被最新事件替换；`output_event_max_age_seconds` 默认 8s，会在真实 push 前丢弃已过期的旧事件，减少死亡后补播旧低空/超速等晚回复。
 - `you_killed` 已接入轻量多杀合并：`kill_coalesce_window_seconds` 窗口内的 owned kill 会合成一条带 `kill_count` 的 generic prompt，critical 事件仍可抢占并清空待播击杀。
@@ -41,12 +42,12 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 当前状态：
 - Hosted UI 完成。
 - T4 集成测试完成。
-- 逻辑自检 168/168 passed。
+- 逻辑自检 171/171 passed。
 - 数据层 v1.6 已合并，插件侧已分项接入 kill/death、identity、replay 静默和 overheat HUD notice，仍需真机接缝验证。
 - 合作者 2026-06-20 真实样本已做离线 replay 聚合报告；`tools/sample_replay.py` 现在会输出 `session_summary`、分组 validation verdict、P1/P2 `live_test_plan` 和 `--json` 机器可读结果，并在样本含 `replay=true` 时证明 Detector suppressed / output blocked；`tools/offline_report.py` 可生成安全 Markdown 或 compact JSON，并在 Markdown / JSON 中提供 Team brief、Next test focus、Operator quick checklist 与 Next live-test plan，列出已观察事件、dry_run 输出、模块 readiness、剩余真机范围和下一步缺口；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，且 `next_steps` 也会列出这两个现场动作；`tools/live_test_plan.py` 可把待测项展开成 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”的真机操作清单；`tools/live_monitor.py` 可在真机测试中安全汇总 health、Hosted UI context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe last decision/output 和日志异常计数；`tools/preflight.py` dry-run 输出现在带 Quick read，`--run --report-output <path>` 可在统一预检时一并运行 runtime smoke、保存报告，并在通过/失败时给出下一步操作提示。
 - 真机 smoke 已完成多轮；2026-06-23 已观察到 `overspeed_warn` / `overspeed_critical`、`low_fuel`、`low_alt_danger`、`stall_risk`、`overheat`、`you_killed`、`you_died` 进入 Arbiter / Dispatcher，并验证手动 identity、owned combat.feed 归属字段和 `dry_run=false` 真实 push 输出。
 - T-Observe 已完成轻量实现；真机 dry_run 已验证 `observe.last_decision` / `observe.last_output_status` 能解释 allow / preempt / cooldown / dry_run 输出。
-- T-Safety 已完成；kill/death 的安全 generic 输出已通过真机 `dry_run=false` smoke，hudmsg / awards / 其他 free-text 正式播报前仍需 dry_run 安全验证。
+- T-Safety 与 free-text release gate 已完成；kill/death 的安全 generic 输出已通过真机 `dry_run=false` smoke，hudmsg / awards / 其他 free-text 正式播报前仍需 dry_run 安全验证。
 - L9 已接入起飞/滑跑雷达高度保护、真实战场事件队列 coalescing、事件过期丢弃和 Hosted UI 中文化；下一轮真机先复测机场起飞/复活阶段不再误播低空/滑跑超速，并观察死亡/高优先级事件是否替换或淘汰宿主队列中的旧提示。
 - recovery 暂缓。
 
@@ -61,7 +62,7 @@ War Thunder 猫娘副驾驶插件 v1。插件只消费本地数据层 HTTP `:811
 1. L9 下一轮真机先复测机场起飞/复活阶段：优先确认 `radio_altitude_m` 可用；雷达高度 `<=10m` 后进入滑跑保护，`>=40m` 后解除。保护期内不应播 `low_alt_danger`，且贴地滑跑阶段不应播 `overspeed`；失速、死亡等关键事件仍应能触发。同时观察真实开口时 `coalesce_key` / `event_expired` 是否减少旧低空/超速提示晚到。
 2. 继续 M3 剩余验证：replay 真实样本验证、awards/free-text dry_run 安全合同、油温/动力故障字段策略；现场用 `tools/live_monitor.py` 先看 `Summary` 行，再看 `replay=suppressed(detector_suppressed/replay)`、输出阻断状态，以及 `FreeText detail` 中的 `awards=.../blocked` 等逐源摘要。
 3. 继续真机 checklist，补 replay、awards/free-text dry_run 接缝；identity/ownership、`you_killed`、`you_died`、`low_fuel` 和真实 push 已有真机正向证据。
-4. kill/death/hudmsg/combat.feed/awards 去桩前确认 T-Safety 合同仍覆盖 prompt。
+4. kill/death/hudmsg/combat.feed/awards 去桩前确认 T-Safety 合同与 `tools/free_text_gate.py` 仍覆盖 prompt / `push_message.parts[].text`。
 5. L8 子进程最小编排已完成；2026-06-26 本地自验证确认 `data_layer.mode=managed/external` 可区分来源，插件 stop 会关闭 managed `8112`，不会误杀 external `8112`。
 ```
 

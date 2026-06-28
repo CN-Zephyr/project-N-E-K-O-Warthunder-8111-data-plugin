@@ -11,8 +11,9 @@
 - T4 集成测试已完成。
 - Hosted UI surface/context/action smoke 已通过。
 - T-Safety output text sanitizer 已完成。
+- T-FreeText-Gate free-text release gate 已完成：`tools/free_text_gate.py` 使用合成恶意玩家名、HUD、combat feed、award payload 验证 prompt 与 `push_message.parts[].text` 不含 raw 文本，并已纳入 `tools/preflight.py`。
 - T-Observe runtime decision timeline 已完成轻量实现：普通模式只保留最近摘要，debug 模式使用内存 ring buffer。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `168/168 passed` 为准。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `171/171 passed` 为准。
 - 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，并能用 candidate/chosen/output 计数证明 `replay=true` 样本被静默；`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，并输出 Next test focus；`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压与 T-Kill-Coalesce 多杀合并复测项，`next_steps` 也会列出这两个现场动作但状态仍按样本/数据缺口判定；`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要、`selected` / `dry_run_enabled` / `kill_coalesced` / `output_backpressure` / `event_expired` 等中文可行动原因与日志异常计数；`tools/preflight.py` 已把 runtime smoke 纳入门禁，dry-run 会先打印 Quick read，`--run` 通过/失败时会直接提示继续 dry-run 真机验证或停止排障。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
@@ -43,6 +44,7 @@
 - L4 Detector：已实现主链路；`overspeed` 已在真机 dry_run 中验证 `overspeed_warn` / `overspeed_critical`；`low_fuel` 已在真机 dry_run 中验证 warning / critical；`low_alt_danger`、`stall_risk`、`overheat` 均已观察到 warning / critical 基础链路；`you_killed` / `you_died` 已消费 `combat.feed[].is_my_kill` / `combat.feed[].is_my_death`，离线 replay 合成场景也已覆盖该形状。
 - L5 Arbiter：完成；`SPAWNING` 仍压制飞行安全误报，但已允许 owned combat kill 事件通过，避免真实击杀在出生 grace 内被误压。后续 M3 适配时要保持 cooldown、优先级、Scenario 门控语义不变。
 - L6 Dispatcher / instructions：完成基础输出；T-Safety 已在 prompt builder 前接入，prompt / `push_message.parts[].text` 不允许包含 unsafe raw。
+- T-FreeText-Gate：完成；`tools/free_text_gate.py` 是 hudmsg / combat.feed / awards 去桩前的离线发布门禁，preflight 默认执行。
 - L7 safety guard + Hosted UI：完成；Hosted UI 面板已完成一轮信息架构整理和中文化，连接状态、战场状态、安全控制、最近决策、最近输出分区清晰，常见标签/状态值使用中文显示。
 - T-Observe runtime decision timeline：完成轻量实现；Hosted UI context 暴露 `observe.last_event` / `last_decision` / `last_output_status`，debug timeline 默认关闭。
 - T-Output output backpressure guard：完成轻量实现；真实 `push_message` 前会在 `output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，减少主机回复队列堆积，更高优先级事件仍可通过。真实战场事件 push 现在统一带 `coalesce_key=neko_warthunder:battle_event`，让宿主队列中未释放的旧 cue 被最新事件替换；`output_event_max_age_seconds` 会在真实 push 前丢弃过期旧事件，减少死亡后补播旧低空/超速提示。
@@ -78,6 +80,7 @@
 - dispatcher prompt 测试。
 - `push_message.parts[].text` 不包含 unsafe raw 的合同测试。
 - hudmsg / combat.feed / awards 常见自由文本字段族即使内容看似普通，也默认 blocked，不进入 safe prompt payload。
+- `tools/free_text_gate.py` 已作为额外离线门禁，覆盖 prompt、真实 `push_message.parts[].text` 和 sanitizer safe payload 三层；该门禁通过前不得开放 hudmsg / combat.feed / awards 真实播报。
 
 ## M3：适配数据层 v1.6 DTO
 
@@ -111,7 +114,7 @@
 2. M3 剩余验证：先运行 `tools/live_test_plan.py local_samples/data_process_20260620 tl0sr2` 生成下一轮真机操作清单，现场用 `tools/live_monitor.py` 做安全只读摘要，先看 `Summary` 行，再用 `replay_degrade` 字段确认 replay 静默/输出阻断，用 `free_text_safety.source_details` / `FreeText detail` 确认 awards、combat.feed、hud_notices 逐源 blocked，再按清单补 replay 样本验证、awards/free-text dry_run 验证、failure 字段策略。
 3. 真机 checklist 验证 v1.6 接缝，同时用 T-Observe 与 T-Live 辅助解释决策链路。
 4. 如 T-Observe 在真机里信息不足，再补 debug timeline 展示/字段。
-5. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同。
+5. kill/death/hudmsg/combat.feed/awards 去桩前复核 T-Safety prompt 合同，并运行 `tools/free_text_gate.py` 确认 prompt / `push_message.parts[].text` 不含 raw 文本。
 6. L8 子进程编排已完成本地自验证：managed 8112 随插件 stop 关闭，external 8112 不被误杀；后续真机只需观察现场是否有异常残留。
 7. remaining `dry_run=false` 终验：继续观察 T-Output 背压是否减少晚播/旧回复，以及 T-Kill-Coalesce 是否减少多杀刷屏。
 
@@ -121,5 +124,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 / pre-L9-takeoff-grace / pre-output-coalescing / pre-event-expiry / pre-T-UI2 / pre-deferred-hud-notice / pre-radio-altitude 测试数量；当前逻辑自检应以 `168/168 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-free-text-gate / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 / pre-L9-takeoff-grace / pre-output-coalescing / pre-event-expiry / pre-T-UI2 / pre-deferred-hud-notice / pre-radio-altitude 测试数量；当前逻辑自检应以 `171/171 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。
