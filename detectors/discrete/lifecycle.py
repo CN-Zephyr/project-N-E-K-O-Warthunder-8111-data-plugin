@@ -13,6 +13,7 @@ from typing import Any
 
 from ...core.contracts import BattleEvent, BattleState
 from .._base import DiscreteDetector
+from .free_text import FreeTextActivityDetector
 from .notices import HudNoticeDetector
 from .proximity import ProximityDetector
 from .situation import GroundTargetDetector
@@ -166,6 +167,7 @@ def build_discrete_detectors(player_name: str) -> list[DiscreteDetector]:
         BattleEndDetector(),
         KillDetector(player_name),
         HudNoticeDetector(),
+        FreeTextActivityDetector(),
         ProximityDetector(),
         GroundTargetDetector(),
     ]

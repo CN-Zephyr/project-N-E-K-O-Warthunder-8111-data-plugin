@@ -502,9 +502,10 @@ def test_powertrain_failure_notice_is_observed_as_deferred_without_speech():
         module.time.time = original_time
 
 
-def test_free_text_sources_are_observed_as_blocked_without_speech():
-    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 101.0])
+def test_free_text_sources_are_observed_as_blocked_and_dry_run_candidate_without_speech():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 101.0], dry_run=True)
     try:
+        plugin.resolver._prev_alive = True
         raw = {
             "awards": {"feed": [{"id": 1, "text": "raw award text"}]},
             "combat": {"feed": [{"id": 10, "is_my_kill": False, "text": "raw combat feed text"}]},
@@ -529,7 +530,9 @@ def test_free_text_sources_are_observed_as_blocked_without_speech():
 
         observe = plugin.timeline.snapshot()
         records = [item for item in observe["recent_timeline"] if item.get("reason") == "free_text_blocked"]
-        assert plugin.pushed_events == []
+        candidates = [item for item in observe["recent_timeline"] if item.get("event_id") == "free_text_activity"]
+        assert plugin.pushed_events
+        assert {event.event_id for event in plugin.pushed_events} == {"free_text_activity"}
         assert len(records) == 5
         assert {item["source"] for item in records} == {
             "awards",
@@ -538,10 +541,9 @@ def test_free_text_sources_are_observed_as_blocked_without_speech():
             "hudmsg",
             "hud_events",
         }
-        assert observe["last_decision"]["stage"] == "detector_suppressed"
-        assert observe["last_decision"]["outcome"] == "suppressed"
-        assert observe["last_decision"]["reason"] == "free_text_blocked"
-        assert observe["last_decision"]["event_id"] == "free_text_hud_events"
+        assert any(item["stage"] == "detector_candidate" for item in candidates)
+        assert any(item["stage"] == "arbiter_allowed" and item["reason"] == "selected" for item in candidates)
+        assert observe["last_decision"]["event_id"] == "free_text_activity"
         assert "raw award text" not in repr(observe)
         assert "raw combat feed text" not in repr(observe)
         assert "raw hud notice text" not in repr(observe)

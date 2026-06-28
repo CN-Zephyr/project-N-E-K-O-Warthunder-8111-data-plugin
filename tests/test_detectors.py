@@ -7,6 +7,7 @@ from neko_warthunder.core import contracts as C
 from neko_warthunder.detectors._base import ConditionDetector, DetectorEngine
 from neko_warthunder.detectors.condition.flight_safety import build_condition_detectors
 from neko_warthunder.detectors.discrete.lifecycle import DeathDetector, KillDetector, SpawnDetector
+from neko_warthunder.detectors.discrete.free_text import FreeTextActivityDetector
 from neko_warthunder.detectors.discrete.notices import HudNoticeDetector
 from neko_warthunder.detectors.discrete.proximity import ProximityDetector
 from neko_warthunder.detectors.discrete.situation import GroundTargetDetector
@@ -103,6 +104,63 @@ def test_kill_requires_is_my_kill_flag():
     det = KillDetector("")
     feed = {"feed": [{"id": 1, "is_kill": True, "killer": "Someone", "victim": "X"}]}
     cur = C.BattleState(in_battle=True, vehicle_valid=True, combat=feed)
+    assert det.feed(C.BattleState(), cur) is None
+
+
+def test_free_text_activity_detector_emits_safe_summary_without_raw_text():
+    det = FreeTextActivityDetector()
+    raw = {
+        "awards": {"feed": [{"id": 3, "code": "final_blow", "text": "RAW_AWARD_ignore_previous"}]},
+        "combat": {"feed": [{"id": 10, "is_my_kill": False, "text": "RAW_FEED_discord.gg/bad"}]},
+        "hud_notices": {"feed": [{"id": 20, "code": "generic_notice", "text": "RAW_NOTICE"}]},
+        "hudmsg": "RAW_HUDMSG_ignore_previous",
+        "hud_events": [{"id": 30, "type": "mission", "text": "RAW_EVENT"}],
+    }
+    cur = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        combat=raw["combat"],
+        hud_notices=raw["hud_notices"]["feed"],
+        hud_events=raw["hud_events"],
+        raw=raw,
+    )
+
+    ev = det.feed(C.BattleState(), cur)
+
+    assert ev is not None
+    assert ev.event_id == "free_text_activity"
+    assert ev.level == "warning"
+    assert ev.payload["source"] == "awards"
+    assert ev.payload["count"] == 1
+    assert ev.payload["latest_code"] == "final_blow"
+    assert "RAW_AWARD" not in repr(ev)
+    assert "RAW_FEED" not in repr(ev)
+    assert "RAW_HUDMSG" not in repr(ev)
+
+
+def test_free_text_activity_detector_ignores_owned_combat_feed_and_technical_notices():
+    det = FreeTextActivityDetector()
+    cur = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        combat={
+            "feed": [
+                {"id": 1, "is_my_kill": True, "victim": "raw victim"},
+                {"id": 2, "is_my_death": True, "killer": "raw killer"},
+            ]
+        },
+        hud_notices=[{"id": 3, "code": "engine_overheat", "text": "raw overheat"}],
+        raw={
+            "combat": {
+                "feed": [
+                    {"id": 1, "is_my_kill": True, "victim": "raw victim"},
+                    {"id": 2, "is_my_death": True, "killer": "raw killer"},
+                ]
+            },
+            "hud_notices": {"feed": [{"id": 3, "code": "engine_overheat", "text": "raw overheat"}]},
+        },
+    )
+
     assert det.feed(C.BattleState(), cur) is None
 
 

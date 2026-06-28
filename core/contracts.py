@@ -84,6 +84,7 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "air_threat_nearby": EventSpec("air_threat_nearby", CAT_MAP_AWARENESS, 3, False, 20, 3, 3),
     "enemy_on_six":   EventSpec("enemy_on_six", CAT_MAP_AWARENESS, 4, False, 20, 4, 4),
     "tailing_risk":   EventSpec("tailing_risk", CAT_MAP_AWARENESS, 5, False, 25, 5, 5),
+    "free_text_activity": EventSpec("free_text_activity", CAT_MAP_AWARENESS, 1, False, 25, 1, 1),
     "you_killed":     EventSpec("you_killed", CAT_COMBAT_KILL, 5, False, 8, 3, 3),
     "you_died":       EventSpec("you_died", CAT_LIFECYCLE, 10, True, -1, SEV_CRITICAL, SEV_CRITICAL),
     "spawn":          EventSpec("spawn", CAT_LIFECYCLE, 5, False, -1, SEV_LIFECYCLE, SEV_LIFECYCLE),

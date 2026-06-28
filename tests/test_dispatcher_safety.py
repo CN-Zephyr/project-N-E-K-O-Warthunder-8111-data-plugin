@@ -245,3 +245,44 @@ def test_ground_target_prompt_uses_safe_metadata_without_raw_label():
     assert "2400m" in prompt
     assert "RAW_OBJECTIVE_LABEL" not in prompt
     assert UNSAFE_HUD_TEXT not in prompt
+
+
+def test_free_text_activity_prompt_uses_generic_source_without_raw_text():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent(
+            "free_text_activity",
+            payload={
+                "source": "awards",
+                "count": 2,
+                "latest_code": "final_blow",
+                "raw_text": UNSAFE_AWARD_TEXT,
+                "hudmsg": UNSAFE_HUD_TEXT,
+                "combat_feed_text": UNSAFE_FEED_TEXT,
+            },
+        )
+    )
+
+    assert "free_text_activity" not in prompt
+    assert "awards" not in prompt
+    assert "final_blow" in prompt
+    assert UNSAFE_AWARD_TEXT not in prompt
+    assert UNSAFE_HUD_TEXT not in prompt
+    assert UNSAFE_FEED_TEXT not in prompt
+    assert "{MASTER_NAME}" in prompt
+
+
+def test_free_text_activity_keeps_dry_run_observable_but_suppresses_real_push():
+    plugin = FakePlugin()
+    timeline = RuntimeTimeline()
+    event = BattleEvent("free_text_activity", payload={"source": "combat_feed", "count": 1, "raw_text": UNSAFE_FEED_TEXT})
+
+    dry_result = NekoDispatcher(plugin, timeline=timeline).push_event(event, dry_run=True)
+    real_result = NekoDispatcher(plugin, timeline=timeline).push_event(event, dry_run=False)
+
+    assert dry_result.startswith("dry_run(event=free_text_activity/")
+    assert real_result == "suppressed(event=free_text_activity/enter, reason=free_text_dry_run_only)"
+    assert plugin.calls == []
+    output = timeline.snapshot()["last_output_status"]
+    assert output["stage"] == "dispatcher_suppressed"
+    assert output["reason"] == "free_text_dry_run_only"
+    assert output["event_id"] == "free_text_activity"

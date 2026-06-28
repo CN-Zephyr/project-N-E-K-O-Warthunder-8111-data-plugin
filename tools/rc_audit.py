@@ -64,10 +64,12 @@ STALE_BASELINES = [
     "242 passed",
     "245/245 passed",
     "245 passed",
+    "249/249 passed",
+    "249 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "249/249 passed",
+    "253/253 passed",
     "release defaults gate",
     "tools/release_defaults_gate.py",
     "handoff_status",
@@ -84,6 +86,8 @@ REQUIRED_SNIPPETS = [
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",
+    "free_text_activity",
+    "free_text_dry_run_only",
     "free-text release gate",
     "replay degrade gate",
     "deferred HUD notice gate",

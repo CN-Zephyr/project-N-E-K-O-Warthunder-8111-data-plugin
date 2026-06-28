@@ -49,6 +49,7 @@ def test_dispatcher_builds_prompt_for_each_event_and_recovery():
         "air_threat_nearby": {"distance_m": 1800, "clock": 2},
         "enemy_on_six": {"distance_m": 700, "clock": 6},
         "tailing_risk": {"distance_m": 620, "clock": 6},
+        "free_text_activity": {"source": "awards", "count": 1, "latest_code": "final_blow"},
         "you_killed": {"victim": "Bandit"},
         "you_died": {"cause": "unknown"},
         "spawn": {"vehicle_type": "bf-109f-4"},

@@ -227,7 +227,7 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 249/249 passed")
+    print("- baseline: logic self-check should report 253/253 passed")
     print("- release defaults gate must keep dry_run-first and unverified real output closed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")

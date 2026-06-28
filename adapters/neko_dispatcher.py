@@ -17,6 +17,7 @@ from .text_safety import sanitize_event_payload
 
 BATTLE_EVENT_COALESCE_KEY = "neko_warthunder:battle_event"
 V2_LIVE_EVIDENCE_GATED_EVENTS = frozenset({"enemy_on_six", "tailing_risk", "ground_target_nearby"})
+FREE_TEXT_DRY_RUN_ONLY_EVENTS = frozenset({"free_text_activity"})
 
 # 每个事件的"要求行"意图（不写最终台词，台词归角色 LLM）。
 _INTENT: dict[str, str] = {
@@ -30,6 +31,7 @@ _INTENT: dict[str, str] = {
     "air_threat_nearby": "有空中威胁接近，提醒 {MASTER_NAME} 抬头看方位",
     "enemy_on_six": "后方有威胁接近，提醒 {MASTER_NAME} 不要让对面贴住",
     "tailing_risk": "后方威胁持续接近，提醒 {MASTER_NAME} 立刻改出、别被咬住",
+    "free_text_activity": "提醒 {MASTER_NAME} 检测到新的战场文字来源，只做安全泛化提醒，不复读原文",
     "you_killed": "为 {MASTER_NAME} 刚才的击杀庆祝/调侃一句",
     "you_died": "{MASTER_NAME} 刚才阵亡/载具损失了，按事实简短共情安慰一句",
     "spawn": "出场跟 {MASTER_NAME} 打个招呼、就位",
@@ -67,6 +69,7 @@ def _fact_line(event: BattleEvent) -> str:
     death_fact = _death_fact(event.event_id, p)
     proximity_fact = _proximity_fact(event.event_id, p)
     objective_fact = _objective_fact(event.event_id, p)
+    free_text_fact = _free_text_fact(event.event_id, p)
     has_radio_altitude = p.get("radio_altitude_m") is not None
     order = [
         ("ias_kmh", "IAS {:.0f}km/h"),
@@ -87,6 +90,8 @@ def _fact_line(event: BattleEvent) -> str:
         bits.append(proximity_fact)
     if objective_fact:
         bits.append(objective_fact)
+    if free_text_fact:
+        bits.append(free_text_fact)
     if has_radio_altitude:
         try:
             bits.append("AGL {:.0f}m".format(p["radio_altitude_m"]))
@@ -182,6 +187,31 @@ def _objective_fact(event_id: str, payload: dict[str, Any]) -> str:
     return "任务目标点接近" if not detail else f"任务目标点接近（{'，'.join(detail)}）"
 
 
+def _free_text_fact(event_id: str, payload: dict[str, Any]) -> str:
+    if event_id != "free_text_activity":
+        return ""
+    source_labels = {
+        "awards": "奖励/战绩通知",
+        "combat_feed": "战斗记录",
+        "hud_notices": "HUD通知",
+        "hud_events": "HUD事件",
+        "hudmsg": "战场提示",
+    }
+    source = str(payload.get("source") or "")
+    label = source_labels.get(source, "战场文字来源")
+    detail: list[str] = []
+    try:
+        count = int(payload.get("count") or 0)
+    except (TypeError, ValueError):
+        count = 0
+    if count > 0:
+        detail.append(f"{count}条")
+    code = payload.get("latest_code")
+    if isinstance(code, str) and code:
+        detail.append(code)
+    return label if not detail else f"{label}（{'，'.join(detail)}）"
+
+
 class NekoDispatcher:
     def __init__(
         self,
@@ -224,8 +254,25 @@ class NekoDispatcher:
                     ai_behavior="respond",
                     pushed=False,
                     safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
-                )
+            )
             return f"dry_run(event={event.event_id}/{event.edge}/{event.level}, prio={event.priority}, preempt={event.preempt_eligible})"
+        if event.event_id in FREE_TEXT_DRY_RUN_ONLY_EVENTS:
+            if self.timeline:
+                self.timeline.record_stage(
+                    stage="dispatcher_suppressed",
+                    outcome="dropped",
+                    reason="free_text_dry_run_only",
+                    event_id=event.event_id,
+                    edge=event.edge,
+                    level=event.level,
+                    priority=event.priority,
+                    dry_run=False,
+                    kind="event",
+                    ai_behavior="respond",
+                    pushed=False,
+                    safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                )
+            return f"suppressed(event={event.event_id}/{event.edge}, reason=free_text_dry_run_only)"
         if self._is_v2_live_evidence_gated(event):
             if self.timeline:
                 self.timeline.record_stage(
