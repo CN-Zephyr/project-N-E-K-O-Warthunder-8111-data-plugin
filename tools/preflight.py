@@ -74,6 +74,12 @@ def build_checks(
             "V2 offline scope should be complete while live-only evidence stays explicit",
         ),
         Check(
+            "V2 release matrix",
+            plugin,
+            ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"],
+            "V2 capability rows must show code/offline/live evidence and dry_run-first policy",
+        ),
+        Check(
             "final smoke packet",
             plugin,
             ["uv", "run", "python", "tools/final_smoke_packet.py"],
@@ -124,6 +130,14 @@ def build_checks(
         )
         checks.append(
             Check(
+                "V2 release matrix with local sample",
+                plugin,
+                ["uv", "run", "python", "tools/v2_release_matrix.py", sample_rel, "tl0sr2"],
+                "V2 capability matrix for code/offline/live-evidence handoff without raw telemetry text",
+            )
+        )
+        checks.append(
+            Check(
                 "offline readiness report",
                 plugin,
                 _offline_report_cmd(sample_rel, report_output),
@@ -163,12 +177,13 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 228/228 passed")
+    print("- baseline: logic self-check should report 232/232 passed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
     print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")
     print("- proximity/objective awareness gate must pass before V2 proximity/objective prompts can be considered safe")
     print("- V2 readiness summary must separate offline-complete code from live-only sample evidence")
+    print("- V2 release matrix must show which capabilities are dry_run-first until live evidence exists")
     print("- final smoke packet must summarize go/no-go, commands, V2 evidence, and safety boundary")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")

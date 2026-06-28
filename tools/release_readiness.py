@@ -84,6 +84,12 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"],
             review_hint="V2 offline scope must be complete without claiming live-only sample evidence",
         ),
+        Check(
+            "V2 release matrix",
+            plugin,
+            ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"],
+            review_hint="V2 capabilities must separate code/offline completion from live evidence and real-output policy",
+        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
@@ -108,6 +114,12 @@ def build_checks(
                     plugin,
                     ["uv", "run", "python", "tools/v2_readiness.py", sample_rel, "tl0sr2"],
                     review_hint="V2 sample evidence summary for rear/six threat and objective proximity",
+                ),
+                Check(
+                    "V2 release matrix with local sample",
+                    plugin,
+                    ["uv", "run", "python", "tools/v2_release_matrix.py", sample_rel, "tl0sr2"],
+                    review_hint="V2 capability matrix showing live-evidence pending rows and dry_run-first policy",
                 ),
                 Check(
                     "offline readiness report",

@@ -62,7 +62,10 @@ def test_final_smoke_packet_without_sample_requires_offline_gate_by_default():
     assert payload["go_no_go"] == "review_required_run_offline_gate"
     assert payload["handoff"]["v2"]["offline_gate_complete"] is True
     assert payload["handoff"]["v2"]["live_evidence_complete"] is False
+    assert payload["v2_release_matrix"]["verdict"] == "v2_code_complete_live_pending"
+    assert payload["v2_release_matrix"]["summary"]["code_complete"] is True
     assert payload["commands"]["offline_gate"] == "uv run python tools\\release_readiness.py --run"
+    assert payload["commands"]["v2_release_matrix"].startswith("uv run python tools\\v2_release_matrix.py")
     assert payload["safety_boundary"] == {
         "dry_run_first": True,
         "free_text_real_output_allowed": False,
@@ -84,6 +87,8 @@ def test_final_smoke_packet_with_sample_lists_v2_and_free_text_actions_without_r
     assert payload["offline_gate_status"] == "passed"
     assert payload["go_no_go"] == "go_dry_run_final_smoke"
     assert payload["handoff"]["v2"]["live_evidence_status"] == "needs_live_sample"
+    assert payload["v2_release_matrix"]["summary"]["live_evidence_complete"] is False
+    assert "enemy_on_six" in payload["v2_release_matrix"]["summary"]["blocked_real_output_until_live_evidence"]
     assert "ground_target_close_candidates" in payload["handoff"]["v2"]["missing"]
     assert "capture_awards_or_free_text_sample" in payload["remaining_live_actions"]
     assert "fly_closer_to_ground_target_sample" in payload["remaining_live_actions"]

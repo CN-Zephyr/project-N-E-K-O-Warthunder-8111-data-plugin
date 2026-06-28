@@ -23,6 +23,7 @@ if "neko_warthunder" not in sys.modules:
 from neko_warthunder.tools.live_test_plan import build_compact_plan  # noqa: E402
 from neko_warthunder.tools.rc_gap_summary import build_gap_summary  # noqa: E402
 from neko_warthunder.tools.release_readiness import build_handoff, build_release_scope  # noqa: E402
+from neko_warthunder.tools.v2_release_matrix import build_v2_release_matrix  # noqa: E402
 from neko_warthunder.tools.v2_readiness import build_v2_readiness  # noqa: E402
 
 
@@ -38,6 +39,7 @@ def build_packet(
     sample_summary = build_gap_summary(sample, player_name=player_name) if sample.exists() else None
     release_scope = build_release_scope(sample_summary)
     v2_summary = build_v2_readiness(sample_root=sample if sample.exists() else None, player_name=player_name)
+    v2_matrix = build_v2_release_matrix(sample_root=sample if sample.exists() else None, player_name=player_name)
     handoff = build_handoff(release_scope, v2_summary)
     live_plan = build_compact_plan(sample, player_name=player_name) if sample.exists() else None
 
@@ -49,12 +51,18 @@ def build_packet(
             "offline_gate": "uv run python tools\\release_readiness.py --run",
             "live_monitor_once": "uv run python tools\\live_monitor.py --count 1",
             "v2_readiness": f"uv run python tools\\v2_readiness.py {sample_rel} {player_name}",
+            "v2_release_matrix": f"uv run python tools\\v2_release_matrix.py {sample_rel} {player_name}",
             "live_test_plan": f"uv run python tools\\live_test_plan.py {sample_rel} {player_name}",
         },
         "handoff": handoff,
         "v1_release_scope": release_scope,
         "v2_release_scope": v2_summary.get("release_scope") or {},
         "v2_live_evidence": v2_summary.get("live_evidence") or {},
+        "v2_release_matrix": {
+            "verdict": v2_matrix.get("verdict"),
+            "summary": v2_matrix.get("summary") or {},
+            "capabilities": v2_matrix.get("capabilities") or [],
+        },
         "operator_quick_checklist": (live_plan or {}).get("quick_checklist") or [],
         "remaining_live_actions": _dedupe(
             list(handoff.get("next_actions") or []) + list((live_plan or {}).get("next_steps") or [])
@@ -103,7 +111,7 @@ def render_text(packet: dict[str, Any]) -> str:
         "",
         "commands:",
     ]
-    for key in ["offline_gate", "live_monitor_once", "v2_readiness", "live_test_plan"]:
+    for key in ["offline_gate", "live_monitor_once", "v2_readiness", "v2_release_matrix", "live_test_plan"]:
         lines.append(f"- {key}: `{commands.get(key)}`")
     lines.extend(
         [
