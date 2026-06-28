@@ -22,6 +22,8 @@ if "neko_warthunder" not in sys.modules:
     _pkg.__path__ = [str(_BASE)]  # type: ignore[attr-defined]
     sys.modules["neko_warthunder"] = _pkg
 
+from neko_warthunder.tools.rc_gap_summary import build_gap_summary  # noqa: E402
+
 
 @dataclass(frozen=True)
 class Check:
@@ -117,10 +119,15 @@ def build_checks(
     return checks
 
 
-def run_checks(checks: Sequence[Check]) -> dict[str, Any]:
+def run_checks(checks: Sequence[Check], *, stream_output: bool = True) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     for check in checks:
-        completed = subprocess.run(check.cmd, cwd=check.cwd)
+        completed = subprocess.run(
+            check.cmd,
+            cwd=check.cwd,
+            capture_output=not stream_output,
+            text=not stream_output,
+        )
         results.append(
             {
                 "name": check.name,
@@ -135,16 +142,18 @@ def run_checks(checks: Sequence[Check]) -> dict[str, Any]:
                 "verdict": "blocked",
                 "checks": results,
                 "next_step": f"fix {check.name} before final live smoke",
+                "release_scope": _blocked_scope(check.name),
             }
     return {
         "status": "pass",
         "verdict": "ready_for_final_live_smoke",
         "checks": results,
         "next_step": "run one focused final live smoke with dry_run first",
+        "release_scope": build_release_scope(),
     }
 
 
-def plan_payload(checks: Sequence[Check]) -> dict[str, Any]:
+def plan_payload(checks: Sequence[Check], *, sample_summary: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "status": "plan",
         "verdict": "not_run",
@@ -159,15 +168,73 @@ def plan_payload(checks: Sequence[Check]) -> dict[str, Any]:
             for check in checks
         ],
         "next_step": "run with --run; if pass, proceed to final live smoke",
+        "release_scope": _plan_scope(sample_summary),
     }
 
 
+def build_release_scope(sample_summary: dict[str, Any] | None = None) -> dict[str, Any]:
+    sample = sample_summary or {}
+    return {
+        "ship_status": "offline_gates_passed",
+        "final_live_smoke_required": True,
+        "real_output_blockers": list(sample.get("blocked_release_items") or []),
+        "sample_unproven_items": list(sample.get("sample_unproven_items") or []),
+        "next_actions": list(sample.get("next_actions") or []),
+        "free_text_real_output_allowed": bool(
+            (sample.get("safety") or {}).get("free_text_real_output_allowed", False)
+        ),
+        "notes": [
+            "offline gates passed; do not claim live-only seams without final smoke",
+            "free-text real output stays blocked unless its dry_run safety validation passes",
+        ],
+    }
+
+
+def _blocked_scope(check_name: str) -> dict[str, Any]:
+    return {
+        "ship_status": "blocked_before_live_smoke",
+        "final_live_smoke_required": False,
+        "real_output_blockers": [check_name],
+        "sample_unproven_items": [],
+        "next_actions": [f"fix_{check_name.replace(' ', '_')}"],
+        "free_text_real_output_allowed": False,
+        "notes": ["a blocking offline gate failed; stop before live smoke"],
+    }
+
+
+def _plan_scope(sample_summary: dict[str, Any] | None) -> dict[str, Any]:
+    sample = sample_summary or {}
+    return {
+        "ship_status": "not_run",
+        "final_live_smoke_required": True,
+        "real_output_blockers": list(sample.get("blocked_release_items") or []),
+        "sample_unproven_items": list(sample.get("sample_unproven_items") or []),
+        "next_actions": list(sample.get("next_actions") or ["run_release_readiness"]),
+        "free_text_real_output_allowed": bool(
+            (sample.get("safety") or {}).get("free_text_real_output_allowed", False)
+        ),
+        "notes": ["run with --run before using this as release evidence"],
+    }
+
+
+def _load_sample_summary(plugin_root: str | pathlib.Path, sample_rel: str) -> dict[str, Any] | None:
+    sample = pathlib.Path(plugin_root).resolve() / pathlib.Path(sample_rel)
+    if not sample.exists():
+        return None
+    return build_gap_summary(sample, player_name="tl0sr2")
+
+
 def render_text(payload: dict[str, Any]) -> str:
+    scope = payload.get("release_scope") or {}
     lines = [
         "# neko_warthunder v1 release readiness",
         f"status: {payload['status']}",
         f"verdict: {payload['verdict']}",
         f"next: {payload['next_step']}",
+        f"ship_status: {scope.get('ship_status', '-')}",
+        "real_output_blockers: " + (", ".join(scope.get("real_output_blockers") or []) or "-"),
+        "sample_unproven_items: " + (", ".join(scope.get("sample_unproven_items") or []) or "-"),
+        "scope_next_actions: " + (", ".join(scope.get("next_actions") or []) or "-"),
         "",
         "checks:",
     ]
@@ -195,7 +262,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     checks = build_checks(plugin_root=args.plugin_root, host_root=args.host_root)
-    payload = run_checks(checks) if args.run else plan_payload(checks)
+    sample_summary = _load_sample_summary(args.plugin_root, "local_samples/data_process_20260620")
+    payload = run_checks(checks, stream_output=not args.json) if args.run else plan_payload(checks, sample_summary=sample_summary)
+    if args.run and payload.get("status") == "pass":
+        payload["release_scope"] = build_release_scope(sample_summary)
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
     else:

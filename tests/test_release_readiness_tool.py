@@ -71,7 +71,7 @@ def test_release_readiness_run_success_returns_rc_verdict():
 
     calls: list[list[str]] = []
 
-    def fake_run(cmd, cwd):
+    def fake_run(cmd, cwd, **kwargs):
         calls.append(list(cmd))
         return types.SimpleNamespace(returncode=0)
 
@@ -89,12 +89,13 @@ def test_release_readiness_run_success_returns_rc_verdict():
     assert len(calls) == 2
     assert result["status"] == "pass"
     assert result["verdict"] == "ready_for_final_live_smoke"
+    assert result["release_scope"]["ship_status"] == "offline_gates_passed"
 
 
 def test_release_readiness_run_failure_blocks_rc():
     from neko_warthunder.tools import release_readiness
 
-    def fake_run(cmd, cwd):
+    def fake_run(cmd, cwd, **kwargs):
         return types.SimpleNamespace(returncode=9)
 
     checks = [release_readiness.Check("pytest", Path.cwd(), ["uv", "run", "pytest"])]
@@ -108,6 +109,7 @@ def test_release_readiness_run_failure_blocks_rc():
     assert result["status"] == "fail"
     assert result["verdict"] == "blocked"
     assert result["checks"][0]["returncode"] == 9
+    assert result["release_scope"]["ship_status"] == "blocked_before_live_smoke"
 
 
 def test_release_readiness_cli_json_is_machine_readable():
@@ -123,6 +125,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert rc == 0
     assert payload["status"] == "plan"
     assert payload["verdict"] == "not_run"
+    assert payload["release_scope"]["ship_status"] == "not_run"
     assert "rc docs audit" in [check["name"] for check in payload["checks"]]
     assert "replay degrade gate" in [check["name"] for check in payload["checks"]]
     assert "deferred HUD notice gate" in [check["name"] for check in payload["checks"]]
@@ -145,3 +148,49 @@ def test_release_readiness_cli_text_names_next_step():
     assert "deferred HUD notice gate" in text
     assert "proximity/objective awareness gate" in text
     assert "final live smoke" in text
+    assert "ship_status:" in text
+
+
+def test_release_readiness_scope_summarizes_sample_gaps_without_raw_text():
+    from neko_warthunder.tools import release_readiness
+
+    sample = {
+        "status": "needs_more_samples",
+        "sample_unproven_items": ["v2_proximity_objective"],
+        "blocked_release_items": ["v1_free_text_output"],
+        "next_actions": ["fly_closer_to_ground_target_sample", "run_free_text_dry_run_safety_check"],
+        "safety": {"free_text_real_output_allowed": False},
+    }
+
+    scope = release_readiness.build_release_scope(sample)
+
+    assert scope["ship_status"] == "offline_gates_passed"
+    assert scope["final_live_smoke_required"] is True
+    assert scope["real_output_blockers"] == ["v1_free_text_output"]
+    assert scope["sample_unproven_items"] == ["v2_proximity_objective"]
+    assert "fly_closer_to_ground_target_sample" in scope["next_actions"]
+    assert "raw" not in json.dumps(scope, ensure_ascii=False).lower()
+
+
+def test_release_readiness_run_json_is_single_parseable_payload():
+    from neko_warthunder.tools import release_readiness
+
+    def fake_run(cmd, cwd, **kwargs):
+        return types.SimpleNamespace(returncode=0)
+
+    original_run = release_readiness.subprocess.run
+    release_readiness.subprocess.run = fake_run
+    output = io.StringIO()
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            with contextlib.redirect_stdout(output):
+                rc = release_readiness.main(
+                    ["--plugin-root", td, "--host-root", str(Path(td) / "missing"), "--run", "--json"]
+                )
+    finally:
+        release_readiness.subprocess.run = original_run
+
+    payload = json.loads(output.getvalue())
+    assert rc == 0
+    assert payload["status"] == "pass"
+    assert payload["release_scope"]["ship_status"] == "offline_gates_passed"

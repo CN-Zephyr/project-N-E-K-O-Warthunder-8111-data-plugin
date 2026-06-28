@@ -49,7 +49,7 @@ STALE_BASELINES = [
 ]
 
 REQUIRED_SNIPPETS = [
-    "217/217 passed",
+    "219/219 passed",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",
