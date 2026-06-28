@@ -72,6 +72,11 @@ def parse_telemetry(payload: dict[str, Any] | None) -> BattleState:
         ias_kmh=_num(processed.get("ias_kmh")) if processed.get("ias_kmh") is not None else _num(vehicle.get("ias_kmh")),
         aoa_deg=_num(processed.get("aoa_deg")) if processed.get("aoa_deg") is not None else _num(vehicle.get("aoa_deg")),
         altitude_m=_num(processed.get("altitude_m")) if processed.get("altitude_m") is not None else _num(vehicle.get("altitude_m")),
+        radio_altitude_m=(
+            _num(processed.get("radio_altitude_m"))
+            if processed.get("radio_altitude_m") is not None
+            else _num(indicators.get("radio_altitude"))
+        ),
         climb_ms=_num(vehicle.get("climb_ms")),
         mach=_num(vehicle.get("mach")),
         g_now=_num(processed.get("g_now")) if processed.get("g_now") is not None else _num(vehicle.get("load_factor")),

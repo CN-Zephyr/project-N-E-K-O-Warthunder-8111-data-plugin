@@ -75,6 +75,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
         self._last_status_report_at = 0.0
         self._last_status_report_snapshot: dict[str, Any] | None = None
         self._deferred_hud_notice_ids: set[int] = set()
+        self._takeoff_radio_altitude_grace_active = False
 
     # ------------------------------------------------------------------ 配置
     async def _reload_config(self) -> None:
@@ -188,7 +189,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
             )
             return
         self._record_deferred_hud_notices(cur)
-        candidates = self._suppress_takeoff_low_alt(candidates, cur, now)
+        candidates = self._suppress_takeoff_grace(candidates, cur, now)
         for candidate in candidates:
             self.timeline.record_stage(
                 stage="detector_candidate",
@@ -269,28 +270,58 @@ class NekoWarthunderPlugin(NekoPluginBase):
                 dry_run=self.cfg.dry_run,
             )
 
-    def _suppress_takeoff_low_alt(
+    def _takeoff_radio_altitude_grace_active_for(self, cur: BattleState, now: float) -> bool:
+        radio_alt = cur.radio_altitude_m
+        if radio_alt is None or not cur.in_battle or not cur.vehicle_valid or cur.dead:
+            self._takeoff_radio_altitude_grace_active = False
+            return False
+
+        enter_m = float(getattr(self.cfg, "takeoff_radio_altitude_enter_m", 10.0) or 0.0)
+        exit_m = float(getattr(self.cfg, "takeoff_radio_altitude_exit_m", 40.0) or 0.0)
+        if exit_m < enter_m:
+            exit_m = enter_m
+
+        active = bool(getattr(self, "_takeoff_radio_altitude_grace_active", False))
+        if active:
+            if radio_alt >= exit_m:
+                self._takeoff_radio_altitude_grace_active = False
+            return self._takeoff_radio_altitude_grace_active
+
+        grace = float(getattr(self.cfg, "takeoff_low_alt_grace_seconds", 0.0) or 0.0)
+        elapsed = self.resolver.seconds_since_spawn(now)
+        if grace > 0 and elapsed is not None and elapsed < grace and radio_alt <= enter_m:
+            self._takeoff_radio_altitude_grace_active = True
+        return self._takeoff_radio_altitude_grace_active
+
+    def _suppress_takeoff_grace(
         self,
         candidates: list[BattleEvent],
         cur: BattleState,
         now: float,
     ) -> list[BattleEvent]:
         grace = float(getattr(self.cfg, "takeoff_low_alt_grace_seconds", 0.0) or 0.0)
-        if grace <= 0 or not cur.in_battle or not cur.vehicle_valid or cur.dead:
+        radio_grace_active = self._takeoff_radio_altitude_grace_active_for(cur, now)
+        if grace <= 0 and not radio_grace_active:
+            return candidates
+        if not cur.in_battle or not cur.vehicle_valid or cur.dead:
             return candidates
         elapsed = self.resolver.seconds_since_spawn(now)
-        if elapsed is None or elapsed >= grace:
+        time_grace_active = elapsed is not None and elapsed < grace
+        if not time_grace_active and not radio_grace_active:
             return candidates
 
         kept: list[BattleEvent] = []
         for candidate in candidates:
-            if candidate.event_id != "low_alt_danger":
+            suppress_low_alt = candidate.event_id == "low_alt_danger" and (time_grace_active or radio_grace_active)
+            suppress_overspeed = candidate.event_id == "overspeed" and radio_grace_active
+            if not (suppress_low_alt or suppress_overspeed):
                 kept.append(candidate)
                 continue
+            reason = "takeoff_low_alt_grace" if suppress_low_alt else "takeoff_radio_altitude_grace"
             self.timeline.record_stage(
                 stage="detector_suppressed",
                 outcome="suppressed",
-                reason="takeoff_low_alt_grace",
+                reason=reason,
                 event_id=candidate.event_id,
                 edge=candidate.edge,
                 level=candidate.level,
@@ -305,7 +336,7 @@ class NekoWarthunderPlugin(NekoPluginBase):
                 event_id=candidate.event_id,
                 stage="detector_suppressed",
                 outcome="suppressed",
-                reason="takeoff_low_alt_grace",
+                reason=reason,
                 scenario=cur.scenario,
                 safety_status=self.safety.status(),
                 dry_run=self.cfg.dry_run,

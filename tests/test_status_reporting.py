@@ -257,6 +257,90 @@ def test_takeoff_low_alt_grace_does_not_suppress_stall_critical():
         module.time.time = original_time
 
 
+def test_takeoff_radio_altitude_grace_suppresses_overspeed_until_airborne():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 150.0, 152.0])
+    try:
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=False)
+        spawn = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=0.0,
+        )
+        plugin._evaluate(prev, spawn)
+        plugin.pushed_events.clear()
+
+        fast_roll_1 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=6.0,
+            flags={"overspeed_critical": True},
+            ias_kmh=1200.0,
+        )
+        fast_roll_2 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=7.0,
+            flags={"overspeed_critical": True},
+            ias_kmh=1210.0,
+        )
+        plugin._evaluate(spawn, fast_roll_1)
+        plugin._evaluate(fast_roll_1, fast_roll_2)
+
+        assert plugin.pushed_events == []
+        decision = plugin.timeline.snapshot()["last_decision"]
+        assert decision["stage"] == "detector_suppressed"
+        assert decision["reason"] == "takeoff_radio_altitude_grace"
+        assert decision["event_id"] == "overspeed"
+    finally:
+        module.time.time = original_time
+
+
+def test_takeoff_radio_altitude_grace_releases_after_exit_height():
+    plugin, module, original_time = _plugin_for_runtime_evaluate_tests(clock_values=[100.0, 150.0, 152.0])
+    try:
+        prev = BattleState(connected=True, conn_state="in_battle", in_battle=True, vehicle_valid=False)
+        spawn = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=0.0,
+        )
+        plugin._evaluate(prev, spawn)
+        plugin.pushed_events.clear()
+
+        airborne_1 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=45.0,
+            flags={"overspeed_critical": True},
+            ias_kmh=1200.0,
+        )
+        airborne_2 = BattleState(
+            connected=True,
+            conn_state="in_battle",
+            in_battle=True,
+            vehicle_valid=True,
+            radio_altitude_m=48.0,
+            flags={"overspeed_critical": True},
+            ias_kmh=1210.0,
+        )
+        plugin._evaluate(spawn, airborne_1)
+        plugin._evaluate(airborne_1, airborne_2)
+
+        assert [event.event_id for event in plugin.pushed_events] == ["overspeed"]
+    finally:
+        module.time.time = original_time
+
+
 def test_status_includes_data_layer_process_snapshot():
     plugin = _plugin_for_report_tests()
     plugin.data_layer_manager = types.SimpleNamespace(

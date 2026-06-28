@@ -18,7 +18,14 @@ def _drop_none(d: dict[str, Any]) -> dict[str, Any]:
 
 
 def _pl_stall(s: BattleState) -> dict[str, Any]:
-    return _drop_none({"ias_kmh": s.ias_kmh, "aoa_deg": s.aoa_deg, "altitude_m": s.altitude_m})
+    return _drop_none(
+        {
+            "ias_kmh": s.ias_kmh,
+            "aoa_deg": s.aoa_deg,
+            "altitude_m": s.altitude_m,
+            "radio_altitude_m": s.radio_altitude_m,
+        }
+    )
 
 
 def _pl_overheat(s: BattleState) -> dict[str, Any]:
@@ -31,7 +38,14 @@ def _pl_low_fuel(s: BattleState) -> dict[str, Any]:
 
 
 def _pl_low_alt(s: BattleState) -> dict[str, Any]:
-    return _drop_none({"altitude_m": s.altitude_m, "climb_ms": s.climb_ms, "ias_kmh": s.ias_kmh})
+    return _drop_none(
+        {
+            "altitude_m": s.altitude_m,
+            "radio_altitude_m": s.radio_altitude_m,
+            "climb_ms": s.climb_ms,
+            "ias_kmh": s.ias_kmh,
+        }
+    )
 
 
 def _pl_overspeed(s: BattleState) -> dict[str, Any]:

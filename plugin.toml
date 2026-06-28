@@ -54,6 +54,8 @@ output_event_max_age_seconds = 8
 kill_coalesce_window_seconds = 2
 spawn_grace_seconds = 6
 takeoff_low_alt_grace_seconds = 45
+takeoff_radio_altitude_enter_m = 10
+takeoff_radio_altitude_exit_m = 40
 # 安全门
 queue_limit = 5
 safety_auto_stop_enabled = true

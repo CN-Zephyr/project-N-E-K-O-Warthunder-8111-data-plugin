@@ -17,7 +17,7 @@ def _sample() -> dict:
         "processed": {
             "flags": {"stall_warning": True, "altitude_low": True},
             "level": "warning",
-            "ias_kmh": 180.0, "aoa_deg": 16.0, "altitude_m": 400.0,
+            "ias_kmh": 180.0, "aoa_deg": 16.0, "altitude_m": 400.0, "radio_altitude_m": 8.0,
             "fuel_fraction": 0.42, "g_now": 4.5, "water_temp_c": 112.0,
         },
         "hud_events": [{"id": 1, "kind": "damage", "msg": "x"}],
@@ -32,7 +32,7 @@ def test_parse_in_battle():
     assert s.connected and s.in_battle and s.conn_state == "in_battle"
     assert s.vehicle_valid is True
     assert s.domain == "air" and s.vehicle_type == "bf-109f-4"
-    assert s.ias_kmh == 180.0 and s.altitude_m == 400.0 and s.climb_ms == -12.0
+    assert s.ias_kmh == 180.0 and s.altitude_m == 400.0 and s.radio_altitude_m == 8.0 and s.climb_ms == -12.0
     assert s.flag("stall_warning") and s.flag("altitude_low")
     assert s.any_critical_flag() is False  # 只有 warning 级
     assert s.fuel_fraction == 0.42 and s.water_temp_c == 112.0
@@ -56,6 +56,16 @@ def test_parse_replay_flag():
     payload["replay"] = True
     s = parse_telemetry(payload)
     assert getattr(s, "replay", False) is True
+
+
+def test_parse_radio_altitude_falls_back_to_indicators():
+    payload = _sample()
+    payload["processed"].pop("radio_altitude_m", None)
+    payload["indicators"]["radio_altitude"] = 12.5
+
+    s = parse_telemetry(payload)
+
+    assert s.radio_altitude_m == 12.5
 
 
 def test_parse_dead_and_profile_fields_from_v18_contract():

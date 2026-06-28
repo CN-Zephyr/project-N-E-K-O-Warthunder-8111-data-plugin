@@ -54,6 +54,7 @@ def _fact_line(event: BattleEvent) -> str:
     bits: list[str] = []
     kill_fact = _kill_fact(event.event_id, p)
     death_fact = _death_fact(event.event_id, p)
+    has_radio_altitude = p.get("radio_altitude_m") is not None
     order = [
         ("ias_kmh", "IAS {:.0f}km/h"),
         ("aoa_deg", "迎角 {:.0f}°"),
@@ -69,7 +70,14 @@ def _fact_line(event: BattleEvent) -> str:
         bits.append(kill_fact)
     if death_fact:
         bits.append(death_fact)
+    if has_radio_altitude:
+        try:
+            bits.append("AGL {:.0f}m".format(p["radio_altitude_m"]))
+        except (ValueError, TypeError):
+            pass
     for key, fmt in order:
+        if key == "altitude_m" and has_radio_altitude:
+            continue
         if key in p and p[key] is not None:
             try:
                 bits.append(fmt.format(p[key]))

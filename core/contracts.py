@@ -130,6 +130,8 @@ class WtConfig:
     kill_coalesce_window_seconds: float = 2.0
     spawn_grace_seconds: float = 6.0
     takeoff_low_alt_grace_seconds: float = 45.0
+    takeoff_radio_altitude_enter_m: float = 10.0
+    takeoff_radio_altitude_exit_m: float = 40.0
     queue_limit: int = 5
     safety_auto_stop_enabled: bool = True
     safety_window_seconds: float = 60.0
@@ -158,6 +160,8 @@ class WtConfig:
             kill_coalesce_window_seconds=_clamp(raw.get("kill_coalesce_window_seconds"), 2.0, 0.0, 30.0),
             spawn_grace_seconds=_clamp(raw.get("spawn_grace_seconds"), 6.0, 0.0, 60.0),
             takeoff_low_alt_grace_seconds=_clamp(raw.get("takeoff_low_alt_grace_seconds"), 45.0, 0.0, 120.0),
+            takeoff_radio_altitude_enter_m=_clamp(raw.get("takeoff_radio_altitude_enter_m"), 10.0, 0.0, 100.0),
+            takeoff_radio_altitude_exit_m=_clamp(raw.get("takeoff_radio_altitude_exit_m"), 40.0, 0.0, 300.0),
             queue_limit=int(_clamp(raw.get("queue_limit"), 5, 1, 100)),
             safety_auto_stop_enabled=bool(raw.get("safety_auto_stop_enabled", True)),
             safety_window_seconds=_clamp(raw.get("safety_window_seconds"), 60.0, 5.0, 3600.0),
@@ -203,6 +207,7 @@ class BattleState:
     ias_kmh: float | None = None
     aoa_deg: float | None = None
     altitude_m: float | None = None
+    radio_altitude_m: float | None = None
     climb_ms: float | None = None
     mach: float | None = None
     g_now: float | None = None

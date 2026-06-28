@@ -122,6 +122,36 @@ def test_overspeed_warn_and_critical_flags_emit_events():
     assert events[0].level == "critical"
 
 
+def test_low_alt_payload_carries_radio_altitude_for_agl_context():
+    engine = DetectorEngine(list(build_condition_detectors()))
+    prev = C.BattleState(in_battle=True, vehicle_valid=True)
+
+    low_1 = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        flags={"altitude_critical": True},
+        altitude_m=1067.0,
+        radio_altitude_m=8.0,
+        climb_ms=-3.0,
+    )
+    low_2 = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        flags={"altitude_critical": True},
+        altitude_m=1060.0,
+        radio_altitude_m=7.0,
+        climb_ms=-4.0,
+    )
+
+    assert engine.feed(prev, low_1) == []
+    events = engine.feed(low_1, low_2)
+
+    assert len(events) == 1
+    assert events[0].event_id == "low_alt_danger"
+    assert events[0].payload["radio_altitude_m"] == 7.0
+    assert events[0].payload["altitude_m"] == 1060.0
+
+
 def test_aoa_flags_do_not_emit_stall_risk():
     engine = DetectorEngine(list(build_condition_detectors()))
     prev = C.BattleState(in_battle=True, vehicle_valid=True)

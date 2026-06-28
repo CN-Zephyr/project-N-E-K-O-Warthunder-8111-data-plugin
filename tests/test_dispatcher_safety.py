@@ -79,6 +79,18 @@ def test_hudmsg_combat_feed_and_awards_raw_text_do_not_enter_prompt():
     assert "{MASTER_NAME}" in prompt
 
 
+def test_low_alt_prompt_prefers_radio_altitude_over_msl_altitude():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent(
+            "low_alt_danger",
+            payload={"radio_altitude_m": 8.0, "altitude_m": 1067.0, "climb_ms": -3.0},
+        )
+    )
+
+    assert "AGL 8m" in prompt
+    assert "1067" not in prompt
+
+
 def test_push_message_parts_text_excludes_unsafe_raw_name():
     plugin = FakePlugin()
     event = BattleEvent("you_killed", payload={"victim": UNSAFE_NAME})
