@@ -31,6 +31,7 @@ def build_packet(
     plugin_root: str | pathlib.Path = _BASE,
     sample_rel: str = "local_samples/data_process_20260620",
     player_name: str = "tl0sr2",
+    offline_gates_passed: bool = False,
 ) -> dict[str, Any]:
     root = pathlib.Path(plugin_root).resolve()
     sample = root / pathlib.Path(sample_rel)
@@ -42,7 +43,8 @@ def build_packet(
 
     return {
         "status": "ready_for_final_live_smoke_packet",
-        "go_no_go": _go_no_go(handoff),
+        "offline_gate_status": "passed" if offline_gates_passed else "must_run",
+        "go_no_go": _go_no_go(handoff, offline_gates_passed=offline_gates_passed),
         "commands": {
             "offline_gate": "uv run python tools\\release_readiness.py --run",
             "live_monitor_once": "uv run python tools\\live_monitor.py --count 1",
@@ -66,9 +68,11 @@ def build_packet(
     }
 
 
-def _go_no_go(handoff: dict[str, Any]) -> str:
+def _go_no_go(handoff: dict[str, Any], *, offline_gates_passed: bool) -> str:
     if handoff.get("status") != "ready_for_final_live_smoke":
         return "no_go_fix_offline_gate"
+    if not offline_gates_passed:
+        return "review_required_run_offline_gate"
     return "go_dry_run_final_smoke"
 
 
@@ -90,6 +94,7 @@ def render_text(packet: dict[str, Any]) -> str:
     lines = [
         "# neko_warthunder final smoke packet",
         f"status: {packet.get('status')}",
+        f"offline_gate_status: {packet.get('offline_gate_status')}",
         f"go_no_go: {packet.get('go_no_go')}",
         f"handoff_status: {handoff.get('status')}",
         f"v2_offline_gate_complete: {v2.get('offline_gate_complete')}",
@@ -115,10 +120,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plugin-root", default=str(_BASE), help="Standalone plugin repository root.")
     parser.add_argument("--sample-rel", default="local_samples/data_process_20260620")
     parser.add_argument("--player-name", default="tl0sr2")
+    parser.add_argument(
+        "--offline-gates-passed",
+        action="store_true",
+        help="Mark the packet as ready for dry_run smoke after release_readiness --run has passed.",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args(argv)
 
-    packet = build_packet(plugin_root=args.plugin_root, sample_rel=args.sample_rel, player_name=args.player_name)
+    packet = build_packet(
+        plugin_root=args.plugin_root,
+        sample_rel=args.sample_rel,
+        player_name=args.player_name,
+        offline_gates_passed=args.offline_gates_passed,
+    )
     if args.json:
         print(json.dumps(packet, ensure_ascii=False, sort_keys=True))
     else:

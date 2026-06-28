@@ -51,14 +51,15 @@ def _sample_frame() -> dict:
     }
 
 
-def test_final_smoke_packet_without_sample_is_go_for_dry_run_final_smoke():
+def test_final_smoke_packet_without_sample_requires_offline_gate_by_default():
     from neko_warthunder.tools.final_smoke_packet import build_packet
 
     with tempfile.TemporaryDirectory() as tmp:
         payload = build_packet(plugin_root=tmp, sample_rel="missing")
 
     assert payload["status"] == "ready_for_final_live_smoke_packet"
-    assert payload["go_no_go"] == "go_dry_run_final_smoke"
+    assert payload["offline_gate_status"] == "must_run"
+    assert payload["go_no_go"] == "review_required_run_offline_gate"
     assert payload["handoff"]["v2"]["offline_gate_complete"] is True
     assert payload["handoff"]["v2"]["live_evidence_complete"] is False
     assert payload["commands"]["offline_gate"] == "uv run python tools\\release_readiness.py --run"
@@ -77,9 +78,10 @@ def test_final_smoke_packet_with_sample_lists_v2_and_free_text_actions_without_r
         root = Path(tmp)
         sample_rel = "local_samples/data_process_20260620"
         _write_jsonl(root / sample_rel / "captures" / "cap" / "processed_8112.jsonl", [{"data": _sample_frame()}])
-        payload = build_packet(plugin_root=root, sample_rel=sample_rel, player_name="Pilot")
+        payload = build_packet(plugin_root=root, sample_rel=sample_rel, player_name="Pilot", offline_gates_passed=True)
         text = render_text(payload)
 
+    assert payload["offline_gate_status"] == "passed"
     assert payload["go_no_go"] == "go_dry_run_final_smoke"
     assert payload["handoff"]["v2"]["live_evidence_status"] == "needs_live_sample"
     assert "ground_target_close_candidates" in payload["handoff"]["v2"]["missing"]
@@ -99,9 +101,12 @@ def test_final_smoke_packet_cli_json_is_machine_readable():
     with tempfile.TemporaryDirectory() as tmp:
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            rc = final_smoke_packet.main(["--plugin-root", tmp, "--sample-rel", "missing", "--json"])
+            rc = final_smoke_packet.main(
+                ["--plugin-root", tmp, "--sample-rel", "missing", "--offline-gates-passed", "--json"]
+            )
 
     payload = json.loads(output.getvalue())
     assert rc == 0
+    assert payload["offline_gate_status"] == "passed"
     assert payload["go_no_go"] == "go_dry_run_final_smoke"
     assert payload["commands"]["live_monitor_once"] == "uv run python tools\\live_monitor.py --count 1"

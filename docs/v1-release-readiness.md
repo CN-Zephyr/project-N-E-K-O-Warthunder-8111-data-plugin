@@ -40,6 +40,14 @@ uv run python tools\final_smoke_packet.py
 uv run python tools\final_smoke_packet.py --json
 ```
 
+默认输出会提示 `go_no_go=review_required_run_offline_gate`。只有在本轮已经跑过并通过
+`uv run python tools\release_readiness.py --run` 后，才使用：
+
+```powershell
+uv run python tools\final_smoke_packet.py --offline-gates-passed
+uv run python tools\final_smoke_packet.py --offline-gates-passed --json
+```
+
 完整真机前预检仍可使用：
 
 ```powershell

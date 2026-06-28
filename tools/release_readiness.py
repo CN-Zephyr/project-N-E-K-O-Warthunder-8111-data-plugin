@@ -84,12 +84,6 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"],
             review_hint="V2 offline scope must be complete without claiming live-only sample evidence",
         ),
-        Check(
-            "final smoke packet",
-            plugin,
-            ["uv", "run", "python", "tools/final_smoke_packet.py"],
-            review_hint="single safe handoff packet for final dry_run live smoke",
-        ),
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
@@ -135,6 +129,14 @@ def build_checks(
                 ),
             ]
         )
+    checks.append(
+        Check(
+            "final smoke packet",
+            plugin,
+            ["uv", "run", "python", "tools/final_smoke_packet.py", "--offline-gates-passed"],
+            review_hint="single safe handoff packet for final dry_run live smoke",
+        )
+    )
     return checks
 
 
