@@ -167,6 +167,26 @@ def test_proximity_push_message_parts_text_excludes_unsafe_raw():
     assert UNSAFE_NAME not in text
 
 
+def test_tailing_risk_prompt_uses_safe_metadata_without_raw_text():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent(
+            "tailing_risk",
+            payload={
+                "distance_m": 620,
+                "clock": 6,
+                "raw_text": UNSAFE_FEED_TEXT,
+                "enemy_name": UNSAFE_NAME,
+            },
+        )
+    )
+
+    assert "后方威胁持续接近" in prompt
+    assert "6点钟" in prompt
+    assert "620m" in prompt
+    assert UNSAFE_FEED_TEXT not in prompt
+    assert UNSAFE_NAME not in prompt
+
+
 def test_ground_target_prompt_uses_safe_metadata_without_raw_label():
     prompt = NekoDispatcher(None).build_prompt(
         BattleEvent(

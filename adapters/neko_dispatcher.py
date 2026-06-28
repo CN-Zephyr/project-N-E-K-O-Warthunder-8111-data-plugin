@@ -28,6 +28,7 @@ _INTENT: dict[str, str] = {
     "enemy_nearby": "附近有敌方目标接近，提醒 {MASTER_NAME} 保持观察、别被偷",
     "air_threat_nearby": "有空中威胁接近，提醒 {MASTER_NAME} 抬头看方位",
     "enemy_on_six": "后方有威胁接近，提醒 {MASTER_NAME} 不要让对面贴住",
+    "tailing_risk": "后方威胁持续接近，提醒 {MASTER_NAME} 立刻改出、别被咬住",
     "you_killed": "为 {MASTER_NAME} 刚才的击杀庆祝/调侃一句",
     "you_died": "{MASTER_NAME} 刚才阵亡/载具损失了，按事实简短共情安慰一句",
     "spawn": "出场跟 {MASTER_NAME} 打个招呼、就位",
@@ -128,9 +129,11 @@ def _death_fact(event_id: str, payload: dict[str, Any]) -> str:
 
 
 def _proximity_fact(event_id: str, payload: dict[str, Any]) -> str:
-    if event_id not in {"enemy_nearby", "air_threat_nearby", "enemy_on_six"}:
+    if event_id not in {"enemy_nearby", "air_threat_nearby", "enemy_on_six", "tailing_risk"}:
         return ""
-    if event_id == "enemy_on_six":
+    if event_id == "tailing_risk":
+        base = "后方威胁持续接近"
+    elif event_id == "enemy_on_six":
         base = "后方威胁接近"
     elif event_id == "air_threat_nearby":
         base = "空中威胁接近"

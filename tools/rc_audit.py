@@ -40,12 +40,15 @@ STALE_BASELINES = [
     "127/127 passed",
     "180 passed",
     "192/192 passed",
+    "202/202 passed",
+    "202 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "202/202 passed",
+    "205/205 passed",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
+    "tailing_risk",
     "free-text release gate",
     "replay degrade gate",
     "proximity/objective awareness gate",

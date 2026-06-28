@@ -1,6 +1,6 @@
 # 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Replay-Gate replay degrade release gate、T-Proximity-Gate proximity/objective awareness gate、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `202/202 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Replay-Gate replay degrade release gate、T-Proximity-Gate proximity/objective awareness gate、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理与 deferred HUD notice 可观测性已完成；逻辑自检以 `205/205 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -82,7 +82,7 @@
    - 起飞/复活低空保护：优先确认 `processed.radio_altitude_m` 或 `indicators.radio_altitude` 是否可用。出生或机场起飞后 45s 内，`altitude_critical` 不应产生真实低空播报，`observe.last_decision.reason` 应能解释为 `takeoff_low_alt_grace`；若 AGL 可用，雷达高度 `<=10m` 应进入贴地滑跑保护，`>=40m` 应解除。
    - 贴地滑跑保护：AGL 保护激活时，跑道滑跑阶段的 `overspeed` 不应播报，`observe.last_decision.reason` 应能解释为 `takeoff_radio_altitude_grace`；同窗口内 `stall_risk`、`you_died` 不应被该保护误伤。
    - 保护期后，若仍处于真实低空危险，`low_alt_danger` 应恢复正常 Arbiter / Dispatcher 链路；若离地后真实超速，`overspeed` 应恢复正常链路。
-7. **V2 接近/目标态势**：观察 `proximity.events` / `situation.ground_targets`；空中接近应能生成 `air_threat_nearby`，后方 5/6/7 点钟或相对角度后向样本应能生成 `enemy_on_six`；对地任务靠近目标点时应能生成 `ground_target_nearby`。输出只允许方位、钟点、网格、距离等 safe metadata，不允许 raw proximity 文本或目标 label。
+7. **V2 接近/目标态势**：观察 `proximity.events` / `situation.ground_targets`；空中接近应能生成 `air_threat_nearby`，后方 5/6/7 点钟或相对角度后向样本应能生成 `enemy_on_six`，短窗连续近距离后方样本应能保守升级为 `tailing_risk`；对地任务靠近目标点时应能生成 `ground_target_nearby`。输出只允许方位、钟点、网格、距离等 safe metadata，不允许 raw proximity 文本或目标 label。
 8. **自由文本风险路径**：只在 `dry_run=true` 下观察 `combat.feed` / `hud_notices` / `awards`，确认 prompt / dry_run 输出不包含 raw 玩家名、raw HUD 文本或 awards 原文；`live_monitor` 顶部 `Summary` 应显示 free-text 状态，细节行应显示 `free_text=dry_run_only(...)`，并在 `FreeText detail` / `free_text_safety.source_details` 中给出逐源 `.../blocked`。
 9. **replay 降级**：若数据层返回 `replay=true`，确认 Detector 静默、last decision 能说明 suppressed / replay，`live_monitor` 显示 `replay=suppressed(detector_suppressed/replay)` 且 `output_blocked=True`，不触发真实输出。
 10. **样本留存**：把现场抓包放到 `local_samples/` 或本地临时目录，保持 `.gitignore`；仓库只提交聚合统计和脱敏结论。
@@ -94,7 +94,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/proximity_gate.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `202/202 passed`，free-text / replay / proximity/objective gates 通过，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、任务目标点样本和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/proximity_gate.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`、`tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `205/205 passed`，free-text / replay / proximity/objective gates 通过，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、任务目标点样本和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -136,7 +136,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`202/202 passed`。
+   预期：`205/205 passed`。
 
    额外 free-text 去桩前门禁：
 

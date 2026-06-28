@@ -4,10 +4,10 @@
 
 ## 当前结论
 
-- 离线逻辑基线：`202/202 passed`。
+- 离线逻辑基线：`205/205 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
-- `tools/proximity_gate.py` 已作为 V2 proximity / objective awareness 门禁，证明 `proximity.events` / `situation.ground_targets` 只生成 safe generic prompt，并 obey Arbiter gating。
+- `tools/proximity_gate.py` 已作为 V2 proximity / objective awareness 门禁，证明 `proximity.events` / `situation.ground_targets` 只生成 safe generic prompt，并覆盖 `tailing_risk` 持续后方威胁升级与 Arbiter gating。
 - `tools/release_readiness.py` 已作为 v1 RC 离线汇总入口。它不启动前后端，不依赖 War Thunder，只聚合可自动化门禁。
 
 ## 推荐命令
@@ -53,7 +53,7 @@ uv run python tools\preflight.py --run
 - `replay=true` 已有离线 gate，但真实 replay 样本仍需要补。
 - `hudmsg` / `combat.feed` / `awards` 仍保持保守策略；正式自由文本播报前必须继续走 T-Safety 与真机 dry_run 验证。
 - 油温、发动机细项、载具阈值仍依赖数据层数据库/profile 后续补齐。
-- recovery、复杂 HUD 播报不属于 v1 发布阻塞项；V2 proximity / objective awareness 的非真机依赖部分已完成，后方/六点钟样本和近任务目标点触发样本留到统一真机验证。
+- recovery、复杂 HUD 播报不属于 v1 发布阻塞项；V2 proximity / objective awareness 的非真机依赖部分已完成，后方/六点钟样本、持续尾随风险 `tailing_risk` 和近任务目标点触发样本留到统一真机验证。
 
 ## 发布前最后一轮真机 Smoke
 

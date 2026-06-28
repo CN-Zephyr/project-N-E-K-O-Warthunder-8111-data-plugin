@@ -71,6 +71,7 @@ def run_gate() -> dict[str, Any]:
         ("ground", _frame({"id": 1, "kind": "enter", "type": "tank", "distance_m": 950, "compass": "E", "text": UNSAFE})),
         ("air", _frame({"id": 2, "kind": "enter", "is_air": True, "distance_m": 1800, "clock": 2, "text": UNSAFE})),
         ("rear", _frame({"id": 3, "kind": "enter", "is_air": True, "distance_m": 650, "clock": 6, "text": UNSAFE})),
+        ("tailing", _frame({"id": 4, "kind": "enter", "is_air": True, "distance_m": 620, "clock": 6, "text": UNSAFE})),
     ]
     for _name, payload in cases:
         cur = parse_telemetry(payload)
@@ -84,7 +85,7 @@ def run_gate() -> dict[str, Any]:
         prompts.append(prompt)
         prev = cur
 
-    objective_payload = _frame({"id": 4, "kind": "enter", "is_air": True, "distance_m": 4200})
+    objective_payload = _frame({"id": 5, "kind": "enter", "is_air": True, "distance_m": 4200})
     objective_payload["proximity"] = {"events": []}
     objective_payload["situation"] = {
         "ground_targets": [
@@ -127,7 +128,7 @@ def run_gate() -> dict[str, Any]:
     assert objective_low is None and any("map_low_priority" in item["reason"] for item in objective_low_chain)
 
     critical, critical_chain = Arbiter(SafetyGuard(cfg)).decide(
-        [BattleEvent("enemy_on_six"), BattleEvent("low_alt_danger", level="critical")],
+        [BattleEvent("tailing_risk"), BattleEvent("low_alt_danger", level="critical")],
         CRITICAL_RISK,
         201.0,
     )
@@ -135,7 +136,7 @@ def run_gate() -> dict[str, Any]:
 
     capture = CapturePlugin()
     pushed = NekoDispatcher(capture).push_event(
-        BattleEvent("enemy_on_six", payload={"distance_m": 650, "clock": 6, "text": UNSAFE}),
+        BattleEvent("tailing_risk", payload={"distance_m": 620, "clock": 6, "text": UNSAFE}),
         dry_run=False,
     )
     pushed_text = capture.calls[0]["parts"][0]["text"]

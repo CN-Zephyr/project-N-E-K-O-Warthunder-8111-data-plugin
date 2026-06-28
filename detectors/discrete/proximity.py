@@ -19,14 +19,26 @@ _BEHIND_CLOCKS = {5, 6, 7}
 class ProximityDetector(DiscreteDetector):
     id = "proximity"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        tail_window_seconds: float = 8.0,
+        tail_confirm_events: int = 2,
+        tail_distance_m: float = 900.0,
+    ) -> None:
         self._last_id: int = -1
+        self._tail_window_seconds = max(1.0, float(tail_window_seconds))
+        self._tail_confirm_events = max(2, int(tail_confirm_events))
+        self._tail_distance_m = max(100.0, float(tail_distance_m))
+        self._tail_hits: list[tuple[float, int]] = []
 
     def reset(self) -> None:
         self._last_id = -1
+        self._tail_hits.clear()
 
     def detect(self, prev: BattleState, cur: BattleState) -> BattleEvent | None:
         if not (cur.in_battle and cur.vehicle_valid and not cur.dead):
+            self._tail_hits.clear()
             return None
 
         events = [item for item in cur.proximity_events if isinstance(item, dict)]
@@ -37,6 +49,7 @@ class ProximityDetector(DiscreteDetector):
         max_id = max(ids)
         if max_id < self._last_id:
             self._last_id = -1
+            self._tail_hits.clear()
 
         newest: dict[str, Any] | None = None
         newest_rank: tuple[int, int] = (-1, -1)
@@ -55,7 +68,23 @@ class ProximityDetector(DiscreteDetector):
             return None
 
         event_id = _awareness_event_id(newest)
+        if event_id == "enemy_on_six" and self._record_tail_hit(newest, cur.timestamp or 0.0):
+            event_id = "tailing_risk"
         return BattleEvent(event_id, payload=_payload(newest), ts=cur.timestamp or 0.0, level="warning")
+
+    def _record_tail_hit(self, item: dict[str, Any], now: float) -> bool:
+        eid = _event_id(item)
+        distance = _as_float(item.get("distance_m"))
+        self._tail_hits = [
+            (ts, hit_id)
+            for ts, hit_id in self._tail_hits
+            if now - ts <= self._tail_window_seconds and hit_id != eid
+        ]
+        if eid is None or distance is None or distance > self._tail_distance_m:
+            return False
+
+        self._tail_hits.append((now, eid))
+        return len(self._tail_hits) >= self._tail_confirm_events
 
 
 def _event_id(item: dict[str, Any]) -> int | None:
@@ -82,6 +111,8 @@ def _is_behind(item: dict[str, Any]) -> bool:
 
 
 def _event_priority(event_id: str) -> int:
+    if event_id == "tailing_risk":
+        return 4
     if event_id == "enemy_on_six":
         return 3
     if event_id == "air_threat_nearby":

@@ -135,5 +135,6 @@ def test_v16_event_catalog_entries_are_not_marked_blocked():
         "enemy_nearby",
         "air_threat_nearby",
         "enemy_on_six",
+        "tailing_risk",
     ):
         assert EVENT_CATALOG[event_id].blocked is False

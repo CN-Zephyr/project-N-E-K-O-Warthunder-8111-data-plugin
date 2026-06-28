@@ -13,6 +13,7 @@ _EVENT_LABELS: dict[str, str] = {
     "enemy_nearby": "敌方接近",
     "air_threat_nearby": "空中威胁接近",
     "enemy_on_six": "后方威胁",
+    "tailing_risk": "持续尾随风险",
     "you_killed": "击杀确认",
     "you_died": "被击毁",
     "spawn": "出场",

@@ -113,7 +113,7 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 202/202 passed" in text
+        assert "baseline: logic self-check should report 205/205 passed" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
         assert "proximity/objective awareness gate must pass" in text

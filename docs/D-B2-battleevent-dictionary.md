@@ -1,6 +1,6 @@
 # D-B2｜BattleEvent 字典（v1 · RB 空战）
 
-> 状态：v0.2（汇合后）· 范围：v1 RB 空战，**9 个事件**（删 steep_dive），不含敌机接近/被尾随
+> 状态：v0.2（汇合后）· 范围：v1 RB 空战，**9 个核心事件**（删 steep_dive）。V2 已另行接入接近 / 目标态势感知，包括保守持续后方威胁 `tailing_risk`；完整高置信 `being_tailed` 仍暂缓。
 > 用途：定义 v1 的**统一语义事件模型**——理解层（StateEvaluator）唯一对外产出口
 > 关联：D-B5 v0.2（事件→数据层来源映射）/ D-B1（Scenario 门控）/ D-B3（ConditionDetector）/ D-B4（仲裁）
 

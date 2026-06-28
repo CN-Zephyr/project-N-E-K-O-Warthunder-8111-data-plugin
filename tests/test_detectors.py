@@ -388,6 +388,58 @@ def test_proximity_detector_promotes_air_and_rear_threats():
     assert "text" not in rear_event.payload
 
 
+def test_proximity_detector_upgrades_repeated_close_rear_threat_to_tailing_risk():
+    det = ProximityDetector(tail_window_seconds=8, tail_confirm_events=2, tail_distance_m=900)
+    first = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        timestamp=100.0,
+        proximity_events=[{"id": 10, "is_air": True, "distance_m": 850, "clock": 6}],
+    )
+    second = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        timestamp=104.0,
+        proximity_events=[
+            {"id": 10, "is_air": True, "distance_m": 850, "clock": 6},
+            {"id": 11, "is_air": True, "distance_m": 700, "clock": 6, "raw_text": "RAW tail text"},
+        ],
+    )
+
+    first_event = det.feed(C.BattleState(), first)
+    second_event = det.feed(first, second)
+
+    assert first_event is not None and first_event.event_id == "enemy_on_six"
+    assert second_event is not None and second_event.event_id == "tailing_risk"
+    assert second_event.payload["distance_m"] == 700.0
+    assert "raw_text" not in second_event.payload
+
+
+def test_proximity_detector_does_not_upgrade_distant_or_stale_rear_hits():
+    det = ProximityDetector(tail_window_seconds=3, tail_confirm_events=2, tail_distance_m=900)
+    distant = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        timestamp=100.0,
+        proximity_events=[{"id": 20, "is_air": True, "distance_m": 1500, "clock": 6}],
+    )
+    stale = C.BattleState(
+        in_battle=True,
+        vehicle_valid=True,
+        timestamp=106.0,
+        proximity_events=[
+            {"id": 20, "is_air": True, "distance_m": 1500, "clock": 6},
+            {"id": 21, "is_air": True, "distance_m": 700, "clock": 6},
+        ],
+    )
+
+    first_event = det.feed(C.BattleState(), distant)
+    second_event = det.feed(distant, stale)
+
+    assert first_event is not None and first_event.event_id == "enemy_on_six"
+    assert second_event is not None and second_event.event_id == "enemy_on_six"
+
+
 def test_proximity_detector_suppresses_dead_or_invalid_vehicle():
     det = ProximityDetector()
     event = {"id": 1, "is_air": True, "distance_m": 1200}

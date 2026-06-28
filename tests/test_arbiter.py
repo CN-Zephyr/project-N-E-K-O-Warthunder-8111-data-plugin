@@ -130,20 +130,22 @@ def test_ground_target_awareness_is_low_priority_map_awareness():
 def test_air_and_rear_threats_allowed_in_combat_stress():
     air, _ = _arb().decide([BattleEvent("air_threat_nearby", level="warning")], COMBAT_STRESS, 1000.0)
     rear, _ = _arb().decide([BattleEvent("enemy_on_six", level="warning")], COMBAT_STRESS, 1000.0)
+    tailing, _ = _arb().decide([BattleEvent("tailing_risk", level="warning")], COMBAT_STRESS, 1000.0)
 
     assert air is not None and air.event_id == "air_threat_nearby"
     assert rear is not None and rear.event_id == "enemy_on_six"
+    assert tailing is not None and tailing.event_id == "tailing_risk"
 
 
 def test_map_awareness_does_not_compete_with_critical_risk():
     chosen, chain = _arb().decide(
-        [BattleEvent("enemy_on_six", level="warning"), BattleEvent("low_alt_danger", level="critical")],
+        [BattleEvent("tailing_risk", level="warning"), BattleEvent("low_alt_danger", level="critical")],
         CRITICAL_RISK,
         1000.0,
     )
 
     assert chosen is not None and chosen.event_id == "low_alt_danger"
-    assert any(c["event_id"] == "enemy_on_six" and c["result"] == "dropped" for c in chain)
+    assert any(c["event_id"] == "tailing_risk" and c["result"] == "dropped" for c in chain)
 
 
 def test_map_awareness_suppressed_in_spawning_and_dead():
