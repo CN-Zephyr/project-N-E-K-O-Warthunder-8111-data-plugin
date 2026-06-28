@@ -52,11 +52,15 @@ STALE_BASELINES = [
     "223 passed",
     "224/224 passed",
     "224 passed",
+    "225/225 passed",
+    "225 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "225/225 passed",
+    "228/228 passed",
     "handoff_status",
+    "final smoke packet",
+    "tools/final_smoke_packet.py",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",

@@ -4,13 +4,14 @@
 
 ## 当前结论
 
-- 离线逻辑基线：`225/225 passed`。
+- 离线逻辑基线：`228/228 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
 - `tools/proximity_gate.py` 已作为 V2 proximity / objective awareness 门禁，证明 `proximity.events` / `situation.ground_targets` 只生成 safe generic prompt，并覆盖 `tailing_risk` 持续后方威胁升级与 Arbiter gating。
 - `tools/release_readiness.py` 已作为 v1 RC 离线汇总入口。它不启动前后端，不依赖 War Thunder，只聚合可自动化门禁，并在 `release_scope` 中区分 offline gate 状态、free-text 真实播报 blocker、样本未证明项和下一步动作；`handoff` / `handoff_status` 会把 v1 发布状态与 V2 code/offline/live-evidence 状态合并成接手者可读结论。
 - `tools/v2_readiness.py` 已作为 V2 proximity/objective 收口汇总入口。它会先跑离线 gate，再按需合并本地样本证据，输出 `v2_code_complete`、`v2_offline_gate_complete`、`v2_live_evidence_complete`，避免把缺真机样本误判为代码未完成。
+- `tools/final_smoke_packet.py` 已作为最终真机前交接包入口。它会输出 `go_no_go`、`handoff_status`、必跑命令、V2 live evidence 缺口、remaining live actions 和 dry_run / raw text 安全边界。
 
 ## 推荐命令
 
@@ -31,6 +32,12 @@ uv run python tools\release_readiness.py --run
 ```powershell
 uv run python tools\release_readiness.py --json
 uv run python tools\release_readiness.py --run --json
+```
+
+最终真机前交接包：
+```powershell
+uv run python tools\final_smoke_packet.py
+uv run python tools\final_smoke_packet.py --json
 ```
 
 完整真机前预检仍可使用：
@@ -55,6 +62,7 @@ This output separates `sample_unproven_items`, `blocked_release_items`, `remaini
 - `tools/free_text_gate.py`
 - `tools/replay_gate.py`
 - `tools/replay.py`
+- `tools/final_smoke_packet.py`
 - 可选：宿主存在时运行 `plugin check`
 - 可选：本地样本存在时运行 `sample_replay`、`offline_report`、`live_test_plan`
 

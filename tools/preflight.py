@@ -73,6 +73,12 @@ def build_checks(
             ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"],
             "V2 offline scope should be complete while live-only evidence stays explicit",
         ),
+        Check(
+            "final smoke packet",
+            plugin,
+            ["uv", "run", "python", "tools/final_smoke_packet.py"],
+            "single safe handoff packet for final dry_run live smoke",
+        ),
     ]
     if host.exists():
         checks.append(
@@ -157,12 +163,13 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 225/225 passed")
+    print("- baseline: logic self-check should report 228/228 passed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
     print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")
     print("- proximity/objective awareness gate must pass before V2 proximity/objective prompts can be considered safe")
     print("- V2 readiness summary must separate offline-complete code from live-only sample evidence")
+    print("- final smoke packet must summarize go/no-go, commands, V2 evidence, and safety boundary")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")
     print("- if this fails: stop before real-machine testing and fix the failed check")
