@@ -56,6 +56,12 @@ def build_checks(
             "replay=true frames must not emit Detector candidates, prompts, or push_message output",
         ),
         Check(
+            "deferred HUD notice gate",
+            plugin,
+            ["uv", "run", "python", "tools/deferred_hud_gate.py"],
+            "powertrain_failure HUD notices must stay observable but non-speech without raw HUD text",
+        ),
+        Check(
             "proximity/objective awareness gate",
             plugin,
             ["uv", "run", "python", "tools/proximity_gate.py"],
@@ -129,9 +135,10 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 205/205 passed")
+    print("- baseline: logic self-check should report 209/209 passed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
+    print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")
     print("- proximity/objective awareness gate must pass before V2 proximity/objective prompts can be considered safe")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")

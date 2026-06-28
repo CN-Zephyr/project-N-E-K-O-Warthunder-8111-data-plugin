@@ -29,6 +29,7 @@ def test_release_readiness_plan_lists_offline_release_gates():
             "rc docs audit",
             "free-text release gate",
             "replay degrade gate",
+            "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "synthetic replay",
             "plugin check",
@@ -38,8 +39,9 @@ def test_release_readiness_plan_lists_offline_release_gates():
         ]
         assert checks[2].cmd == ["uv", "run", "python", "tools/rc_audit.py"]
         assert checks[4].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
-        assert checks[5].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
-        assert checks[6].cmd == ["uv", "run", "python", "tools/replay.py"]
+        assert checks[5].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
+        assert checks[6].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
+        assert checks[7].cmd == ["uv", "run", "python", "tools/replay.py"]
 
 
 def test_release_readiness_plan_does_not_require_running_services():
@@ -57,6 +59,7 @@ def test_release_readiness_plan_does_not_require_running_services():
             "rc docs audit",
             "free-text release gate",
             "replay degrade gate",
+            "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "synthetic replay",
         ]
@@ -121,6 +124,7 @@ def test_release_readiness_cli_json_is_machine_readable():
     assert payload["verdict"] == "not_run"
     assert "rc docs audit" in [check["name"] for check in payload["checks"]]
     assert "replay degrade gate" in [check["name"] for check in payload["checks"]]
+    assert "deferred HUD notice gate" in [check["name"] for check in payload["checks"]]
     assert "proximity/objective awareness gate" in [check["name"] for check in payload["checks"]]
 
 
@@ -137,5 +141,6 @@ def test_release_readiness_cli_text_names_next_step():
     assert rc == 0
     assert "# neko_warthunder v1 release readiness" in text
     assert "replay degrade gate" in text
+    assert "deferred HUD notice gate" in text
     assert "proximity/objective awareness gate" in text
     assert "final live smoke" in text

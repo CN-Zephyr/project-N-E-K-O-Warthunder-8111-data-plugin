@@ -28,6 +28,7 @@ def test_preflight_plan_contains_documented_checks():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
+            "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "plugin check",
             "runtime smoke",
@@ -44,14 +45,16 @@ def test_preflight_plan_contains_documented_checks():
         assert checks[3].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
         assert "replay=true" in checks[3].review_hint
         assert "push_message" in checks[3].review_hint
-        assert checks[4].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
-        assert "proximity.events" in checks[4].review_hint
-        assert checks[5].cwd == host_root.resolve()
-        assert checks[5].cmd[-1] == str(plugin_root.resolve())
-        assert checks[6].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[6].review_hint
-        assert "paused" in checks[6].review_hint
-        assert "8112" in checks[6].review_hint
+        assert checks[4].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
+        assert "powertrain_failure" in checks[4].review_hint
+        assert checks[5].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
+        assert "proximity.events" in checks[5].review_hint
+        assert checks[6].cwd == host_root.resolve()
+        assert checks[6].cmd[-1] == str(plugin_root.resolve())
+        assert checks[7].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[7].review_hint
+        assert "paused" in checks[7].review_hint
+        assert "8112" in checks[7].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -95,6 +98,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "pytest",
             "free-text release gate",
             "replay degrade gate",
+            "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "runtime smoke",
             "synthetic replay",
@@ -113,9 +117,10 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 205/205 passed" in text
+        assert "baseline: logic self-check should report 209/209 passed" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
+        assert "deferred HUD notice gate must pass" in text
         assert "proximity/objective awareness gate must pass" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
@@ -126,6 +131,8 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "uv run python tools/free_text_gate.py" in text
         assert "replay degrade gate" in text
         assert "uv run python tools/replay_gate.py" in text
+        assert "deferred HUD notice gate" in text
+        assert "uv run python tools/deferred_hud_gate.py" in text
         assert "proximity/objective awareness gate" in text
         assert "uv run python tools/proximity_gate.py" in text
         assert "runtime smoke" in text

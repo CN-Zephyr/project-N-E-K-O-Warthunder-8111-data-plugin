@@ -64,6 +64,12 @@ def build_checks(
             review_hint="replay=true must not emit candidates, prompts, or push_message output",
         ),
         Check(
+            "deferred HUD notice gate",
+            plugin,
+            ["uv", "run", "python", "tools/deferred_hud_gate.py"],
+            review_hint="powertrain_failure must stay observable but non-speech without raw HUD text",
+        ),
+        Check(
             "proximity/objective awareness gate",
             plugin,
             ["uv", "run", "python", "tools/proximity_gate.py"],
