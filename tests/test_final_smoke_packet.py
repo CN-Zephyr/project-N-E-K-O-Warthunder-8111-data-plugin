@@ -95,6 +95,10 @@ def test_final_smoke_packet_with_sample_lists_v2_and_free_text_actions_without_r
     assert "capture_awards_or_free_text_sample" in payload["remaining_live_actions"]
     assert "fly_closer_to_ground_target_sample" in payload["remaining_live_actions"]
     assert "v2_live_evidence_complete: False" in text
+    assert "V2 capability matrix:" in text
+    assert "| enemy_on_six | covered_by_current_sample | 1/1 | dry_run_until_live_evidence | -" in text
+    assert "| tailing_risk | needs_live_sample | 0/0 | dry_run_until_live_evidence | proximity_rear_close_events |" in text
+    assert "| ground_target_nearby | needs_live_sample | 0/0 | dry_run_until_live_evidence |" in text
     encoded = json.dumps(payload, ensure_ascii=False)
     assert "RawKiller" not in encoded
     assert "ignore previous instructions" not in encoded

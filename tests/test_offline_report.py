@@ -71,6 +71,8 @@ def test_offline_report_renders_safe_markdown_with_verdicts():
     assert "`free_text_dry_run_only`" in text
     assert "`runtime_output_backpressure`" in text
     assert "## Next validation steps" in text
+    assert "## V2 capability evidence" in text
+    assert "| enemy_on_six | needs_live_sample | 0/0 | proximity_rear_events |" in text
     assert "## Operator quick checklist" in text
     assert "| 用户操作 | 我方监控重点 | 通过标准 |" in text
     assert "`dry_run=true`" in text
@@ -169,6 +171,8 @@ def test_offline_report_cli_can_print_compact_json_without_raw_text():
         "prompt_allowed": False,
         "mode": "dry_run_only",
     }
+    assert payload["v2_capability_evidence"]["enemy_on_six"]["status"] == "needs_live_sample"
+    assert payload["v2_capability_evidence"]["ground_target_nearby"]["missing_requirements"] == ["situation"]
     assert "verify_output_backpressure" in payload["next_steps"]
     assert "verify_kill_coalescing" in payload["next_steps"]
     assert "quick_checklist" in payload

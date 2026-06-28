@@ -62,25 +62,31 @@ def build_markdown_report(root: str | pathlib.Path, *, player_name: str = "tl0sr
             "",
             _bullet_list(report.get("coverage_gaps") or []),
             "",
-        "## Next validation steps",
-        "",
-        _bullet_list(summary.get("next_steps") or []),
-        "",
-        "## Operator quick checklist",
-        "",
-        "| 顺序 | 用户操作 | 我方监控重点 | 通过标准 |",
-        "| --- | --- | --- | --- |",
-        *_quick_checklist_rows(quick_checklist),
-        "",
-        "## Next live-test plan",
-        "",
-        "| priority | area | status | action |",
-        "| --- | --- | --- | --- |",
-        *_live_test_plan_rows(summary.get("live_test_plan") or []),
-        "",
-        "## Remaining live-test scope",
-        "",
-        _bullet_list(_remaining_live_scope(summary)),
+            "## V2 capability evidence",
+            "",
+            "| capability | status | observed/triggered | missing |",
+            "| --- | --- | --- | --- |",
+            *_v2_capability_rows(_v2_capability_evidence(checks)),
+            "",
+            "## Next validation steps",
+            "",
+            _bullet_list(summary.get("next_steps") or []),
+            "",
+            "## Operator quick checklist",
+            "",
+            "| 顺序 | 用户操作 | 我方监控重点 | 通过标准 |",
+            "| --- | --- | --- | --- |",
+            *_quick_checklist_rows(quick_checklist),
+            "",
+            "## Next live-test plan",
+            "",
+            "| priority | area | status | action |",
+            "| --- | --- | --- | --- |",
+            *_live_test_plan_rows(summary.get("live_test_plan") or []),
+            "",
+            "## Remaining live-test scope",
+            "",
+            _bullet_list(_remaining_live_scope(summary)),
             "",
             "## Safety notes",
             "",
@@ -102,6 +108,7 @@ def build_compact_report(root: str | pathlib.Path, *, player_name: str = "tl0sr2
         "status": summary.get("status") or "unknown",
         "observed_outputs": list(summary.get("observed_outputs") or []),
         "validation_checks": dict(summary.get("validation_checks") or {}),
+        "v2_capability_evidence": _v2_capability_evidence(summary.get("validation_checks") or {}),
         "next_test_focus": _next_test_focus(summary),
         "live_test_plan": list(summary.get("live_test_plan") or []),
         "quick_checklist": build_quick_checklist(steps),
@@ -128,6 +135,32 @@ def _bullet_list(values: list[Any]) -> str:
     if not values:
         return "- none"
     return "\n".join(f"- `{value}`" for value in values)
+
+
+def _v2_capability_evidence(checks: Any) -> dict[str, Any]:
+    data = checks if isinstance(checks, dict) else {}
+    proximity = data.get("proximity_awareness") if isinstance(data.get("proximity_awareness"), dict) else {}
+    evidence = proximity.get("capability_evidence")
+    return dict(evidence) if isinstance(evidence, dict) else {}
+
+
+def _v2_capability_rows(evidence: dict[str, Any]) -> list[str]:
+    if not evidence:
+        return ["| - | - | - | - |"]
+    rows: list[str] = []
+    for capability in sorted(evidence):
+        item = evidence.get(capability) if isinstance(evidence.get(capability), dict) else {}
+        missing = ", ".join(str(value) for value in item.get("missing_requirements") or []) or "-"
+        rows.append(
+            "| {capability} | {status} | {observed}/{triggered} | {missing} |".format(
+                capability=capability,
+                status=item.get("status") or "unknown",
+                observed=int(item.get("observed_count") or 0),
+                triggered=int(item.get("trigger_count") or 0),
+                missing=missing,
+            )
+        )
+    return rows
 
 
 def _remaining_live_scope(summary: dict[str, Any]) -> list[str]:

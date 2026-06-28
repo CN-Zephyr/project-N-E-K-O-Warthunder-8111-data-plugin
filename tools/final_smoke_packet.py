@@ -118,11 +118,29 @@ def render_text(packet: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
+            "V2 capability matrix:",
+            "| capability | live evidence | observed/triggered | real output | missing |",
+            "| --- | --- | --- | --- | --- |",
+            *_v2_matrix_rows(packet.get("v2_release_matrix") or {}),
+            "",
             "remaining_live_actions: " + (", ".join(packet.get("remaining_live_actions") or []) or "-"),
             "safety: dry_run_first=true, v2_live_verified_real_output_enabled=false, raw_text_printed=false",
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def _v2_matrix_rows(matrix: dict[str, Any]) -> list[str]:
+    rows: list[str] = []
+    for row in matrix.get("capabilities") or []:
+        if not isinstance(row, dict):
+            continue
+        missing = ", ".join(str(item) for item in row.get("missing_requirements") or []) or "-"
+        rows.append(
+            "| {id} | {live_evidence_status} | {observed_count}/{trigger_count} | "
+            "{real_output_policy} | {missing} |".format(**row, missing=missing)
+        )
+    return rows or ["| - | - | - | - | - |"]
 
 
 def main(argv: list[str] | None = None) -> int:
