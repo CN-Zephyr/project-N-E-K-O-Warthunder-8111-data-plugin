@@ -122,10 +122,10 @@
 - 中文说明：玩家击落/摧毁了敌方单位。
 - 来源信号：`/api/telemetry.combat.feed[]` 中新的 `id`，且 `is_my_kill == true`。
 - 触发条件摘要：数据层已完成身份归属判定；插件只按新 id 去重并消费 ownership flag。
-- 允许 Scenario：SPAWNING、IN_FLIGHT、COMBAT_STRESS。
-- 被抑制 Scenario：CRITICAL_RISK、OUT_OF_BATTLE、DEAD、BATTLE_ENDED。
+- 允许 Scenario：SPAWNING、IN_FLIGHT、COMBAT_STRESS；`CRITICAL_RISK` 下不立即播报，但允许 Arbiter 延迟保留 owned kill。
+- 被抑制 Scenario：OUT_OF_BATTLE、DEAD、BATTLE_ENDED。
 - SPAWNING 说明：只放行数据层已归属的 owned kill；飞行安全事件仍由 spawn grace 压制，避免刚进场误报。
-- severity 3 / priority 5 / 抢占 否 / cooldown 8s（**多杀合并**：短窗内多条合成一次"连杀 N"）。
+- severity 3 / priority 5 / 抢占 否 / cooldown 8s（**多杀合并**：短窗内多条合成一次"连杀 N"；`CRITICAL_RISK` 下延迟保留，危急解除后补播）。
 - re-arm：新的 combat.feed 击杀 id。
 - payload：`target_name`（可选）、`target_vehicle`（可选）、`killstreak_count`。
 - 缺字段降级：不可降级（无 `is_my_kill == true` 即无事件）。不回退到 raw hudmsg 文本匹配。

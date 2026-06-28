@@ -25,7 +25,7 @@
 - T-Release-Readiness v1 RC 离线汇总入口已完成：`tools/release_readiness.py` 不启动前后端、不依赖 War Thunder，默认只聚合可自动化快门禁；本地大样本报告需显式加 `--include-local-sample`。`release_scope` 会拆分 `ship_status`、`real_output_blockers`、`sample_unproven_items` 与 `next_actions`；通过后再进入最后一轮真机 smoke。
 - T-RC-Handoff-Report 维护者交接报告已完成：`tools/rc_handoff_report.py` 聚合 V1 release scope、V2 completion、final smoke go/no-go、安全边界和 remaining live actions，给出“V1 离线可交接 / V2 code+offline 完成 / live evidence pending”的人类可读报告。
 - T-Observe runtime decision timeline 已完成轻量实现：普通模式只保留最近摘要，debug 模式使用内存 ring buffer。
-- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `254/254 passed` 为准。
+- 逻辑自检以 `uv run python tests/run_logic_tests.py` 的 `256/256 passed` 为准。
 - 离线 readiness 与真机监控工具链已补齐：`tools/sample_replay.py` 负责样本覆盖率与 `session_summary`，并能用 candidate/chosen/output 计数证明 `replay=true` 样本被静默，同时统计 V2 proximity/situation/ground-target 覆盖率、后方近距样本、`tailing_risk` 触发和 3000m 内任务目标点候选；`tools/offline_report.py` 负责安全 Markdown / JSON 汇报，并输出 Next test focus；`tools/live_test_plan.py` 负责把 P1/P2 待测项展开为下一轮真机 Operator quick checklist 和“操作 / 监控 / 通过 / 失败 / 数据层缺口”清单，包含 `fly_closer_to_ground_target_sample`；`sample_replay` / `offline_report` / `live_test_plan` 三个出口都会带上 T-Output 背压、T-Kill-Coalesce 多杀合并和 V2 proximity 后方样本复测项，`next_steps` 也会列出这些现场动作但状态仍按样本/数据缺口判定；`tools/live_monitor.py` 负责真机测试时安全汇总 health、context、telemetry ownership 计数、free-text dry_run-only 状态与逐源 blocked 摘要、replay 降级状态、T-Observe 摘要、`selected` / `dry_run_enabled` / `free_text_blocked` / `kill_coalesced` / `output_backpressure` / `event_expired` 等可行动原因与日志异常计数；`tools/preflight.py` 已把 runtime smoke 纳入门禁，dry-run 会先打印 Quick read，`--run` 通过/失败时会直接提示继续 dry_run 真机验证或停止排障。
 - 数据层 `v1.6` 已合并，包含：
   - `overspeed_warn` / `overspeed_critical`
@@ -66,7 +66,7 @@
 - V2 proximity / objective awareness：完成非真机依赖部分；普通接近 `enemy_nearby` 和任务目标点 `ground_target_nearby` 为低优先级，COMBAT_STRESS 下被压住；`air_threat_nearby`、`enemy_on_six` 与保守持续后方威胁 `tailing_risk` 可在 IN_FLIGHT / COMBAT_STRESS 下进入提示队列；CRITICAL_RISK / SPAWNING / DEAD 等场景仍按 Arbiter 门控丢弃。Dispatcher 不复读 raw proximity 文本或目标 label，只使用方位、钟点、距离、网格等安全 metadata。
 - T-Observe runtime decision timeline：完成轻量实现；Hosted UI context 暴露 `observe.last_event` / `last_decision` / `last_output_status`，debug timeline 默认关闭。
 - T-Output output backpressure guard：完成轻量实现；真实 `push_message` 前会在 `output_backpressure_seconds` 窗口内压住同优先级或更低优先级事件，减少主机回复队列堆积，更高优先级事件仍可通过。真实战场事件 push 现在统一带 `coalesce_key=neko_warthunder:battle_event`，让宿主队列中未释放的旧 cue 被最新事件替换；`output_event_max_age_seconds` 会在真实 push 前丢弃过期旧事件，减少死亡后补播旧低空/超速提示。
-- T-Kill-Coalesce 多杀合并：完成轻量实现；`you_killed` 会在 `kill_coalesce_window_seconds` 窗口内合并为一条 `kill_count` 事件，critical 抢占会清空待播击杀。
+- T-Kill-Coalesce 多杀合并：完成轻量实现；`you_killed` 会在 `kill_coalesce_window_seconds` 窗口内合并为一条 `kill_count` 事件；`CRITICAL_RISK` 下 owned kill 会延迟保留为 `kill_deferred_critical_risk`，危急解除后再 flush；死亡 / critical 抢占仍会清空待播击杀。
 - L8 数据层并入：vendored 数据层已合并；插件侧最小子进程编排已完成，支持 `data_layer_auto_start`、managed/external 判定、shutdown 只关闭自己拉起的进程，并通过 Hosted UI/status 暴露 `data_layer` 状态；2026-06-26 已本地自验证 managed/external 生命周期边界。
 - L9 真机调参：进行中；已完成起飞/复活雷达高度保护。离地/低空判断优先使用 `radio_altitude_m`，`altitude_m` 只作为 MSL/海拔事实；`takeoff_low_alt_grace_seconds=45` 仍保留，新增 `takeoff_radio_altitude_enter_m=10` / `takeoff_radio_altitude_exit_m=40` 迟滞。保护期内压制 `low_alt_danger`，雷达高度贴地保护内也压制滑跑阶段 `overspeed`，不影响失速、死亡、过热或低油事件。已补真实战场事件队列 coalescing 与真实 push TTL 过期丢弃，减少旧提示在宿主队列中晚播。T-Live 只读监控工具可用于下一轮真机统一测试归档。
 
@@ -105,7 +105,7 @@
 数据层 v1.6 已合并，M3 的当前定义是插件侧适配和验证：
 
 - `overspeed`：读取 `processed.flags` 中的 `overspeed_warn` / `overspeed_critical`；2026-06-23 已真机 dry_run 验证 warning/critical 事件链路。
-- `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；短窗多杀已在 Arbiter 合并为单条 `kill_count` 输出。
+- `you_killed`：已监听 `combat.feed[]` 中 `is_my_kill == true` 的新 id，按 id 去重；短窗多杀已在 Arbiter 合并为单条 `kill_count` 输出；危急场景中不抢播、不丢弃，待 `CRITICAL_RISK` 解除后补播。
 - `you_died`：已监听 `combat.feed[]` 中 `is_my_death == true` 的新 id，不再把 `vehicle_valid` 跳变当作唯一可靠死亡信号。
 - `player_name`：通过 `/api/identity` 或启动参数建立权威身份；插件侧 Hosted UI/context/action seam 已完成，面板已支持安全化 `combat.active_players` 候选点选。2026-06-23 真机已验证 `combat.self.source=manual` 与 `is_my_kill` / `is_my_death` owned 路径。`you_killed` 候选曾被 `SPAWNING` 门控压住，已修复；post-fix dry_run 与 `dry_run=false` push 已通过陆战验证。
 - `you_killed` / `you_died` 输出事实：已按 `domain` / `cause` 分流空战、陆战、海战与坠毁措辞，避免陆战击杀出现“击落坦克”，并避免 prompt 复读 raw victim 玩家名。
@@ -143,5 +143,5 @@
 - 不要把自由文本过滤塞进 Detector / Scenario / Arbiter。
 - 不要复活旧的 `vehicle_valid` 作为 `you_died` 主路径。
 - 不要把 recovery 作为 v1 当前任务；它只保留测试方案和 TODO。
-- 不要沿用旧的 pre-T-Safety / pre-free-text-gate / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 / pre-L9-takeoff-grace / pre-output-coalescing / pre-event-expiry / pre-T-UI2 / pre-deferred-hud-notice / pre-radio-altitude / pre-V2-proximity / pre-rc-docs-audit / pre-tailing-risk / pre-free-text-observe / pre-v2-evidence-refinement / pre-release-scope / pre-release-json-cleanliness / pre-v2-readiness / pre-final-smoke-packet / pre-release-defaults-gate / pre-v2-completion-gate / pre-free-text-activity 测试数量；当前逻辑自检应以 `254/254 passed` 为准。
+- 不要沿用旧的 pre-T-Safety / pre-free-text-gate / pre-identity / pre-T-Output / pre-T-Kill-Coalesce / pre-L8 / pre-L9-takeoff-grace / pre-output-coalescing / pre-event-expiry / pre-T-UI2 / pre-deferred-hud-notice / pre-radio-altitude / pre-V2-proximity / pre-rc-docs-audit / pre-tailing-risk / pre-free-text-observe / pre-v2-evidence-refinement / pre-release-scope / pre-release-json-cleanliness / pre-v2-readiness / pre-final-smoke-packet / pre-release-defaults-gate / pre-v2-completion-gate / pre-free-text-activity / pre-critical-risk-kill-defer 测试数量；当前逻辑自检应以 `256/256 passed` 为准。
 - 不要在父仓库 `N.E.K.O` 里提交这个独立插件仓库。

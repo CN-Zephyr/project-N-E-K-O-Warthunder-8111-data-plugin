@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import BattleEvent, category_allowed
+from .contracts import CRITICAL_RISK, BattleEvent, category_allowed
 from .safety_guard import SafetyGuard
 
 
@@ -35,10 +35,15 @@ class Arbiter:
             return None, chain
 
         # [1] Scenario 门控 + [2] cooldown 去重
+        kill_coalesce_window = self.safety.config.kill_coalesce_window_seconds
         survivors: list[BattleEvent] = []
         for c in candidates:
             allowed, gate_reason = _event_allowed(c, scenario)
             if not allowed:
+                if c.event_id == "you_killed" and scenario == CRITICAL_RISK and kill_coalesce_window > 0:
+                    self._buffer_kill(c, now)
+                    chain.append(_rec(c, "buffered", "kill_deferred_critical_risk"))
+                    continue
                 chain.append(_rec(c, "dropped", gate_reason))
                 continue
             cd = c.spec.cooldown_seconds
@@ -72,7 +77,6 @@ class Arbiter:
                 return best, chain
 
         # [5] 限流通道：单槽窗口择优（留最高 priority），到点 flush
-        kill_coalesce_window = self.safety.config.kill_coalesce_window_seconds
         if kill_coalesce_window > 0:
             kill_events = [c for c in normal if c.event_id == "you_killed"]
             normal = [c for c in normal if c.event_id != "you_killed"]
@@ -96,12 +100,17 @@ class Arbiter:
             and rate_remaining <= 0
         ):
             chosen = self._kill_window
-            self._kill_window = None
-            self._kill_window_started_at = 0.0
             allowed, gate_reason = _event_allowed(chosen, scenario)
             if not allowed:
+                if chosen.event_id == "you_killed" and scenario == CRITICAL_RISK:
+                    chain.append(_rec(chosen, "buffered", "scenario_gated_deferred(CRITICAL_RISK)"))
+                    return None, chain
+                self._kill_window = None
+                self._kill_window_started_at = 0.0
                 chain.append(_rec(chosen, "dropped", gate_reason.replace("scenario_gated", "scenario_gated_on_flush", 1)))
                 return None, chain
+            self._kill_window = None
+            self._kill_window_started_at = 0.0
             self._fire(chosen, now, critical=False)
             chain.append(_rec(chosen, "spoken", "kill_coalesced"))
             return chosen, chain

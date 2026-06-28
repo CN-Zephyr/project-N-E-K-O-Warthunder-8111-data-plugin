@@ -101,7 +101,7 @@ stateDiagram-v2
 - 进入：D-B3 中属于危急集合的 detector 进入沿（signal = 数据层 critical 级 flag `stall_critical`/`altitude_critical`/`overspeed_critical`；`overspeed_critical` 已在数据层 v1.6 提供，插件侧待验证）。
 - 退出：危急 flag 全部解除并经迟滞 → 回 `IN_FLIGHT`（或 `COMBAT_STRESS`，按优先级重算）。
 - 依赖字段：由对应 detector 决定（`IAS/AoA/H/Vy/温度/...`），Scenario 本身只读 flag。
-- 对提示系统：**只放行当前危急告警及其恢复**，并**抢占限流立即开口**；压制其它一切（含击杀、闲聊、低油）。
+- 对提示系统：**只立即放行当前危急告警及其恢复**，并**抢占限流立即开口**；压制闲聊、低油等次要提示。数据层已归属的 owned `you_killed` 不在危急中开口，但 Arbiter 可延迟保留，待危急解除后补一条 generic 战果反馈。
 
 ### DEAD
 - 定义：本机已阵亡，但对局仍在进行（可能可重生或转观战）。
@@ -127,7 +127,7 @@ stateDiagram-v2
 | SPAWNING | 允许(出生) | 抑制(grace) | 抑制 | 抑制 | 允许(owned kill) | 抑制 |
 | IN_FLIGHT | 允许 | 允许 | 允许 | 允许 | 允许 | 允许 |
 | COMBAT_STRESS | 允许 | 允许 | 允许 | 抑制 | 允许(简短) | 抑制 |
-| CRITICAL_RISK | 允许(死亡) | 允许(抢占) | 抑制 | 抑制 | 抑制 | 抑制 |
+| CRITICAL_RISK | 允许(死亡) | 允许(抢占) | 抑制 | 抑制 | 延迟(owned kill) | 抑制 |
 | DEAD | 允许(死亡) | 抑制 | 抑制 | 抑制 | 抑制 | 允许(安慰后) |
 | BATTLE_ENDED | 允许(结束) | 抑制 | 抑制 | 抑制 | 抑制 | 允许 |
 

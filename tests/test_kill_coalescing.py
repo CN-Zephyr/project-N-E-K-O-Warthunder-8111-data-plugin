@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from neko_warthunder.adapters.neko_dispatcher import NekoDispatcher
 from neko_warthunder.core.arbiter import Arbiter
-from neko_warthunder.core.contracts import CRITICAL_RISK, IN_FLIGHT, BattleEvent, WtConfig
+from neko_warthunder.core.contracts import COMBAT_STRESS, CRITICAL_RISK, IN_FLIGHT, BattleEvent, WtConfig
 from neko_warthunder.core.safety_guard import SafetyGuard
 
 
@@ -83,3 +83,37 @@ def test_kill_coalescing_preserves_latest_domain_for_output_wording():
 
     assert chosen is not None
     assert chosen.payload.get("domain") == "ground"
+
+
+def test_kill_in_critical_risk_is_deferred_instead_of_dropped():
+    arb = _arbiter()
+
+    chosen, chain = arb.decide(
+        [BattleEvent("you_killed", payload={"victim": "A"}, ts=100.0)],
+        CRITICAL_RISK,
+        100.0,
+    )
+    still_critical, critical_chain = arb.decide([], CRITICAL_RISK, 102.1)
+
+    assert chosen is None
+    assert still_critical is None
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "kill_deferred_critical_risk" for item in chain)
+    assert any(
+        item["event_id"] == "you_killed" and item["reason"] == "scenario_gated_deferred(CRITICAL_RISK)"
+        for item in critical_chain
+    )
+
+
+def test_deferred_kill_flushes_after_critical_risk_clears():
+    arb = _arbiter()
+
+    arb.decide([BattleEvent("you_killed", payload={"victim": "A", "domain": "air"}, ts=100.0)], CRITICAL_RISK, 100.0)
+    blocked, _ = arb.decide([], CRITICAL_RISK, 102.1)
+    chosen, chain = arb.decide([], COMBAT_STRESS, 103.0)
+
+    assert blocked is None
+    assert chosen is not None
+    assert chosen.event_id == "you_killed"
+    assert chosen.payload["kill_count"] == 1
+    assert chosen.payload["domain"] == "air"
+    assert any(item["result"] == "spoken" and item["reason"] == "kill_coalesced" for item in chain)
