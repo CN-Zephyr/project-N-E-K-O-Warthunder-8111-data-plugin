@@ -26,6 +26,7 @@ def test_preflight_plan_contains_documented_checks():
         assert names == [
             "logic self-check",
             "pytest",
+            "release defaults gate",
             "free-text release gate",
             "replay degrade gate",
             "deferred HUD notice gate",
@@ -46,26 +47,28 @@ def test_preflight_plan_contains_documented_checks():
         ]
         assert checks[0].cwd == plugin_root.resolve()
         assert checks[0].cmd == ["uv", "run", "python", "tests/run_logic_tests.py"]
-        assert checks[2].cmd == ["uv", "run", "python", "tools/free_text_gate.py"]
-        assert "hudmsg" in checks[2].review_hint
-        assert "push_message" in checks[2].review_hint
-        assert checks[3].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
-        assert "replay=true" in checks[3].review_hint
+        assert checks[2].cmd == ["uv", "run", "python", "tools/release_defaults_gate.py"]
+        assert "dry_run-first" in checks[2].review_hint
+        assert checks[3].cmd == ["uv", "run", "python", "tools/free_text_gate.py"]
+        assert "hudmsg" in checks[3].review_hint
         assert "push_message" in checks[3].review_hint
-        assert checks[4].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
-        assert "powertrain_failure" in checks[4].review_hint
-        assert checks[5].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
-        assert "proximity.events" in checks[5].review_hint
-        assert checks[6].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
-        assert checks[7].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
-        assert checks[8].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
-        assert checks[9].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
-        assert checks[10].cwd == host_root.resolve()
-        assert checks[10].cmd[-1] == str(plugin_root.resolve())
-        assert checks[11].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[11].review_hint
-        assert "paused" in checks[11].review_hint
-        assert "8112" in checks[11].review_hint
+        assert checks[4].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
+        assert "replay=true" in checks[4].review_hint
+        assert "push_message" in checks[4].review_hint
+        assert checks[5].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
+        assert "powertrain_failure" in checks[5].review_hint
+        assert checks[6].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
+        assert "proximity.events" in checks[6].review_hint
+        assert checks[7].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
+        assert checks[8].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
+        assert checks[9].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
+        assert checks[10].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
+        assert checks[11].cwd == host_root.resolve()
+        assert checks[11].cmd[-1] == str(plugin_root.resolve())
+        assert checks[12].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[12].review_hint
+        assert "paused" in checks[12].review_hint
+        assert "8112" in checks[12].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -132,6 +135,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
         assert names == [
             "logic self-check",
             "pytest",
+            "release defaults gate",
             "free-text release gate",
             "replay degrade gate",
             "deferred HUD notice gate",
@@ -157,7 +161,8 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 239/239 passed" in text
+        assert "baseline: logic self-check should report 242/242 passed" in text
+        assert "release defaults gate must keep dry_run-first" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
         assert "deferred HUD notice gate must pass" in text
@@ -171,6 +176,8 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "watch live_monitor Summary first" in text
         assert "uv run python tests/run_logic_tests.py" in text
         assert "uv run pytest -c tests/pytest.ini tests -q" in text
+        assert "release defaults gate" in text
+        assert "uv run python tools/release_defaults_gate.py" in text
         assert "free-text release gate" in text
         assert "uv run python tools/free_text_gate.py" in text
         assert "replay degrade gate" in text

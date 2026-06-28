@@ -55,6 +55,12 @@ def build_checks(
             review_hint="release/status docs must not contain stale baselines or pre-V2 blocker language",
         ),
         Check(
+            "release defaults gate",
+            plugin,
+            ["uv", "run", "python", "tools/release_defaults_gate.py"],
+            review_hint="release defaults must stay dry_run-first with unverified real output closed",
+        ),
+        Check(
             "free-text release gate",
             plugin,
             ["uv", "run", "python", "tools/free_text_gate.py"],

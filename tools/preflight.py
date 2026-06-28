@@ -44,6 +44,12 @@ def build_checks(
         Check("logic self-check", plugin, ["uv", "run", "python", "tests/run_logic_tests.py"]),
         Check("pytest", plugin, ["uv", "run", "pytest", "-c", "tests/pytest.ini", "tests", "-q"]),
         Check(
+            "release defaults gate",
+            plugin,
+            ["uv", "run", "python", "tools/release_defaults_gate.py"],
+            "release defaults must stay dry_run-first with unverified real output closed",
+        ),
+        Check(
             "free-text release gate",
             plugin,
             ["uv", "run", "python", "tools/free_text_gate.py"],
@@ -183,7 +189,8 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 239/239 passed")
+    print("- baseline: logic self-check should report 242/242 passed")
+    print("- release defaults gate must keep dry_run-first and unverified real output closed")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
     print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")

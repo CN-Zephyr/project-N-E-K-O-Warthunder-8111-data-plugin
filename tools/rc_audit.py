@@ -58,10 +58,14 @@ STALE_BASELINES = [
     "228 passed",
     "232/232 passed",
     "232 passed",
+    "239/239 passed",
+    "239 passed",
 ]
 
 REQUIRED_SNIPPETS = [
-    "239/239 passed",
+    "242/242 passed",
+    "release defaults gate",
+    "tools/release_defaults_gate.py",
     "handoff_status",
     "final smoke packet",
     "tools/final_smoke_packet.py",
