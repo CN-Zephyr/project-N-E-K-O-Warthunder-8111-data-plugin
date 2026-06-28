@@ -113,6 +113,56 @@ def _coverage_gap_frame() -> dict:
     return frame
 
 
+def _v2_live_frame(event_id: int, *, timestamp: float, proximity_distance_m: int, target_distance_m: int) -> dict:
+    return {
+        "state": "in_battle",
+        "timestamp": timestamp,
+        "replay": False,
+        "in_battle": True,
+        "domain": "air",
+        "vehicle": {"valid": True, "ias_kmh": 420.0, "altitude_m": 1300.0},
+        "indicators": {"valid": True, "vehicle_type": "ki_61_1a_otsu_china", "army": "air"},
+        "processed": {
+            "flags": {},
+            "level": "info",
+            "ias_kmh": 420.0,
+            "altitude_m": 1300.0,
+        },
+        "combat": {
+            "player_name": "Pilot",
+            "self": {"name": "Pilot", "source": "manual", "confidence": 1.0},
+            "feed": [],
+        },
+        "proximity": {
+            "events": [
+                {
+                    "id": event_id,
+                    "kind": "enter",
+                    "type": "fighter",
+                    "category": "enemy_air",
+                    "is_air": True,
+                    "distance_m": proximity_distance_m,
+                    "clock": 6,
+                    "relative_deg": 175,
+                    "text": "raw rear proximity",
+                }
+            ]
+        },
+        "situation": {
+            "air_threat_count": 1,
+            "ground_targets": [
+                {
+                    "kind": "bombing_point",
+                    "label": "raw objective label",
+                    "grid": "B4",
+                    "distance_m": target_distance_m,
+                    "bearing_deg": 90,
+                }
+            ],
+        },
+    }
+
+
 def test_sample_replay_discovers_processed_jsonl_and_gzip_frames():
     from neko_warthunder.tools.sample_replay import discover_sample_files
 
@@ -197,9 +247,12 @@ def test_sample_replay_reports_safe_contract_coverage_without_raw_text():
     assert coverage["proximity_events"] == 1
     assert coverage["proximity_air_events"] == 1
     assert coverage["proximity_rear_events"] == 1
+    assert coverage["proximity_rear_close_events"] == 0
     assert coverage["situation_frames"] == 1
     assert coverage["ground_target_items"] == 1
     assert coverage["ground_target_live_items"] == 0
+    assert coverage["ground_target_close_items"] == 1
+    assert coverage["ground_target_close_live_items"] == 0
     assert "coverage:" in text
     assert "RawVictim" not in text
     assert "RawKiller" not in text
@@ -321,6 +374,41 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["proximity_awareness"]["status"] == "ready_for_review"
     assert checks["proximity_awareness"]["events"] == 1
     assert checks["proximity_awareness"]["ground_target_items"] == 1
+    assert checks["proximity_awareness"]["rear_close_events"] == 0
+    assert checks["proximity_awareness"]["tailing_risk_events"] == 0
+    assert checks["proximity_awareness"]["ground_target_close_items"] == 1
+
+
+def test_sample_replay_v2_proximity_readiness_requires_real_triggers():
+    from neko_warthunder.tools.sample_replay import replay_sample_root, render_report
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        rows = [
+            {"data": _v2_live_frame(100, timestamp=1.0, proximity_distance_m=850, target_distance_m=1200)},
+            {"data": _v2_live_frame(101, timestamp=2.0, proximity_distance_m=700, target_distance_m=1100)},
+        ]
+        _write_jsonl(root / "captures" / "cap" / "processed_8112.jsonl", rows)
+
+        report = replay_sample_root(root, player_name="Pilot")
+        text = render_report(report)
+
+    coverage = report["coverage"]
+    checks = report["session_summary"]["validation_checks"]
+    assert report["events"]["enemy_on_six/warning"] == 1
+    assert report["events"]["tailing_risk/warning"] == 1
+    assert report["events"]["ground_target_nearby/warning"] == 1
+    assert coverage["proximity_rear_events"] == 2
+    assert coverage["proximity_rear_close_events"] == 2
+    assert coverage["ground_target_close_live_items"] == 2
+    assert checks["proximity_awareness"]["status"] == "ready_for_review"
+    assert checks["proximity_awareness"]["enemy_on_six_events"] == 1
+    assert checks["proximity_awareness"]["tailing_risk_events"] == 1
+    assert checks["proximity_awareness"]["ground_target_events"] == 1
+    assert "no_tailing_risk_trigger" not in report["coverage_gaps"]
+    assert "no_ground_target_trigger" not in report["coverage_gaps"]
+    assert "raw rear proximity" not in text
+    assert "raw objective label" not in text
 
 
 def test_sample_replay_replay_true_contract_is_suppressed_without_output():
@@ -509,13 +597,14 @@ def test_local_20260620_sample_replay_if_present():
     assert report["coverage"]["situation_frames"] == 9970
     assert report["coverage"]["ground_target_items"] == 3253
     assert report["coverage"]["ground_target_live_items"] == 3253
+    assert report["coverage"]["ground_target_close_live_items"] == 0
     assert "no_manual_identity_frames" not in report["coverage_gaps"]
     assert report["coverage_gaps"] == [
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
         "no_proximity_rear_events",
-        "no_ground_target_trigger",
+        "no_ground_target_close_candidates",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",

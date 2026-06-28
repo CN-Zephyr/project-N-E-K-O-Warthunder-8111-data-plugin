@@ -112,11 +112,14 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             "proximity_events": 0,
             "proximity_air_events": 0,
             "proximity_rear_events": 0,
+            "proximity_rear_close_events": 0,
             "proximity_raw_text_fields": 0,
             "situation_frames": 0,
             "ground_target_frames": 0,
             "ground_target_items": 0,
             "ground_target_live_items": 0,
+            "ground_target_close_items": 0,
+            "ground_target_close_live_items": 0,
         },
     }
 
@@ -210,18 +213,11 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
             continue
         if item.get("is_air") is True:
             coverage["proximity_air_events"] += 1
-        clock = item.get("clock")
-        relative_deg = item.get("relative_deg")
-        try:
-            rear_by_clock = int(clock) in {5, 6, 7}
-        except (TypeError, ValueError):
-            rear_by_clock = False
-        try:
-            rear_by_relative = abs(float(relative_deg)) >= 135.0
-        except (TypeError, ValueError):
-            rear_by_relative = False
-        if rear_by_clock or rear_by_relative:
+        if _is_rear_proximity(item):
             coverage["proximity_rear_events"] += 1
+            distance = _as_float(item.get("distance_m"))
+            if distance is not None and distance <= 900.0:
+                coverage["proximity_rear_close_events"] += 1
 
     situation = payload.get("situation") if isinstance(payload.get("situation"), dict) else {}
     if situation:
@@ -232,6 +228,38 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
         coverage["ground_target_items"] += len(ground_targets)
         if payload.get("replay") is not True:
             coverage["ground_target_live_items"] += len(ground_targets)
+        for item in ground_targets:
+            if not isinstance(item, dict):
+                continue
+            distance = _as_float(item.get("distance_m"))
+            if distance is None or distance > 3000.0:
+                continue
+            coverage["ground_target_close_items"] += 1
+            if payload.get("replay") is not True:
+                coverage["ground_target_close_live_items"] += 1
+
+
+def _is_rear_proximity(item: dict[str, Any]) -> bool:
+    clock = item.get("clock")
+    relative_deg = item.get("relative_deg")
+    try:
+        rear_by_clock = int(clock) in {5, 6, 7}
+    except (TypeError, ValueError):
+        rear_by_clock = False
+    try:
+        rear_by_relative = abs(float(relative_deg)) >= 135.0
+    except (TypeError, ValueError):
+        rear_by_relative = False
+    return rear_by_clock or rear_by_relative
+
+
+def _as_float(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _count_raw_text_items(items: list[Any]) -> int:
@@ -373,6 +401,12 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     ground_target_events = sum(
         int(count) for key, count in events.items() if str(key).startswith("ground_target_nearby/")
     )
+    enemy_on_six_events = sum(
+        int(count) for key, count in events.items() if str(key).startswith("enemy_on_six/")
+    )
+    tailing_risk_events = sum(
+        int(count) for key, count in events.items() if str(key).startswith("tailing_risk/")
+    )
 
     proximity_missing: list[str] = []
     if int(coverage.get("proximity_events", 0)) == 0:
@@ -381,11 +415,15 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         proximity_missing.append("proximity_air_events")
     if int(coverage.get("proximity_rear_events", 0)) == 0:
         proximity_missing.append("proximity_rear_events")
+    if int(coverage.get("proximity_rear_close_events", 0)) >= 2 and tailing_risk_events == 0:
+        proximity_missing.append("tailing_risk_trigger")
     if int(coverage.get("situation_frames", 0)) == 0:
         proximity_missing.append("situation")
     if int(coverage.get("situation_frames", 0)) > 0 and int(coverage.get("ground_target_items", 0)) == 0:
         proximity_missing.append("ground_targets")
-    if int(coverage.get("ground_target_live_items", 0)) > 0 and ground_target_events == 0:
+    if int(coverage.get("ground_target_live_items", 0)) > 0 and int(coverage.get("ground_target_close_live_items", 0)) == 0:
+        proximity_missing.append("ground_target_close_candidates")
+    elif int(coverage.get("ground_target_close_live_items", 0)) > 0 and ground_target_events == 0:
         proximity_missing.append("ground_target_trigger")
 
     return {
@@ -432,9 +470,14 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "events": int(coverage.get("proximity_events", 0)),
             "air_events": int(coverage.get("proximity_air_events", 0)),
             "rear_events": int(coverage.get("proximity_rear_events", 0)),
+            "rear_close_events": int(coverage.get("proximity_rear_close_events", 0)),
+            "enemy_on_six_events": enemy_on_six_events,
+            "tailing_risk_events": tailing_risk_events,
             "situation_frames": int(coverage.get("situation_frames", 0)),
             "ground_target_items": int(coverage.get("ground_target_items", 0)),
             "ground_target_live_items": int(coverage.get("ground_target_live_items", 0)),
+            "ground_target_close_items": int(coverage.get("ground_target_close_items", 0)),
+            "ground_target_close_live_items": int(coverage.get("ground_target_close_live_items", 0)),
             "ground_target_events": ground_target_events,
             "raw_text_fields": int(coverage.get("proximity_raw_text_fields", 0)),
         },
@@ -525,10 +568,16 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
                 actions.append("capture_air_proximity_sample")
             if "proximity_rear_events" in proximity_missing:
                 actions.append("capture_rear_threat_or_six_oclock_sample")
+            if "tailing_risk_trigger" in proximity_missing:
+                actions.append("capture_sustained_close_rear_sample")
         if "situation" in proximity_missing:
             actions.append("capture_situation_sample")
-        elif "ground_targets" in proximity_missing or "ground_target_trigger" in proximity_missing:
+        elif "ground_targets" in proximity_missing:
             actions.append("capture_ground_target_sample")
+        elif "ground_target_close_candidates" in proximity_missing:
+            actions.append("fly_closer_to_ground_target_sample")
+        elif "ground_target_trigger" in proximity_missing:
+            actions.append("capture_ground_target_trigger_sample")
         if not actions:
             actions.append("capture_proximity_sample")
         for action in _dedupe(actions):
@@ -554,9 +603,11 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
         "no_proximity_events": "capture_proximity_sample",
         "no_proximity_air_events": "capture_air_proximity_sample",
         "no_proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
+        "no_tailing_risk_trigger": "capture_sustained_close_rear_sample",
         "no_situation_frames": "capture_situation_sample",
         "no_ground_target_items": "capture_ground_target_sample",
-        "no_ground_target_trigger": "capture_ground_target_sample",
+        "no_ground_target_close_candidates": "fly_closer_to_ground_target_sample",
+        "no_ground_target_trigger": "capture_ground_target_trigger_sample",
     }
     return [mapping[gap] for gap in gaps if gap in mapping]
 
@@ -611,6 +662,13 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         gaps.append("no_proximity_air_events")
     if coverage.get("proximity_rear_events", 0) == 0:
         gaps.append("no_proximity_rear_events")
+    tailing_risk_events = sum(
+        int(count)
+        for key, count in (report.get("events") or {}).items()
+        if str(key).startswith("tailing_risk/")
+    )
+    if coverage.get("proximity_rear_close_events", 0) >= 2 and tailing_risk_events == 0:
+        gaps.append("no_tailing_risk_trigger")
     if coverage.get("situation_frames", 0) == 0:
         gaps.append("no_situation_frames")
     if coverage.get("situation_frames", 0) > 0 and coverage.get("ground_target_items", 0) == 0:
@@ -620,7 +678,9 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         for key, count in (report.get("events") or {}).items()
         if str(key).startswith("ground_target_nearby/")
     )
-    if coverage.get("ground_target_live_items", 0) > 0 and ground_target_events == 0:
+    if coverage.get("ground_target_live_items", 0) > 0 and coverage.get("ground_target_close_live_items", 0) == 0:
+        gaps.append("no_ground_target_close_candidates")
+    elif coverage.get("ground_target_close_live_items", 0) > 0 and ground_target_events == 0:
         gaps.append("no_ground_target_trigger")
 
     notice_codes = coverage.get("hud_notice_codes") or {}
@@ -681,9 +741,12 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
         "proximity_events",
         "proximity_air_events",
         "proximity_rear_events",
+        "proximity_rear_close_events",
         "situation_frames",
         "ground_target_items",
         "ground_target_live_items",
+        "ground_target_close_items",
+        "ground_target_close_live_items",
     ):
         parts.append(f"{key}={coverage.get(key, 0)}")
     parts.append(f"combat_self_source={_fmt_counts(coverage.get('combat_self_source') or {})}")

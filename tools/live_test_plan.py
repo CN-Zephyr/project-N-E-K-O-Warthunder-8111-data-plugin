@@ -96,12 +96,26 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "fail": "后方 proximity 出现但插件无事件，或 raw proximity 文本 / 玩家名进入 prompt，或 critical 被后方威胁抢占。",
         "data_gap": "如果没有后方 / 六点钟 proximity，只记录为缺 rear-threat 样本；已有普通空中 proximity 不等于完成 enemy_on_six / tailing_risk 验证。",
     },
+    "capture_sustained_close_rear_sample": {
+        "operation": "空战中让后方威胁在短时间内连续保持近距离，优先让 proximity distance_m 多次低于 900m。",
+        "monitor": "proximity.events[].clock / relative_deg / distance_m、tailing_risk、observe.last_decision。",
+        "pass": "连续近距离后方样本保守升级为 tailing_risk，且不会抢占 critical 安全事件。",
+        "fail": "后方近距样本已连续出现但没有 tailing_risk，或 tailing_risk 输出泄漏 raw proximity 文本。",
+        "data_gap": "如果只有一次后方接近或距离太远，只记录为缺持续尾随样本。",
+    },
     "capture_ground_target_sample": {
         "operation": "空战或对地任务中靠近轰炸点/任务目标点，保持 dry_run=true，记录一段 situation.ground_targets 样本。",
         "monitor": "situation.ground_targets[].grid / distance_m、ground_target_nearby、observe.last_decision、dry_run 输出。",
         "pass": "近距离 ground target 触发 ground_target_nearby，prompt 只包含任务目标点 / 网格 / 距离等安全摘要，COMBAT_STRESS 下低优先级目标提示可被压住。",
         "fail": "ground_targets 存在但插件无事件，或目标 label/raw 文本进入 prompt，或目标点提示抢占 critical 安全事件。",
         "data_gap": "如果没有 ground_targets，只记录为缺对地任务目标样本；普通 proximity 不等于完成目标点验证。",
+    },
+    "fly_closer_to_ground_target_sample": {
+        "operation": "空战或对地任务中继续靠近轰炸点/任务目标点，尽量进入 3000m 内并保持 dry_run=true。",
+        "monitor": "situation.ground_targets[].distance_m、ground_target_nearby、observe.last_decision、dry_run 输出。",
+        "pass": "distance_m 进入 3000m 内后触发 ground_target_nearby；prompt 只包含任务目标点 / 网格 / 距离等安全摘要。",
+        "fail": "已经出现 3000m 内目标候选但插件无 ground_target_nearby，或目标 label/raw 文本进入 prompt。",
+        "data_gap": "如果 ground_targets 一直存在但距离均大于 3000m，只记录为缺近目标点候选，不算插件触发失败。",
     },
     "verify_output_backpressure": {
         "operation": "dry_run=false 时连续触发同优先级或更低优先级事件，观察是否被输出背压压住。",
@@ -259,11 +273,11 @@ def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
                 "pass": "replay 帧静默，live_monitor 显示 replay suppressed，不真实开口。",
             }
         )
-    if "capture_ground_target_sample" in actions:
+    if "capture_ground_target_sample" in actions or "fly_closer_to_ground_target_sample" in actions:
         checklist.append(
             {
                 "order": "6b",
-                "user_action": "空战/对地任务中靠近任务目标点。",
+                "user_action": "空战/对地任务中靠近任务目标点，尽量进入 3000m 内。",
                 "monitor": "situation.ground_targets、ground_target_nearby、observe.last_decision。",
                 "pass": "只输出任务目标点的网格/距离安全摘要，不读取 label/raw 文本。",
             }

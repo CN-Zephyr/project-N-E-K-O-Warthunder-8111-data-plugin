@@ -49,7 +49,7 @@ STALE_BASELINES = [
 ]
 
 REQUIRED_SNIPPETS = [
-    "215/215 passed",
+    "217/217 passed",
     "V2 proximity / objective awareness",
     "ground_target_nearby",
     "tailing_risk",
@@ -59,7 +59,7 @@ REQUIRED_SNIPPETS = [
     "proximity/objective awareness gate",
     "RC gap summary",
     "ready_for_final_live_smoke",
-    "no_ground_target_trigger",
+    "no_ground_target_close_candidates",
 ]
 
 FORBIDDEN_PHRASES = [

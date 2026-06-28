@@ -48,8 +48,10 @@ _MISSING_ACTIONS = {
     "proximity_events": "capture_proximity_sample",
     "proximity_air_events": "capture_air_proximity_sample",
     "proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
+    "tailing_risk_trigger": "capture_sustained_close_rear_sample",
     "situation": "capture_situation_sample",
     "ground_targets": "capture_ground_target_sample",
+    "ground_target_close_candidates": "fly_closer_to_ground_target_sample",
     "ground_target_trigger": "capture_ground_target_trigger_sample",
 }
 
