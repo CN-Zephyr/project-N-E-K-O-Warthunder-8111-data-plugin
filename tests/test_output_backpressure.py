@@ -78,6 +78,51 @@ def test_real_output_drops_expired_battle_event_before_push():
     status = timeline.snapshot()["last_output_status"]
     assert status["stage"] == "dispatcher_suppressed"
     assert status["reason"] == "event_expired"
+    assert status["event_age_seconds"] == 10.0
+    assert status["event_max_age_seconds"] == 5.0
+
+
+def test_real_event_push_metadata_carries_event_age_and_expiry_for_host_queue():
+    plugin = FakePlugin()
+    plugin.cfg.output_event_max_age_seconds = 8.0
+    timeline = RuntimeTimeline(observability_enabled=True, max_events=10)
+    dispatcher = NekoDispatcher(plugin, timeline=timeline, clock=_clock([100.0]))
+
+    result = dispatcher.push_event(BattleEvent("low_alt_danger", level="warning", ts=97.0), dry_run=False)
+
+    assert result.startswith("pushed(")
+    metadata = plugin.calls[0]["metadata"]
+    assert metadata["event_id"] == "low_alt_danger"
+    assert metadata["event_age_seconds"] == 3.0
+    assert metadata["event_max_age_seconds"] == 8.0
+    assert metadata["event_expires_at"] == 105.0
+    status = timeline.snapshot()["last_output_status"]
+    assert status["event_age_seconds"] == 3.0
+    assert status["event_max_age_seconds"] == 8.0
+
+
+def test_real_event_push_uses_configured_target_lanlan():
+    plugin = FakePlugin()
+    plugin.cfg.target_lanlan = "Lanlan"
+    dispatcher = NekoDispatcher(plugin, clock=_clock([100.0]))
+
+    result = dispatcher.push_event(BattleEvent("you_killed", ts=99.0), dry_run=False)
+
+    assert result.startswith("pushed(")
+    call = plugin.calls[0]
+    assert call["target_lanlan"] == "Lanlan"
+    assert call["metadata"]["target_lanlan"] == "Lanlan"
+
+
+def test_context_push_uses_configured_target_lanlan():
+    plugin = FakePlugin()
+    plugin.cfg.target_lanlan = "Lanlan"
+    dispatcher = NekoDispatcher(plugin)
+
+    dispatcher.push_context("context")
+
+    assert plugin.calls[0]["target_lanlan"] == "Lanlan"
+    assert plugin.calls[0]["metadata"]["target_lanlan"] == "Lanlan"
 
 
 def test_output_backpressure_does_not_affect_dry_run_decisions():

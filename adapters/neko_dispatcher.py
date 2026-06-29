@@ -7,6 +7,7 @@ dry_run 时短路、绝不真投。常驻场景上下文走 push_context(ai_beha
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from typing import Any
@@ -60,6 +61,76 @@ def _output_event_max_age_seconds(plugin: Any) -> float:
 def _v2_live_verified_real_output_enabled(plugin: Any) -> bool:
     cfg = getattr(plugin, "cfg", None)
     return bool(getattr(cfg, "v2_live_verified_real_output_enabled", False))
+
+
+def _clean_target_lanlan(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()[:80]
+
+
+def _resolve_target_lanlan(plugin: Any, event: BattleEvent | None = None) -> str:
+    payload = event.payload if event and isinstance(event.payload, dict) else {}
+    for candidate in (
+        payload.get("target_lanlan"),
+        payload.get("lanlan_name"),
+    ):
+        target = _clean_target_lanlan(candidate)
+        if target:
+            return target
+
+    ctx_obj = payload.get("_ctx")
+    if isinstance(ctx_obj, dict):
+        target = _clean_target_lanlan(ctx_obj.get("lanlan_name"))
+        if target:
+            return target
+
+    cfg = getattr(plugin, "cfg", None)
+    for candidate in (
+        getattr(cfg, "target_lanlan", ""),
+        getattr(cfg, "lanlan_name", ""),
+    ):
+        target = _clean_target_lanlan(candidate)
+        if target:
+            return target
+
+    plugin_ctx = getattr(plugin, "ctx", None)
+    target = _clean_target_lanlan(getattr(plugin_ctx, "_current_lanlan", None))
+    if target:
+        return target
+
+    for env_name in ("NEKO_WARTHUNDER_TARGET_LANLAN", "NEKO_TARGET_LANLAN", "NEKO_LANLAN_NAME", "NEKO_HER_NAME"):
+        target = _clean_target_lanlan(os.getenv(env_name, ""))
+        if target:
+            return target
+
+    try:
+        from utils.config_manager import get_config_manager
+
+        character_data = get_config_manager().get_character_data()
+        if isinstance(character_data, tuple) and len(character_data) >= 2:
+            target = _clean_target_lanlan(character_data[1])
+            if target:
+                return target
+    except Exception:
+        pass
+
+    return ""
+
+
+def _event_freshness_metadata(event: BattleEvent, now: float, plugin: Any) -> dict[str, float]:
+    out: dict[str, float] = {}
+    max_age = _output_event_max_age_seconds(plugin)
+    if event.ts > 0:
+        out["event_ts"] = round(float(event.ts), 3)
+        if now >= event.ts:
+            out["event_age_seconds"] = round(float(now - event.ts), 3)
+        if max_age > 0:
+            out["event_max_age_seconds"] = round(float(max_age), 3)
+            out["event_expires_at"] = round(float(event.ts + max_age), 3)
+    elif max_age > 0:
+        out["event_max_age_seconds"] = round(float(max_age), 3)
+    return out
 
 
 def _fact_line(event: BattleEvent) -> str:
@@ -291,6 +362,7 @@ class NekoDispatcher:
                 )
             return f"suppressed(event={event.event_id}/{event.edge}, reason=v2_live_evidence_pending)"
         now = self._clock()
+        freshness = _event_freshness_metadata(event, now, self.plugin)
         if self._is_expired(event, now):
             if self.timeline:
                 self.timeline.record_stage(
@@ -306,6 +378,7 @@ class NekoDispatcher:
                     ai_behavior="respond",
                     pushed=False,
                     safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                    **freshness,
                 )
             return f"suppressed(event={event.event_id}/{event.edge}, reason=event_expired)"
         if self._is_backpressured(event, now):
@@ -323,9 +396,21 @@ class NekoDispatcher:
                     ai_behavior="respond",
                     pushed=False,
                     safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                    **freshness,
                 )
             return f"suppressed(event={event.event_id}/{event.edge}, reason=output_backpressure)"
         text = self.build_prompt(event)
+        target_lanlan = _resolve_target_lanlan(self.plugin, event)
+        metadata = {
+            "plugin": "neko_warthunder",
+            "event_id": event.event_id,
+            "edge": event.edge,
+            "level": event.level,
+            "coalesce_key": BATTLE_EVENT_COALESCE_KEY,
+            **freshness,
+        }
+        if target_lanlan:
+            metadata["target_lanlan"] = target_lanlan
         try:
             self.plugin.push_message(
                 source="neko_warthunder",
@@ -334,7 +419,8 @@ class NekoDispatcher:
                 parts=[{"type": "text", "text": text}],
                 priority=event.priority,
                 coalesce_key=BATTLE_EVENT_COALESCE_KEY,
-                metadata={"plugin": "neko_warthunder", "event_id": event.event_id, "level": event.level},
+                metadata=metadata,
+                target_lanlan=target_lanlan or None,
             )
         except Exception as exc:
             if self.timeline:
@@ -368,6 +454,9 @@ class NekoDispatcher:
                 ai_behavior="respond",
                 pushed=True,
                 safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
+                target_lanlan=target_lanlan,
+                coalesce_key=BATTLE_EVENT_COALESCE_KEY,
+                **freshness,
             )
         return f"pushed(event={event.event_id}/{event.edge})"
 
@@ -392,6 +481,10 @@ class NekoDispatcher:
 
     def push_context(self, text: str) -> None:
         """注入/恢复常驻场景上下文（ai_behavior='read'，不触发回复）。"""
+        target_lanlan = _resolve_target_lanlan(self.plugin)
+        metadata = {"plugin": "neko_warthunder", "kind": "context"}
+        if target_lanlan:
+            metadata["target_lanlan"] = target_lanlan
         try:
             self.plugin.push_message(
                 source="neko_warthunder",
@@ -399,7 +492,8 @@ class NekoDispatcher:
                 ai_behavior="read",
                 parts=[{"type": "text", "text": text}],
                 priority=0,
-                metadata={"plugin": "neko_warthunder", "kind": "context"},
+                metadata=metadata,
+                target_lanlan=target_lanlan or None,
             )
             if self.timeline:
                 self.timeline.record_stage(
@@ -411,6 +505,7 @@ class NekoDispatcher:
                     pushed=True,
                     dry_run=False,
                     safe_summary="context/read",
+                    target_lanlan=target_lanlan,
                 )
         except Exception as exc:  # noqa: BLE001 — 上下文注入失败不致命
             if self.timeline:

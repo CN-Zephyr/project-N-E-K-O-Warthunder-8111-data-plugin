@@ -136,6 +136,12 @@ class RuntimeTimeline:
                     "source": metadata.get("source"),
                     "ai_behavior": metadata.get("ai_behavior"),
                     "pushed": metadata.get("pushed"),
+                    "target_lanlan": metadata.get("target_lanlan"),
+                    "coalesce_key": metadata.get("coalesce_key"),
+                    "event_ts": metadata.get("event_ts"),
+                    "event_age_seconds": metadata.get("event_age_seconds"),
+                    "event_max_age_seconds": metadata.get("event_max_age_seconds"),
+                    "event_expires_at": metadata.get("event_expires_at"),
                     "message": safe_summary,
                 }
             )
@@ -154,7 +160,22 @@ class RuntimeTimeline:
                         "outcome": outcome,
                         "reason": reason,
                     }
-                    for key in ("kind", "ai_behavior", "pushed", "event_id", "edge", "level", "priority", "dry_run"):
+                    for key in (
+                        "kind",
+                        "ai_behavior",
+                        "pushed",
+                        "event_id",
+                        "edge",
+                        "level",
+                        "priority",
+                        "dry_run",
+                        "target_lanlan",
+                        "coalesce_key",
+                        "event_ts",
+                        "event_age_seconds",
+                        "event_max_age_seconds",
+                        "event_expires_at",
+                    ):
                         if record.get(key) is not None:
                             self._last_output_status[key] = record.get(key)
                 if self.enabled:
