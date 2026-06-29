@@ -101,6 +101,26 @@ def test_real_event_push_metadata_carries_event_age_and_expiry_for_host_queue():
     assert status["event_max_age_seconds"] == 8.0
 
 
+def test_real_event_push_metadata_requests_short_tts_output_contract():
+    plugin = FakePlugin()
+    timeline = RuntimeTimeline(observability_enabled=True, max_events=10)
+    dispatcher = NekoDispatcher(plugin, timeline=timeline, clock=_clock([100.0]))
+
+    result = dispatcher.push_event(BattleEvent("low_alt_danger", level="critical", ts=99.0), dry_run=False)
+
+    assert result.startswith("pushed(")
+    metadata = plugin.calls[0]["metadata"]
+    assert metadata["battle_reply_contract"] == "short_tts_line"
+    assert metadata["live_reply_contract"] == "short_tts_line"
+    assert metadata["max_reply_chars"] == 28
+    assert metadata["response_module_hint"] == "war_thunder_battle_event"
+    status = timeline.snapshot()["last_output_status"]
+    assert status["battle_reply_contract"] == "short_tts_line"
+    assert status["live_reply_contract"] == "short_tts_line"
+    assert status["max_reply_chars"] == 28
+    assert status["response_module_hint"] == "war_thunder_battle_event"
+
+
 def test_real_event_push_uses_configured_target_lanlan():
     plugin = FakePlugin()
     plugin.cfg.target_lanlan = "Lanlan"

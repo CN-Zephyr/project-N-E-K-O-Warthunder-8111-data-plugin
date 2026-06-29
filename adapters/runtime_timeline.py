@@ -142,6 +142,10 @@ class RuntimeTimeline:
                     "event_age_seconds": metadata.get("event_age_seconds"),
                     "event_max_age_seconds": metadata.get("event_max_age_seconds"),
                     "event_expires_at": metadata.get("event_expires_at"),
+                    "battle_reply_contract": metadata.get("battle_reply_contract"),
+                    "live_reply_contract": metadata.get("live_reply_contract"),
+                    "max_reply_chars": metadata.get("max_reply_chars"),
+                    "response_module_hint": metadata.get("response_module_hint"),
                     "message": safe_summary,
                 }
             )
@@ -175,6 +179,10 @@ class RuntimeTimeline:
                         "event_age_seconds",
                         "event_max_age_seconds",
                         "event_expires_at",
+                        "battle_reply_contract",
+                        "live_reply_contract",
+                        "max_reply_chars",
+                        "response_module_hint",
                     ):
                         if record.get(key) is not None:
                             self._last_output_status[key] = record.get(key)

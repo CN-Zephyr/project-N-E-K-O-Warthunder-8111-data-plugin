@@ -17,6 +17,9 @@ from .runtime_timeline import RuntimeTimeline
 from .text_safety import sanitize_event_payload
 
 BATTLE_EVENT_COALESCE_KEY = "neko_warthunder:battle_event"
+BATTLE_REPLY_CONTRACT = "short_tts_line"
+BATTLE_REPLY_MAX_CHARS = 28
+BATTLE_RESPONSE_MODULE_HINT = "war_thunder_battle_event"
 V2_LIVE_EVIDENCE_GATED_EVENTS = frozenset({"enemy_on_six", "tailing_risk", "ground_target_nearby"})
 FREE_TEXT_DRY_RUN_ONLY_EVENTS = frozenset({"free_text_activity"})
 
@@ -407,6 +410,10 @@ class NekoDispatcher:
             "edge": event.edge,
             "level": event.level,
             "coalesce_key": BATTLE_EVENT_COALESCE_KEY,
+            "battle_reply_contract": BATTLE_REPLY_CONTRACT,
+            "live_reply_contract": BATTLE_REPLY_CONTRACT,
+            "max_reply_chars": BATTLE_REPLY_MAX_CHARS,
+            "response_module_hint": BATTLE_RESPONSE_MODULE_HINT,
             **freshness,
         }
         if target_lanlan:
@@ -456,6 +463,10 @@ class NekoDispatcher:
                 safe_summary=f"{event.event_id}/{event.edge}/{event.level}",
                 target_lanlan=target_lanlan,
                 coalesce_key=BATTLE_EVENT_COALESCE_KEY,
+                battle_reply_contract=BATTLE_REPLY_CONTRACT,
+                live_reply_contract=BATTLE_REPLY_CONTRACT,
+                max_reply_chars=BATTLE_REPLY_MAX_CHARS,
+                response_module_hint=BATTLE_RESPONSE_MODULE_HINT,
                 **freshness,
             )
         return f"pushed(event={event.event_id}/{event.edge})"
