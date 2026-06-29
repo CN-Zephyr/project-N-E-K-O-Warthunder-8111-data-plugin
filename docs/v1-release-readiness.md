@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-- 离线逻辑基线：`256/256 passed`。
+- 离线逻辑基线：`259/259 passed`。
 - `tools/free_text_gate.py` 已作为自由文本发布门禁，防止玩家名、hudmsg、combat.feed、awards 原文进入 prompt 或 `push_message.parts[].text`。
 - `tools/replay_gate.py` 已作为 replay 降级发布门禁，证明 `replay=true` 帧不会产生 Detector candidate、prompt 或真实 `push_message`。
 - `tools/deferred_hud_gate.py` 已作为 deferred HUD notice 发布门禁，证明 `powertrain_failure` 当前只可观测、不播报、不泄露 raw HUD 文本。
@@ -110,5 +110,5 @@ This output separates `sample_unproven_items`, `blocked_release_items`, `remaini
 1. 机场出生 / 复活 / 滑跑：AGL `<=10m` 进入保护，`>=40m` 解除保护。
 2. 保护期内不误报 `low_alt_danger`，贴地滑跑保护内不误报 `overspeed`。
 3. `stall_risk`、`you_died`、`low_fuel`、`overheat` 不被起飞保护误伤。
-4. `dry_run=false` 下确认 `event_expired` / output backpressure 能减少旧事件晚播。
+4. `dry_run=false` 下确认 `event_expired` / output backpressure / output freshness metadata 能减少旧事件晚播，并确认 `target_lanlan` 不走 fallback session。
 5. 如出现 replay/free-text 样本，确认 live monitor 显示 suppressed / blocked，且没有 unsafe raw 文本进入输出。

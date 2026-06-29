@@ -1,6 +1,6 @@
 ﻿# 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Release-Defaults-Gate 发布默认值门禁、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-V2-Output-Policy V2 真实输出策略门禁、T-V2-Completion-Gate V2 完成度门禁、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-RC-Handoff-Report 维护者交接报告、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、Hosted UI 信息架构整理、deferred HUD notice 可观测性与 `free_text_activity` dry-run-only 候选链路已完成；逻辑自检以 `256/256 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Release-Defaults-Gate 发布默认值门禁、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-V2-Output-Policy V2 真实输出策略门禁、T-V2-Completion-Gate V2 完成度门禁、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-RC-Handoff-Report 维护者交接报告、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、输出新鲜度 metadata、`target_lanlan` 目标会话透传、Hosted UI 信息架构整理、deferred HUD notice 可观测性与 `free_text_activity` dry-run-only 候选链路已完成；逻辑自检以 `259/259 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -95,7 +95,7 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/release_defaults_gate.py`、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/v2_output_policy_gate.py`、`tools/v2_completion_gate.py --no-sample`、`tools/rc_handoff_report.py --no-sample`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`；需要样本证据时显式运行 `tools/release_readiness.py --run --include-local-sample` 或单跑 `tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `256/256 passed`，release defaults / free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，V2 output policy gate 会证明后方/尾随/目标点事件在真机证据补齐前默认不真实推送，V2 completion gate 会输出 `v2_code_offline_complete_live_evidence_pending` 作为不夸大真机证据的收口结论，RC handoff report 会给出维护者可读的 V1/V2 交接摘要，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/release_defaults_gate.py`、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/v2_output_policy_gate.py`、`tools/v2_completion_gate.py --no-sample`、`tools/rc_handoff_report.py --no-sample`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`；需要样本证据时显式运行 `tools/release_readiness.py --run --include-local-sample` 或单跑 `tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `259/259 passed`，release defaults / free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，V2 output policy gate 会证明后方/尾随/目标点事件在真机证据补齐前默认不真实推送，V2 completion gate 会输出 `v2_code_offline_complete_live_evidence_pending` 作为不夸大真机证据的收口结论，RC handoff report 会给出维护者可读的 V1/V2 交接摘要，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -104,7 +104,7 @@
 | 4a | 分别观察空战 / 陆战 kill-death 文案 | `domain`、`cause`、Dispatcher prompt / 实际输出 | 空战可说击落；陆战击杀说击毁 / 摧毁地面目标；陆战死亡不说被击落；坠毁说坠毁 |
 | 5 | 观察 awards / hud_notices / combat.feed 自由文本源 | `free_text_safety.status`、`source_details`、prompt / dry_run 输出 | `free_text=dry_run_only(...)`，raw HUD / combat.feed / awards 原文不进入 prompt |
 | 6 | 若出现 replay，继续观察不要手动触发输出 | `replay=true`、`detector_suppressed/replay`、`output_blocked` | replay 帧静默，`live_monitor` 显示 replay suppressed，不真实开口 |
-| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`event_expired`、`coalesce_key=neko_warthunder:battle_event`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；死亡/critical 等新事件能替换宿主队列里的旧低空/超速提示；过期旧事件不真实 push；更高优先级事件仍可插队 |
+| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`event_expired`、`event_age_seconds`、`event_expires_at`、`target_lanlan`、`coalesce_key=neko_warthunder:battle_event`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；死亡/critical 等新事件能替换宿主队列里的旧低空/超速提示；过期旧事件不真实 push；更高优先级事件仍可插队；目标会话不走 fallback session |
 
 现场优先级：
 
@@ -137,7 +137,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`256/256 passed`。
+   预期：`259/259 passed`。
 
    额外 free-text 去桩前门禁：
 
@@ -244,7 +244,7 @@
 
 - 数值安全事件接缝已在 dry_run 下通过。
 - T-Safety 与 free-text release gate 已完成；generic kill/death 已通过真机 dry_run 与真实 push。hudmsg / awards / 其他 free-text 还需要真机 dry_run 验证后，才允许测试真实播报。
-- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。真实战场事件 push 会带 `coalesce_key=neko_warthunder:battle_event`，应能让宿主队列中尚未释放的旧低空/超速 cue 被死亡/critical 等新事件替换。超过 `output_event_max_age_seconds` 的旧事件会记录为 `dispatcher_suppressed / event_expired` 且不真实 push。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure` / `event_expired`，并保留 `kill_coalesced` 决策原因。
+- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。真实战场事件 push 会带 `coalesce_key=neko_warthunder:battle_event`，应能让宿主队列中尚未释放的旧低空/超速 cue 被死亡/critical 等新事件替换。超过 `output_event_max_age_seconds` 的旧事件会记录为 `dispatcher_suppressed / event_expired` 且不真实 push。真实 push 与 `last_output_status` 会带 `event_age_seconds` / `event_expires_at` / `target_lanlan`；若仍出现晚播，先用这些字段区分插件侧及时推送、宿主队列滞后和 fallback session。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure` / `event_expired`，并保留 `kill_coalesced` 决策原因。
 - T-Kill-Coalesce 已完成；多杀 / 连杀测试时应观察 `you_killed` 是否合并为 `kill_count` 单条输出，并确认 `CRITICAL_RISK` 中 owned kill 会记录 `kill_deferred_critical_risk`、危急解除后补播，且 `you_died` / critical 安全事件仍可抢占。
 
 步骤：
