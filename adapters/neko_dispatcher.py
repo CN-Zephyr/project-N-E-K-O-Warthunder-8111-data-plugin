@@ -20,8 +20,19 @@ BATTLE_EVENT_COALESCE_KEY = "neko_warthunder:battle_event"
 BATTLE_REPLY_CONTRACT = "short_tts_line"
 BATTLE_REPLY_MAX_CHARS = 28
 BATTLE_RESPONSE_MODULE_HINT = "war_thunder_battle_event"
+HOST_CALLBACK_CONTRACT_VERSION = "neko.callback.v1"
+HOST_CALLBACK_KIND = "realtime_cue"
+HOST_REPLY_STYLE = "short_line"
+HOST_QUIET_WINDOW_POLICY = "suppress_non_urgent_during_user_input"
 V2_LIVE_EVIDENCE_GATED_EVENTS = frozenset({"enemy_on_six", "tailing_risk", "ground_target_nearby"})
 FREE_TEXT_DRY_RUN_ONLY_EVENTS = frozenset({"free_text_activity"})
+BACKPRESSURE_BYPASS_EVENTS = frozenset({"you_died"})
+URGENT_REPLACE_EVENTS = frozenset({"you_died", "stall_risk", "low_alt_danger", "overspeed"})
+COPILOT_ROLE_BOUNDARY = (
+    "Role boundary: speak like a fighter back-seater/WSO. Give sensor, target, "
+    "navigation, threat, and checklist cues. Keep the pilot in control; avoid "
+    "sounding like you are taking over the aircraft or weapons."
+)
 
 # 每个事件的"要求行"意图（不写最终台词，台词归角色 LLM）。
 _INTENT: dict[str, str] = {
@@ -136,6 +147,103 @@ def _event_freshness_metadata(event: BattleEvent, now: float, plugin: Any) -> di
     return out
 
 
+def _reply_style_contract(event: BattleEvent) -> str:
+    if event.event_id == "you_killed":
+        if event.payload.get("trade_death"):
+            return (
+                "Style: one short Chinese line; acknowledge the vehicle was lost, "
+                "but praise the trade kill as not wasted; no analysis."
+            )
+        kill_count = 1
+        try:
+            kill_count = int(event.payload.get("kill_count") or 1)
+        except (TypeError, ValueError):
+            kill_count = 1
+        if kill_count > 1:
+            return "Style: one short Chinese line; acknowledge the multi-kill once; no repeated praise."
+        return "Style: one short Chinese line; confirm the kill once; no follow-up hype."
+    if event.event_id == "you_died":
+        return "Style: one short Chinese line; calm reset encouragement; no analysis."
+    if event.event_id in URGENT_REPLACE_EVENTS or event.level == "critical":
+        return "Style: one short Chinese line; urgent copilot command; no chatty filler."
+    if event.event_id in {"air_threat_nearby", "enemy_nearby", "enemy_on_six", "tailing_risk"}:
+        return (
+            "Style: one short Chinese line; direct situational cue; no repeated wording; "
+            "avoid takeover wording."
+        )
+    if event.event_id == "ground_target_nearby":
+        return (
+            "Style: one short Chinese line; target/navigation cue only; keep the pilot in control; "
+            "avoid takeover wording."
+        )
+    if event.event_id == "overheat":
+        return "Style: one short Chinese line; direct situational cue; no repeated wording."
+    return "Style: one short Chinese line; concise copilot cue."
+
+
+def _copilot_role_boundary(event: BattleEvent) -> str:
+    if event.event_id in {
+        "enemy_nearby",
+        "air_threat_nearby",
+        "enemy_on_six",
+        "tailing_risk",
+        "ground_target_nearby",
+    }:
+        return (
+            COPILOT_ROLE_BOUNDARY
+            + " For target cues, prefer what is observed and where it is."
+        )
+    return COPILOT_ROLE_BOUNDARY
+
+
+def _host_interrupt_pending(event: BattleEvent) -> bool:
+    return event.event_id in URGENT_REPLACE_EVENTS
+
+
+def _host_callback_contract(
+    event: BattleEvent,
+    *,
+    freshness: dict[str, float],
+    target_lanlan: str,
+) -> dict[str, Any]:
+    delivery = {
+        "coalesce_key": BATTLE_EVENT_COALESCE_KEY,
+        "replace_pending": True,
+        "interrupt_pending": _host_interrupt_pending(event),
+        "priority": event.priority,
+    }
+    if freshness.get("event_expires_at") is not None:
+        delivery["expires_at"] = freshness["event_expires_at"]
+    if freshness.get("event_max_age_seconds") is not None:
+        delivery["max_age_seconds"] = freshness["event_max_age_seconds"]
+
+    contract: dict[str, Any] = {
+        "version": HOST_CALLBACK_CONTRACT_VERSION,
+        "kind": HOST_CALLBACK_KIND,
+        "delivery": delivery,
+        "reply": {
+            "mode": BATTLE_REPLY_CONTRACT,
+            "style": HOST_REPLY_STYLE,
+            "max_chars": BATTLE_REPLY_MAX_CHARS,
+            "single_turn": True,
+            "drop_followup_chunks": True,
+            "style_hint": _reply_style_contract(event),
+        },
+        "quiet_window": {
+            "policy": HOST_QUIET_WINDOW_POLICY,
+            "bypass": _host_interrupt_pending(event) or event.level == "critical",
+        },
+        "freshness": {
+            key: freshness[key]
+            for key in ("event_ts", "event_age_seconds", "event_max_age_seconds", "event_expires_at")
+            if freshness.get(key) is not None
+        },
+    }
+    if target_lanlan:
+        contract["target"] = {"lanlan": target_lanlan}
+    return contract
+
+
 def _fact_line(event: BattleEvent) -> str:
     p, _ = sanitize_event_payload(event.event_id, event.payload)
     bits: list[str] = []
@@ -158,6 +266,8 @@ def _fact_line(event: BattleEvent) -> str:
     ]
     if kill_fact:
         bits.append(kill_fact)
+    if event.event_id == "you_killed" and p.get("trade_death"):
+        bits.append("同归于尽/换掉一个")
     if death_fact:
         bits.append(death_fact)
     if proximity_fact:
@@ -308,6 +418,8 @@ class NekoDispatcher:
         if fact:
             lines.append(f"[当前] {fact}")
         lines.append(f"[要求] {intent}。一句话、口语化、像副驾驶喊话，别复述数据、别解释流程。")
+        lines.append(_copilot_role_boundary(event))
+        lines.append(_reply_style_contract(event))
         return "\n".join(lines)
 
     def push_event(self, event: BattleEvent, *, dry_run: bool) -> str:
@@ -404,16 +516,26 @@ class NekoDispatcher:
             return f"suppressed(event={event.event_id}/{event.edge}, reason=output_backpressure)"
         text = self.build_prompt(event)
         target_lanlan = _resolve_target_lanlan(self.plugin, event)
+        host_contract = _host_callback_contract(event, freshness=freshness, target_lanlan=target_lanlan)
         metadata = {
             "plugin": "neko_warthunder",
             "event_id": event.event_id,
             "edge": event.edge,
             "level": event.level,
             "coalesce_key": BATTLE_EVENT_COALESCE_KEY,
+            "replace_pending": True,
+            "interrupt_battle_event": _host_interrupt_pending(event),
+            "interrupt_pending": _host_interrupt_pending(event),
             "battle_reply_contract": BATTLE_REPLY_CONTRACT,
             "live_reply_contract": BATTLE_REPLY_CONTRACT,
+            "reply_contract": BATTLE_REPLY_CONTRACT,
             "max_reply_chars": BATTLE_REPLY_MAX_CHARS,
+            "reply_max_chars": BATTLE_REPLY_MAX_CHARS,
             "response_module_hint": BATTLE_RESPONSE_MODULE_HINT,
+            "reply_style_contract": _reply_style_contract(event),
+            "quiet_window_policy": HOST_QUIET_WINDOW_POLICY,
+            "host_callback_contract_version": HOST_CALLBACK_CONTRACT_VERSION,
+            "host_callback_contract": host_contract,
             **freshness,
         }
         if target_lanlan:
@@ -467,11 +589,21 @@ class NekoDispatcher:
                 live_reply_contract=BATTLE_REPLY_CONTRACT,
                 max_reply_chars=BATTLE_REPLY_MAX_CHARS,
                 response_module_hint=BATTLE_RESPONSE_MODULE_HINT,
+                replace_pending=True,
+                interrupt_battle_event=_host_interrupt_pending(event),
+                interrupt_pending=_host_interrupt_pending(event),
+                reply_style_contract=_reply_style_contract(event),
+                reply_contract=BATTLE_REPLY_CONTRACT,
+                reply_max_chars=BATTLE_REPLY_MAX_CHARS,
+                quiet_window_policy=HOST_QUIET_WINDOW_POLICY,
+                host_callback_contract_version=HOST_CALLBACK_CONTRACT_VERSION,
                 **freshness,
             )
         return f"pushed(event={event.event_id}/{event.edge})"
 
     def _is_backpressured(self, event: BattleEvent, now: float) -> bool:
+        if event.event_id in BACKPRESSURE_BYPASS_EVENTS:
+            return False
         guard = _output_backpressure_seconds(self.plugin)
         if guard <= 0 or self._last_push_at is None:
             return False

@@ -306,13 +306,13 @@ def test_sample_replay_reports_safe_coverage_gaps_without_raw_text():
         "combat_feed_missing_ownership_fields",
         "no_manual_identity_frames",
         "no_awards_items",
-        "no_proximity_events",
-        "no_generic_enemy_proximity_events",
-        "no_proximity_air_events",
-        "no_proximity_rear_events",
-        "no_situation_frames",
-        "no_oil_overheat_notice_codes",
-        "no_powertrain_failure_notice_codes",
+            "no_proximity_events",
+            "no_generic_enemy_proximity_events",
+            "no_air_threat_candidates",
+            "no_rear_threat_candidates",
+            "no_situation_frames",
+            "no_oil_overheat_notice_codes",
+            "no_powertrain_failure_notice_codes",
         "hud_notice_severity_unknown",
     ]
     assert "no_overspeed_critical_flags" in text
@@ -370,10 +370,12 @@ def test_sample_replay_includes_safe_session_summary_with_next_steps():
     assert "set_manual_identity_before_capture" in summary["next_steps"]
     assert "verify_output_backpressure" in summary["next_steps"]
     assert "verify_kill_coalescing" in summary["next_steps"]
+    assert "verify_user_chat_interference_quiet_window" in summary["next_steps"]
     assert "session_summary:" in text
     assert "next_steps=capture_replay_true_sample" in text
     assert "verify_output_backpressure" in text
     assert "verify_kill_coalescing" in text
+    assert "verify_user_chat_interference_quiet_window" in text
     assert unsafe not in text
     assert "LegacyKiller" not in text
     assert "unsafe notice" not in text
@@ -404,8 +406,8 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert checks["proximity_awareness"]["missing"] == [
         "proximity_events",
         "generic_enemy_proximity_events",
-        "proximity_air_events",
-        "proximity_rear_events",
+        "air_threat_candidates",
+        "rear_threat_candidates",
         "ground_target_live_sample",
     ]
     assert checks["proximity_awareness"]["events"] == 1
@@ -421,7 +423,7 @@ def test_sample_replay_session_summary_groups_validation_readiness():
     assert evidence["enemy_on_six"]["observed_count"] == 0
     assert evidence["enemy_on_six"]["trigger_count"] == 0
     assert evidence["tailing_risk"]["status"] == "needs_live_sample"
-    assert evidence["tailing_risk"]["missing_requirements"] == ["proximity_rear_close_events"]
+    assert evidence["tailing_risk"]["missing_requirements"] == ["rear_close_threat_candidates"]
     assert evidence["ground_target_nearby"]["status"] == "needs_live_sample"
     assert evidence["ground_target_nearby"]["missing_requirements"] == ["ground_target_live_sample"]
 
@@ -610,10 +612,18 @@ def test_sample_replay_session_summary_includes_prioritized_live_test_plan():
         "priority": "P2",
         "action": "verify_kill_coalescing",
     } in plan
+    assert {
+        "area": "runtime_output",
+        "label": "用户聊天干扰静默窗",
+        "status": "needs_live_review",
+        "priority": "P2",
+        "action": "verify_user_chat_interference_quiet_window",
+    } in plan
     assert "live_test_plan=" in text
     assert "回放降级" in text
     assert "verify_output_backpressure" in text
     assert "verify_kill_coalescing" in text
+    assert "verify_user_chat_interference_quiet_window" in text
     assert "unsafe notice" not in text
 
 
@@ -652,9 +662,12 @@ def test_local_20260620_sample_replay_if_present():
     assert report["coverage"]["awards_items"] == 1932
     assert report["flags"]["overspeed_warn"] == 2
     assert report["coverage"]["hud_notice_codes"]["engine_overheat"] == 414
-    assert report["coverage"]["proximity_events"] == 4615
-    assert report["coverage"]["proximity_air_events"] == 4615
-    assert report["coverage"]["proximity_rear_events"] == 0
+    assert report["coverage"]["proximity_events"] == 5317
+    assert report["coverage"]["proximity_air_events"] == 5300
+    assert report["coverage"]["proximity_rear_events"] == 49
+    assert report["coverage"]["situation_rear_air_threat_live_items"] == 1906
+    assert report["events"]["enemy_on_six/warning"] == 149
+    assert report["events"]["tailing_risk/warning"] == 44
     assert report["coverage"]["situation_frames"] == 9970
     assert report["coverage"]["ground_target_items"] == 3253
     assert report["coverage"]["ground_target_live_items"] == 3253
@@ -664,8 +677,7 @@ def test_local_20260620_sample_replay_if_present():
         "no_replay_true_frames",
         "no_overspeed_critical_flags",
         "combat_feed_missing_ownership_fields",
-        "no_generic_enemy_proximity_events",
-        "no_proximity_rear_events",
+        "no_enemy_nearby_trigger",
         "no_ground_target_close_candidates",
         "no_oil_overheat_notice_codes",
         "no_powertrain_failure_notice_codes",

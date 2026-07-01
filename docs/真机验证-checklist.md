@@ -1,6 +1,6 @@
-﻿# 真机验证 checklist
+# 真机验证 checklist
 
-> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Release-Defaults-Gate 发布默认值门禁、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-V2-Output-Policy V2 真实输出策略门禁、T-V2-Completion-Gate V2 完成度门禁、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-RC-Handoff-Report 维护者交接报告、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、输出新鲜度 metadata、`target_lanlan` 目标会话透传、Hosted UI 信息架构整理、deferred HUD notice 可观测性与 `free_text_activity` dry-run-only 候选链路已完成；逻辑自检以 `259/259 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。
+> 当前 M1/M2 主链路、Hosted UI、T4 集成测试、T-Safety output text sanitizer、T-FreeText-Gate free-text release gate、T-Release-Defaults-Gate 发布默认值门禁、T-Output-Freshness-Gate 输出新鲜度门禁、T-Host-Callback-Contract-Reservation 通用宿主 callback contract 预留、T-Host-Contract-Gate 宿主短播报/用户聊天静默兼容门禁（本地兼容/实验检查）、T-Ownership-Replay-Gate 第三方样本 ownership 回放门禁、T-FreeText-Observe free-text blocked runtime observe、T-Replay-Gate replay degrade release gate、T-Deferred-HUD-Gate deferred HUD notice gate、T-Proximity-Gate proximity/objective awareness gate、T-V2-Readiness V2 收口汇总、T-V2-Release-Matrix V2 能力矩阵、T-V2-Output-Policy V2 真实输出策略门禁、T-V2-Completion-Gate V2 完成度门禁、T-Final-Smoke-Packet 最终真机 smoke 交接包、T-Final-Smoke-Evidence-Gate 最终真机 evidence 验收、T-RC-Handoff-Report 维护者交接报告、T-Release-Readiness 离线汇总入口、T-Observe runtime decision timeline、T-Live live monitor summary tool、T-Output output backpressure guard、T-Kill-Coalesce 多杀合并、L8 data-layer subprocess orchestration、identity Hosted UI/action 接缝、L9 起飞/滑跑雷达高度保护、V2 proximity/objective awareness、真实战场事件队列 coalescing、事件过期丢弃、输出新鲜度 metadata、`target_lanlan` 目标会话透传、短播报 metadata 合同（`short_tts_line` / `max_reply_chars=28`）、通用 `host_callback_contract.version=neko.callback.v1` metadata、Hosted UI 信息架构整理、deferred HUD notice 可观测性与 `free_text_activity` dry-run-only 候选链路已完成；逻辑自检以 `312/312 passed` 为准。数据层 `v1.6` 已合并，真机验证目标从“等待字段”改为“验证 v1.6 / V2 DTO 接缝”。宿主核心区先冻结，不继续为本插件扩专用逻辑；后续宿主能力应走通用 callback contract 接口。
 
 ## 已完成的 Hosted UI Smoke
 
@@ -70,7 +70,7 @@
 
 > 目标：先在 `dry_run=true` 下验证 v1.6 DTO 接缝和 T-Observe 解释能力；只有数值安全事件 dry_run 稳定后，才考虑 `dry_run=false`。
 
-1. **离线门禁**：按 `docs/统一测试前-离线检查.md` 跑完逻辑测试、pytest、free-text release gate、replay degrade gate、deferred HUD notice gate、proximity/objective awareness gate、V2 readiness summary、V2 release matrix、V2 output policy gate、V2 completion gate、RC handoff report、final smoke packet、plugin check、合成 replay；进入最终真机前可直接运行 `uv run python tools\release_readiness.py --run`。本地大样本 replay / offline report / live test plan 作为显式样本证据，只有需要纳入同一轮汇总时才加 `--include-local-sample`。
+1. **离线门禁**：按 `docs/统一测试前-离线检查.md` 跑完逻辑测试、pytest、release defaults gate、output freshness gate、host contract gate、free-text release gate、replay degrade gate、ownership replay gate、deferred HUD notice gate、proximity/objective awareness gate、V2 readiness summary、V2 release matrix、V2 output policy gate、V2 completion gate、RC handoff report、final smoke packet、local host compatibility checks、plugin check、合成 replay；进入最终真机前可直接运行 `uv run python tools\release_readiness.py --run`。本地大样本 replay / offline report / live test plan 作为显式样本证据，只有需要纳入同一轮汇总时才加 `--include-local-sample`。本地宿主兼容检查不代表要为战雷插件提交宿主核心专用逻辑。
 2. **启动链路**：启动 N.E.K.O 宿主、Hosted UI、数据层 `:8112`，确认三项 health 正常。
    - 当前工作区通过 junction 挂载独立插件仓库；手动启动宿主时不要设置 `PLUGIN_CONFIG_ROOT` 指向外层工作区，避免重复扫到独立仓库目录或加载旧副本。若宿主没有发现 `neko_warthunder`，先检查 `N.E.K.O\plugin\plugins\neko_warthunder` 是否仍是指向独立仓库的 junction，再调用 `/plugins/refresh` 与 `/plugin/neko_warthunder/start`。
    - 若出现 `neko_warthunder_1`，或 `dry_run=true` 下 `test_say` 返回 `pushed=true`，说明运行副本没有对齐；先停止测试并修复运行路径。
@@ -88,6 +88,7 @@
 9. **replay 降级**：若数据层返回 `replay=true`，确认 Detector 静默、last decision 能说明 suppressed / replay，`live_monitor` 显示 `replay=suppressed(detector_suppressed/replay)` 且 `output_blocked=True`，不触发真实输出。
 10. **样本留存**：把现场抓包放到 `local_samples/` 或本地临时目录，保持 `.gitignore`；仓库只提交聚合统计和脱敏结论。
 11. **真实开口**：只有前面 dry_run 通过后，才关闭 dry_run；`test_say`、generic kill/death 已在 2026-06-23 通过真实 push smoke。hudmsg / awards / 其他 free-text 仍需各自 dry_run 安全验证后再开放真实播报。
+12. **用户聊天干扰**（`verify_user_chat_interference_quiet_window`）：真实链路测试时，在战雷样本回放或真机战斗 cue 进入队列后，手动给猫发一句日常话（例如“喵”或“你先等一下”）。插件侧应在真实 push metadata 中保留 `host_callback_contract.quiet_window.policy=suppress_non_urgent_during_user_input`，并让 `you_died` / critical 事件带 bypass / interrupt 语义。宿主真正压制普通 cue 混入日常回复属于后续通用 callback contract 接口验收；若当前本地实验宿主已启用兼容补丁，可继续观察约 10 秒静默窗口，但不要把战雷专用核心 patch 当作插件发布前提。
 
 每轮测完后，用 `docs/真机测试结果-template.md` 记录结果；只写聚合统计、安全摘要和结论，不写 raw 玩家名、raw HUD 文本、raw combat.feed 或 awards 原文。
 
@@ -95,7 +96,13 @@
 
 | 顺序 | 用户操作 | 我方监控重点 | 通过标准 |
 | --- | --- | --- | --- |
-| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/release_defaults_gate.py`、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/v2_output_policy_gate.py`、`tools/v2_completion_gate.py --no-sample`、`tools/rc_handoff_report.py --no-sample`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`；需要样本证据时显式运行 `tools/release_readiness.py --run --include-local-sample` 或单跑 `tools/sample_replay.py` / `tools/live_test_plan.py` | 离线基线仍为 `259/259 passed`，release defaults / free-text / replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，V2 output policy gate 会证明后方/尾随/目标点事件在真机证据补齐前默认不真实推送，V2 completion gate 会输出 `v2_code_offline_complete_live_evidence_pending` 作为不夸大真机证据的收口结论，RC handoff report 会给出维护者可读的 V1/V2 交接摘要，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态，操作清单包含 P1/P2、V2 proximity 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
+| 0 | 先跑离线门禁，或确认当天代码未变 | `tests/run_logic_tests.py`、pytest、`tools/release_defaults_gate.py`、`tools/output_freshness_gate.py`、`tools/host_contract_gate.py`、`tools/free_text_gate.py`、`tools/replay_gate.py`、`tools/ownership_replay_gate.py`、`tools/deferred_hud_gate.py`、`tools/proximity_gate.py`、`tools/v2_readiness.py --no-sample`、`tools/v2_release_matrix.py --no-sample`、`tools/v2_output_policy_gate.py`、`tools/v2_completion_gate.py --no-sample`、`tools/rc_handoff_report.py --no-sample`、`tools/final_smoke_packet.py`、`tools/release_readiness.py --run`、plugin check、`tools/live_monitor.py --count 1`；需要样本证据时显式运行 `tools/release_readiness.py --run --include-local-sample` 或单跑 `tools/sample_replay.py` / `tools/live_test_plan.py`；真机前先用 `tools/final_smoke_evidence_gate.py --safe-transcript-template --output local_test_logs\safe_transcript_metrics.json` 生成猫猫实际回复 metrics 模板；真机后保存 `tools/live_monitor.py --count 3 --interval 1 --json --output local_test_logs\live_monitor_final.json`，用 `tools/final_smoke_evidence_gate.py --from-live-monitor local_test_logs\live_monitor_final.json --output local_test_logs\final_smoke_evidence.json` 扫描整段 JSONL 并预填，填好无原文 metrics 后优先用 `tools/final_smoke_evidence_gate.py local_test_logs\final_smoke_evidence.json --safe-transcript local_test_logs\safe_transcript_metrics.json` 合并猫猫行数、字数、是否续写、聊天静默和 critical 替换观察；没有 metrics 时再用 `tools/final_smoke_evidence_gate.py local_test_logs\final_smoke_evidence.json --update --confirm-critical-replaced-stale-warning --confirm-user-chat-quiet-window --confirm-short-tts-single-line` 合并人工确认，最后用 `tools/final_smoke_evidence_gate.py` 或 `--final-smoke-evidence` 复验 | 离线基线仍为 `312/312 passed`，release defaults / output freshness / generic host callback contract reservation / host compatibility / free-text / replay / ownership replay / deferred HUD / proximity/objective gates 通过，`v2_offline_gate_complete=true` 且 `v2_live_evidence_complete=false`（除非样本已覆盖），V2 release matrix 会列出每个能力的 code/offline/live-evidence/real-output-policy，V2 output policy gate 会证明后方/尾随/目标点事件在真机证据补齐前默认不真实推送，V2 completion gate 会输出 `v2_code_offline_complete_live_evidence_pending` 作为不夸大真机证据的收口结论，RC handoff report 会给出维护者可读的 V1/V2 交接摘要，默认 final packet 会提示 `go_no_go=review_required_run_offline_gate`；`release_readiness.py --run` 通过后再用 `tools/final_smoke_packet.py --offline-gates-passed` 得到 `go_no_go=go_dry_run_final_smoke`，runtime smoke 能显示 dry_run / paused / Hosted UI / 8112 状态、新鲜度/短播报 metadata，操作清单包含 P1/P2、V2 proximity/situation 后方样本、3000m 内任务目标点样本和 runtime output 复测项 |
+
+推荐最终合成命令：`tools/final_smoke_evidence_gate.py --from-live-monitor local_test_logs\live_monitor_final.json --safe-transcript local_test_logs\safe_transcript_metrics.json --output local_test_logs\final_smoke_evidence.json`，对应交接包里的 `evidence_from_monitor_and_transcript`。
+
+推荐 metrics 记录命令：`tools/final_smoke_evidence_gate.py --record-safe-transcript --reply-chars <count> --reply-lines 1 --confirm-critical-replaced-stale-warning --confirm-user-chat-quiet-window --output local_test_logs\safe_transcript_metrics.json`，对应交接包里的 `safe_transcript_record`，不保存回复原文。
+
+推荐流程演练命令：`tools/final_smoke_evidence_gate.py --rehearsal-output-dir local_test_logs\final_smoke_rehearsal`，对应交接包里的 `evidence_rehearsal`，只证明 evidence 流程，不替代真机证据。
 | 1 | 启动宿主、Hosted UI、数据层，打开面板 | `48911/health`、`48916/health`、`8112/health`、Hosted UI context/actions、`data_layer.mode` | 三个 health 正常；`state_empty=false`；actions 含 `set_dry_run` / `pause` / `resume` / `test_say` / `set_identity`；`data_layer.mode` 为 `managed` 或 `external` |
 | 2 | 进战局前设置玩家名 | `/api/identity`、`combat.self.source`、`combat.player_name` | `combat.self.source=manual`，后续 kill/death ownership 围绕该昵称生效 |
 | 3 | 保持 `dry_run=true`，打一轮常规空战或陆战 | `observe.last_event`、`observe.last_decision`、`observe.last_output_status`、`processed.flags` | 事件能解释为 allowed / preempt / cooldown / scenario_gated / dry_run 输出之一 |
@@ -104,7 +111,8 @@
 | 4a | 分别观察空战 / 陆战 kill-death 文案 | `domain`、`cause`、Dispatcher prompt / 实际输出 | 空战可说击落；陆战击杀说击毁 / 摧毁地面目标；陆战死亡不说被击落；坠毁说坠毁 |
 | 5 | 观察 awards / hud_notices / combat.feed 自由文本源 | `free_text_safety.status`、`source_details`、prompt / dry_run 输出 | `free_text=dry_run_only(...)`，raw HUD / combat.feed / awards 原文不进入 prompt |
 | 6 | 若出现 replay，继续观察不要手动触发输出 | `replay=true`、`detector_suppressed/replay`、`output_blocked` | replay 帧静默，`live_monitor` 显示 replay suppressed，不真实开口 |
-| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`event_expired`、`event_age_seconds`、`event_expires_at`、`target_lanlan`、`coalesce_key=neko_warthunder:battle_event`、`kill_coalesced` | 真实开口不刷屏；旧回复晚到减少；死亡/critical 等新事件能替换宿主队列里的旧低空/超速提示；过期旧事件不真实 push；更高优先级事件仍可插队；目标会话不走 fallback session |
+| 7 | 条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death | `push_message`、`last_output_status`、`output_backpressure`、`event_expired`、`event_age_seconds`、`event_expires_at`、`target_lanlan`、`coalesce_key=neko_warthunder:battle_event`、`battle_reply_contract=short_tts_line`、`live_reply_contract=short_tts_line`、`max_reply_chars=28`、`host_callback_contract_version=neko.callback.v1`、`kill_coalesced` | 真实开口不刷屏；过期旧事件不真实 push；更高优先级事件仍可插队；目标会话不走 fallback session；插件侧通用 host callback contract metadata 完整。宿主短句裁剪/旧队列替换/用户聊天静默等待通用接口，不作为插件-only 验收前提 |
+| 7a | 真实开口或样本回放期间手动给猫发日常消息 | 聊天窗口、`host_callback_contract.quiet_window` metadata、用户输入后的战斗 callback | 插件 metadata 应表达普通 cue 静默与 death/critical bypass 语义；宿主是否实际压制普通 cue 属于后续通用 callback contract 接口验收 |
 
 现场优先级：
 
@@ -137,7 +145,7 @@
    uv run pytest -c tests\pytest.ini tests -q
    ```
 
-   预期：`259/259 passed`。
+   预期：`312/312 passed`。
 
    额外 free-text 去桩前门禁：
 
@@ -244,7 +252,7 @@
 
 - 数值安全事件接缝已在 dry_run 下通过。
 - T-Safety 与 free-text release gate 已完成；generic kill/death 已通过真机 dry_run 与真实 push。hudmsg / awards / 其他 free-text 还需要真机 dry_run 验证后，才允许测试真实播报。
-- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。真实战场事件 push 会带 `coalesce_key=neko_warthunder:battle_event`，应能让宿主队列中尚未释放的旧低空/超速 cue 被死亡/critical 等新事件替换。超过 `output_event_max_age_seconds` 的旧事件会记录为 `dispatcher_suppressed / event_expired` 且不真实 push。真实 push 与 `last_output_status` 会带 `event_age_seconds` / `event_expires_at` / `target_lanlan`；若仍出现晚播，先用这些字段区分插件侧及时推送、宿主队列滞后和 fallback session。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure` / `event_expired`，并保留 `kill_coalesced` 决策原因。
+- T-Output 已完成；真实开口测试时应观察 `dispatcher_suppressed / output_backpressure` 是否减少旧事件晚回复和多条消息堆积，同时确认更高优先级事件仍能通过。真实战场事件 push 会带 `coalesce_key=neko_warthunder:battle_event`。超过 `output_event_max_age_seconds` 的旧事件会记录为 `dispatcher_suppressed / event_expired` 且不真实 push。真实 push 与 `last_output_status` 会带 `event_age_seconds` / `event_expires_at` / `target_lanlan` / `battle_reply_contract=short_tts_line` / `live_reply_contract=short_tts_line` / `max_reply_chars=28` / `host_callback_contract_version=neko.callback.v1`；若仍出现晚播或长回复，先用这些字段区分插件侧及时推送、宿主队列滞后、fallback session 和宿主未消费短播报合同。`tools/live_monitor.py` 的 Summary / Observe 摘要会直接显示 `output_backpressure` / `event_expired`，并保留 `kill_coalesced` 决策原因。宿主真正执行旧队列替换、短句裁剪和用户聊天静默窗口，等待后续通用 callback contract 接口。
 - T-Kill-Coalesce 已完成；多杀 / 连杀测试时应观察 `you_killed` 是否合并为 `kill_count` 单条输出，并确认 `CRITICAL_RISK` 中 owned kill 会记录 `kill_deferred_critical_risk`、危急解除后补播，且 `you_died` / critical 安全事件仍可抢占。
 
 步骤：

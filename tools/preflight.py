@@ -35,6 +35,7 @@ def build_checks(
     host_root: str | pathlib.Path | None = None,
     sample_rel: str = "local_samples/data_process_20260620",
     report_output: str | pathlib.Path | None = None,
+    final_smoke_evidence: str | pathlib.Path | None = None,
 ) -> list[Check]:
     plugin = pathlib.Path(plugin_root).resolve()
     host = pathlib.Path(host_root).resolve() if host_root is not None else plugin.parent / "N.E.K.O"
@@ -50,6 +51,27 @@ def build_checks(
             "release defaults must stay dry_run-first with unverified real output closed",
         ),
         Check(
+            "output freshness gate",
+            plugin,
+            ["uv", "run", "python", "tools/output_freshness_gate.py"],
+            "real battle push must carry coalesce/freshness/target/short-reply metadata and drop expired cues",
+        ),
+        Check(
+            "host contract gate",
+            plugin,
+            [
+                "uv",
+                "run",
+                "python",
+                "tools/host_contract_gate.py",
+                "--plugin-root",
+                str(plugin),
+                "--host-root",
+                str(host),
+            ],
+            "local host, when present, must consume short-reply metadata and apply War Thunder user-chat quieting",
+        ),
+        Check(
             "free-text release gate",
             plugin,
             ["uv", "run", "python", "tools/free_text_gate.py"],
@@ -60,6 +82,12 @@ def build_checks(
             plugin,
             ["uv", "run", "python", "tools/replay_gate.py"],
             "replay=true frames must not emit Detector candidates, prompts, or push_message output",
+        ),
+        Check(
+            "ownership replay gate",
+            plugin,
+            ["uv", "run", "python", "tools/ownership_replay_gate.py"],
+            "legacy third-party samples must require explicit identity inference and keep interference unowned",
         ),
         Check(
             "deferred HUD notice gate",
@@ -110,7 +138,38 @@ def build_checks(
             "single safe handoff packet for final dry_run live smoke",
         ),
     ]
+    if final_smoke_evidence is not None:
+        checks.append(
+            Check(
+                "final smoke evidence gate",
+                plugin,
+                [
+                    "uv",
+                    "run",
+                    "python",
+                    "tools/final_smoke_evidence_gate.py",
+                    str(final_smoke_evidence),
+                ],
+                "post-smoke P1 evidence must pass without raw chat/HUD/combat/award text",
+            )
+        )
     if host.exists():
+        checks.append(
+            Check(
+                "host War Thunder contract tests",
+                host,
+                [
+                    "uv",
+                    "run",
+                    "pytest",
+                    "tests/unit/test_core_game_route_memory_contract.py",
+                    "tests/unit/test_callback_instruction_origin.py",
+                    "tests/unit/test_proactive_sm_integration.py",
+                    "-q",
+                ],
+                "host behavior must consume short battle replies and quiet ordinary War Thunder cues during user chat",
+            )
+        )
         checks.append(
             Check(
                 "plugin check",
@@ -227,10 +286,14 @@ def _format_cmd(check: Check) -> str:
 def print_plan(checks: Sequence[Check]) -> None:
     print("# neko_warthunder offline preflight")
     print("## Quick read")
-    print("- baseline: logic self-check should report 256/256 passed")
+    print("- baseline: logic self-check should report 312/312 passed")
     print("- release defaults gate must keep dry_run-first and unverified real output closed")
+    print("- output freshness gate must prove battle pushes are fresh, coalesced, targeted, and short-reply constrained")
+    print("- host contract gate must prove the local host consumes short-reply metadata and quiets ordinary battle cues during user chat")
+    print("- host War Thunder contract tests should pass when a local N.E.K.O checkout is present")
     print("- free-text release gate must pass before hudmsg / combat.feed / awards can be unstubbed")
     print("- replay degrade gate must pass before replay=true traffic can be considered safe")
+    print("- ownership replay gate must keep third-party sample ownership explicit and interference unowned")
     print("- deferred HUD notice gate must pass before powertrain_failure strategy can change")
     print("- proximity/objective awareness gate must pass before V2 proximity/objective prompts can be considered safe")
     print("- V2 readiness summary must separate offline-complete code from live-only sample evidence")
@@ -239,6 +302,7 @@ def print_plan(checks: Sequence[Check]) -> None:
     print("- V2 completion gate must prove V2 code/offline completion without claiming missing live evidence")
     print("- RC handoff report must summarize v1/v2 state, safety boundary, and remaining live evidence")
     print("- final smoke packet must summarize go/no-go, commands, V2 evidence, and safety boundary")
+    print("- final smoke evidence gate is optional; use --final-smoke-evidence after a real smoke run")
     print("- watch live_monitor Summary first for health, dry_run, Hosted UI, 8112, and output reasons")
     print("- if this passes: keep dry_run=true and follow the live test plan")
     print("- if this fails: stop before real-machine testing and fix the failed check")
@@ -273,13 +337,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--host-root",
         default=str(_BASE.parent / "N.E.K.O"),
-        help="N.E.K.O host repository root for plugin check.",
+        help="N.E.K.O host repository root for host contract gates and plugin check.",
     )
     parser.add_argument("--run", action="store_true", help="Execute checks instead of only printing them.")
     parser.add_argument("--report-output", help="Write the offline readiness Markdown report to this path.")
+    parser.add_argument(
+        "--final-smoke-evidence",
+        help="Optional post-smoke evidence JSON to validate with final_smoke_evidence_gate.",
+    )
     args = parser.parse_args(argv)
 
-    checks = build_checks(plugin_root=args.plugin_root, host_root=args.host_root, report_output=args.report_output)
+    checks = build_checks(
+        plugin_root=args.plugin_root,
+        host_root=args.host_root,
+        report_output=args.report_output,
+        final_smoke_evidence=args.final_smoke_evidence,
+    )
     if not args.run:
         print_plan(checks)
         return 0

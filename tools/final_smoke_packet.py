@@ -27,6 +27,55 @@ from neko_warthunder.tools.v2_release_matrix import build_v2_release_matrix  # n
 from neko_warthunder.tools.v2_readiness import build_v2_readiness  # noqa: E402
 
 
+RUNTIME_FOCUS_CHECKS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "real_output_freshness",
+        "priority": "P1",
+        "action": "verify_output_backpressure",
+        "observe": [
+            "last_output_status.event_age_seconds",
+            "last_output_status.event_expires_at",
+            "last_output_status.coalesce_key",
+            "last_output_status.target_lanlan",
+        ],
+        "pass": "fresh real battle output is short, targeted, and not replaying expired low-priority cues",
+    },
+    {
+        "id": "critical_replaces_stale_warning",
+        "priority": "P1",
+        "action": "verify_user_chat_interference_quiet_window",
+        "observe": [
+            "neko_warthunder:battle_event metadata",
+            "host pending callback coalesce",
+            "you_died or critical cue after ordinary warning",
+        ],
+        "pass": "death or critical output replaces older warning cues instead of arriving after them",
+    },
+    {
+        "id": "user_chat_quiet_window",
+        "priority": "P1",
+        "action": "verify_user_chat_interference_quiet_window",
+        "observe": [
+            "chat window user message",
+            "ordinary battle cue within 10 seconds",
+            "death or critical cue within 10 seconds",
+        ],
+        "pass": "ordinary battle cues stay out of the user's chat turn while death and critical cues may interrupt",
+    },
+    {
+        "id": "short_tts_contract",
+        "priority": "P1",
+        "action": "verify_short_tts_line_contract",
+        "observe": [
+            "battle_reply_contract=short_tts_line",
+            "live_reply_contract=short_tts_line",
+            "max_reply_chars=28",
+        ],
+        "pass": "spoken battle replies are one short line and do not continue across chunks",
+    },
+)
+
+
 def build_packet(
     *,
     plugin_root: str | pathlib.Path = _BASE,
@@ -50,9 +99,19 @@ def build_packet(
         "commands": {
             "offline_gate": "uv run python tools\\release_readiness.py --run",
             "live_monitor_once": "uv run python tools\\live_monitor.py --count 1",
+            "live_monitor_json": "uv run python tools\\live_monitor.py --count 3 --interval 1 --json --output local_test_logs\\live_monitor_final.json",
             "v2_readiness": f"uv run python tools\\v2_readiness.py {sample_rel} {player_name}",
             "v2_release_matrix": f"uv run python tools\\v2_release_matrix.py {sample_rel} {player_name}",
             "live_test_plan": f"uv run python tools\\live_test_plan.py {sample_rel} {player_name}",
+            "evidence_rehearsal": "uv run python tools\\final_smoke_evidence_gate.py --rehearsal-output-dir local_test_logs\\final_smoke_rehearsal",
+            "evidence_template": "uv run python tools\\final_smoke_evidence_gate.py --template",
+            "safe_transcript_template": "uv run python tools\\final_smoke_evidence_gate.py --safe-transcript-template --output local_test_logs\\safe_transcript_metrics.json",
+            "safe_transcript_record": "uv run python tools\\final_smoke_evidence_gate.py --record-safe-transcript --reply-chars <count> --reply-lines 1 --confirm-critical-replaced-stale-warning --confirm-user-chat-quiet-window --output local_test_logs\\safe_transcript_metrics.json",
+            "evidence_from_monitor": "uv run python tools\\final_smoke_evidence_gate.py --from-live-monitor local_test_logs\\live_monitor_final.json --output local_test_logs\\final_smoke_evidence.json",
+            "evidence_from_monitor_and_transcript": "uv run python tools\\final_smoke_evidence_gate.py --from-live-monitor local_test_logs\\live_monitor_final.json --safe-transcript local_test_logs\\safe_transcript_metrics.json --output local_test_logs\\final_smoke_evidence.json",
+            "evidence_from_transcript": "uv run python tools\\final_smoke_evidence_gate.py local_test_logs\\final_smoke_evidence.json --safe-transcript local_test_logs\\safe_transcript_metrics.json",
+            "evidence_confirm": "uv run python tools\\final_smoke_evidence_gate.py local_test_logs\\final_smoke_evidence.json --update --confirm-critical-replaced-stale-warning --confirm-user-chat-quiet-window --confirm-short-tts-single-line",
+            "evidence_gate": "uv run python tools\\final_smoke_evidence_gate.py local_test_logs\\final_smoke_evidence.json",
         },
         "handoff": handoff,
         "v1_release_scope": release_scope,
@@ -64,6 +123,7 @@ def build_packet(
             "capabilities": v2_matrix.get("capabilities") or [],
         },
         "operator_quick_checklist": (live_plan or {}).get("quick_checklist") or [],
+        "runtime_focus_checks": [dict(item) for item in RUNTIME_FOCUS_CHECKS],
         "remaining_live_actions": _dedupe(
             list(handoff.get("next_actions") or []) + list((live_plan or {}).get("next_steps") or [])
         ),
@@ -113,7 +173,19 @@ def render_text(packet: dict[str, Any]) -> str:
         "",
         "commands:",
     ]
-    for key in ["offline_gate", "live_monitor_once", "v2_readiness", "v2_release_matrix", "live_test_plan"]:
+    for key in ["offline_gate", "live_monitor_once", "live_monitor_json", "v2_readiness", "v2_release_matrix", "live_test_plan"]:
+        lines.append(f"- {key}: `{commands.get(key)}`")
+    for key in [
+        "evidence_rehearsal",
+        "evidence_template",
+        "safe_transcript_template",
+        "safe_transcript_record",
+        "evidence_from_monitor",
+        "evidence_from_monitor_and_transcript",
+        "evidence_from_transcript",
+        "evidence_confirm",
+        "evidence_gate",
+    ]:
         lines.append(f"- {key}: `{commands.get(key)}`")
     lines.extend(
         [
@@ -122,6 +194,9 @@ def render_text(packet: dict[str, Any]) -> str:
             "| capability | live evidence | observed/triggered | real output | missing |",
             "| --- | --- | --- | --- | --- |",
             *_v2_matrix_rows(packet.get("v2_release_matrix") or {}),
+            "",
+            "runtime focus checks:",
+            *_runtime_focus_rows(packet.get("runtime_focus_checks") or []),
             "",
             "remaining_live_actions: " + (", ".join(packet.get("remaining_live_actions") or []) or "-"),
             "safety: dry_run_first=true, v2_live_verified_real_output_enabled=false, raw_text_printed=false",
@@ -141,6 +216,22 @@ def _v2_matrix_rows(matrix: dict[str, Any]) -> list[str]:
             "{real_output_policy} | {missing} |".format(**row, missing=missing)
         )
     return rows or ["| - | - | - | - | - |"]
+
+
+def _runtime_focus_rows(checks: list[dict[str, Any]]) -> list[str]:
+    rows: list[str] = []
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        rows.append(
+            "- {priority} {id}: action={action}; pass={pass_text}".format(
+                priority=check.get("priority") or "-",
+                id=check.get("id") or "-",
+                action=check.get("action") or "-",
+                pass_text=check.get("pass") or "-",
+            )
+        )
+    return rows or ["- -"]
 
 
 def main(argv: list[str] | None = None) -> int:

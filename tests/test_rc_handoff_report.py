@@ -87,7 +87,7 @@ def test_rc_handoff_report_with_local_sample_lists_current_v2_gaps():
     assert report["v2"]["offline_gate_complete"] is True
     assert report["v2"]["live_evidence_complete"] is False
     assert "generic_enemy_proximity_events" in report["v2"]["missing_live_evidence"]
-    assert "proximity_rear_events" in report["v2"]["missing_live_evidence"]
+    assert "rear_threat_candidates" in report["v2"]["missing_live_evidence"]
     assert "ground_target_close_candidates" in report["v2"]["missing_live_evidence"]
     dumped = json.dumps(report, ensure_ascii=False)
     assert "unsafe raw proximity text" not in dumped

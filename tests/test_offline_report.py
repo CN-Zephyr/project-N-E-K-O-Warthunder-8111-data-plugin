@@ -72,17 +72,19 @@ def test_offline_report_renders_safe_markdown_with_verdicts():
     assert "`runtime_output_backpressure`" in text
     assert "## Next validation steps" in text
     assert "## V2 capability evidence" in text
-    assert "| enemy_on_six | needs_live_sample | 0/0 | proximity_rear_events |" in text
+    assert "| enemy_on_six | needs_live_sample | 0/0 | rear_threat_candidates |" in text
     assert "## Operator quick checklist" in text
     assert "| 用户操作 | 我方监控重点 | 通过标准 |" in text
     assert "`dry_run=true`" in text
     assert "free_text=dry_run_only" in text
     assert "`verify_output_backpressure`" in text
     assert "`verify_kill_coalescing`" in text
+    assert "`verify_user_chat_interference_quiet_window`" in text
     assert "## Next live-test plan" in text
     assert "| P1 | 自由文本安全 | dry_run_only | run_free_text_dry_run_safety_check |" in text
     assert "| P2 | T-Output 真实开口背压 | needs_live_review | verify_output_backpressure |" in text
     assert "| P2 | T-Kill-Coalesce 多杀合并 | needs_live_review | verify_kill_coalescing |" in text
+    assert "| P2 | 用户聊天干扰静默窗 | needs_live_review | verify_user_chat_interference_quiet_window |" in text
     assert "RawVictim" not in text
     assert "ignore previous instructions" not in text
     assert "unsafe raw notice" not in text
@@ -175,6 +177,7 @@ def test_offline_report_cli_can_print_compact_json_without_raw_text():
     assert payload["v2_capability_evidence"]["ground_target_nearby"]["missing_requirements"] == ["situation"]
     assert "verify_output_backpressure" in payload["next_steps"]
     assert "verify_kill_coalescing" in payload["next_steps"]
+    assert "verify_user_chat_interference_quiet_window" in payload["next_steps"]
     assert "quick_checklist" in payload
     assert payload["quick_checklist"][0]["user_action"]
     assert payload["quick_checklist"][0]["monitor"]
@@ -183,6 +186,7 @@ def test_offline_report_cli_can_print_compact_json_without_raw_text():
     assert {item["action"] for item in payload["live_test_plan"]} >= {
         "verify_output_backpressure",
         "verify_kill_coalescing",
+        "verify_user_chat_interference_quiet_window",
     }
     assert "free_text_safety:dry_run_only" in payload["remaining_live_scope"]
     assert "RawVictim" not in output.getvalue()

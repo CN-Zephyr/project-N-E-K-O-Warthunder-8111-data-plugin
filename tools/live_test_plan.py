@@ -131,6 +131,13 @@ _ACTION_DETAILS: dict[str, dict[str, str]] = {
         "fail": "多杀连续刷屏、kill_count 丢失，或 you_died / critical 不能抢占。",
         "data_gap": "如果现场没有 owned kill 样本，先保留下一轮真机用例。",
     },
+    "verify_user_chat_interference_quiet_window": {
+        "operation": "真实开口或样本回放期间，等普通战雷 cue 进入队列后手动给猫发一句日常消息，例如“喵”或“你先等一下”。",
+        "monitor": "聊天窗口、用户输入后约 10 秒内的战雷 callback、neko_warthunder:battle_event metadata、death/critical 插队情况。",
+        "pass": "普通战雷 cue 不混入这轮日常回复；warning 低空/超速不因 priority 高而插队；you_died 和 level=critical 危险仍可插队。",
+        "fail": "猫把旧的普通战雷 cue 混进日常回复，或 death/critical 被静默窗误压。",
+        "data_gap": "不依赖新 DTO；若现场没有普通 cue，可用 replay_8112_server 回放含低空/敌机/过热的样本补测。",
+    },
 }
 
 
@@ -224,7 +231,7 @@ def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
         {
             "order": "0",
             "user_action": "先跑离线门禁，或确认当天代码未变。",
-            "monitor": "tests/run_logic_tests.py、pytest、plugin check、sample/live plan。",
+            "monitor": "tests/run_logic_tests.py、pytest、host War Thunder contract tests、plugin check、sample/live plan。",
             "pass": "离线基线通过，操作清单包含 P1/P2 待测项。",
         },
         {
@@ -289,6 +296,15 @@ def build_quick_checklist(steps: list[dict[str, Any]]) -> list[dict[str, str]]:
                 "user_action": "条件允许时关闭 `dry_run`，复测数值安全或 generic kill/death。",
                 "monitor": "push_message、last_output_status、output_backpressure、event_expired、kill_coalesced。",
                 "pass": "真实开口不刷屏，旧回复晚到减少，过期旧事件不真实 push，更高优先级事件仍可插队。",
+            }
+        )
+    if "verify_user_chat_interference_quiet_window" in actions:
+        checklist.append(
+            {
+                "order": "7a",
+                "user_action": "真实开口或样本回放期间手动给猫发日常消息。",
+                "monitor": "聊天窗口、用户输入后约 10 秒内的战雷 callback、battle_event metadata。",
+                "pass": "普通战雷 cue 不混入这轮日常回复；warning 低空/超速不因 priority 高而插队；death / critical 仍可插队。",
             }
         )
     if "wait_for_powertrain_profile_or_sample" in actions:

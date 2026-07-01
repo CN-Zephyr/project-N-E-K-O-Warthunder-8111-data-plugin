@@ -65,7 +65,43 @@ def test_final_smoke_packet_without_sample_requires_offline_gate_by_default():
     assert payload["v2_release_matrix"]["verdict"] == "v2_code_complete_live_pending"
     assert payload["v2_release_matrix"]["summary"]["code_complete"] is True
     assert payload["commands"]["offline_gate"] == "uv run python tools\\release_readiness.py --run"
+    assert payload["commands"]["live_monitor_json"].endswith("local_test_logs\\live_monitor_final.json")
+    assert "--output" in payload["commands"]["live_monitor_json"]
     assert payload["commands"]["v2_release_matrix"].startswith("uv run python tools\\v2_release_matrix.py")
+    assert payload["commands"]["evidence_rehearsal"].endswith(
+        "--rehearsal-output-dir local_test_logs\\final_smoke_rehearsal"
+    )
+    assert payload["commands"]["evidence_template"] == "uv run python tools\\final_smoke_evidence_gate.py --template"
+    assert payload["commands"]["safe_transcript_template"].endswith(
+        "--output local_test_logs\\safe_transcript_metrics.json"
+    )
+    assert payload["commands"]["safe_transcript_record"].startswith(
+        "uv run python tools\\final_smoke_evidence_gate.py --record-safe-transcript"
+    )
+    assert "--reply-chars <count>" in payload["commands"]["safe_transcript_record"]
+    assert "local_test_logs\\live_monitor_final.json" in payload["commands"]["evidence_from_monitor"]
+    assert "--output local_test_logs\\final_smoke_evidence.json" in payload["commands"]["evidence_from_monitor"]
+    assert payload["commands"]["evidence_from_monitor_and_transcript"].startswith(
+        "uv run python tools\\final_smoke_evidence_gate.py --from-live-monitor"
+    )
+    assert "--safe-transcript local_test_logs\\safe_transcript_metrics.json" in payload["commands"][
+        "evidence_from_monitor_and_transcript"
+    ]
+    assert payload["commands"]["evidence_from_transcript"].endswith(
+        "--safe-transcript local_test_logs\\safe_transcript_metrics.json"
+    )
+    assert payload["commands"]["evidence_confirm"].startswith(
+        "uv run python tools\\final_smoke_evidence_gate.py local_test_logs\\final_smoke_evidence.json --update"
+    )
+    assert "--confirm-user-chat-quiet-window" in payload["commands"]["evidence_confirm"]
+    assert payload["commands"]["evidence_gate"].endswith("local_test_logs\\final_smoke_evidence.json")
+    assert [item["id"] for item in payload["runtime_focus_checks"]] == [
+        "real_output_freshness",
+        "critical_replaces_stale_warning",
+        "user_chat_quiet_window",
+        "short_tts_contract",
+    ]
+    assert all(item["priority"] == "P1" for item in payload["runtime_focus_checks"])
     assert payload["safety_boundary"] == {
         "dry_run_first": True,
         "free_text_real_output_allowed": False,
@@ -96,8 +132,21 @@ def test_final_smoke_packet_with_sample_lists_v2_and_free_text_actions_without_r
     assert "fly_closer_to_ground_target_sample" in payload["remaining_live_actions"]
     assert "v2_live_evidence_complete: False" in text
     assert "V2 capability matrix:" in text
+    assert "runtime focus checks:" in text
+    assert "evidence_rehearsal" in text
+    assert "safe_transcript_template" in text
+    assert "safe_transcript_record" in text
+    assert "evidence_from_monitor" in text
+    assert "evidence_from_monitor_and_transcript" in text
+    assert "evidence_from_transcript" in text
+    assert "evidence_confirm" in text
+    assert "evidence_gate" in text
+    assert "P1 critical_replaces_stale_warning" in text
+    assert "death or critical output replaces older warning cues" in text
+    assert "P1 user_chat_quiet_window" in text
+    assert "battle_reply_contract=short_tts_line" in json.dumps(payload, ensure_ascii=False)
     assert "| enemy_on_six | covered_by_current_sample | 1/1 | dry_run_until_live_evidence | -" in text
-    assert "| tailing_risk | needs_live_sample | 0/0 | dry_run_until_live_evidence | proximity_rear_close_events |" in text
+    assert "| tailing_risk | needs_live_sample | 0/0 | dry_run_until_live_evidence | rear_close_threat_candidates |" in text
     assert "| ground_target_nearby | needs_live_sample | 0/0 | dry_run_until_live_evidence |" in text
     encoded = json.dumps(payload, ensure_ascii=False)
     assert "RawKiller" not in encoded
@@ -121,3 +170,18 @@ def test_final_smoke_packet_cli_json_is_machine_readable():
     assert payload["offline_gate_status"] == "passed"
     assert payload["go_no_go"] == "go_dry_run_final_smoke"
     assert payload["commands"]["live_monitor_once"] == "uv run python tools\\live_monitor.py --count 1"
+    assert payload["commands"]["live_monitor_json"].startswith(
+        "uv run python tools\\live_monitor.py --count 3 --interval 1 --json --output"
+    )
+    assert payload["commands"]["evidence_from_monitor"].startswith(
+        "uv run python tools\\final_smoke_evidence_gate.py --from-live-monitor"
+    )
+    assert "--rehearsal-output-dir" in payload["commands"]["evidence_rehearsal"]
+    assert "--safe-transcript-template" in payload["commands"]["safe_transcript_template"]
+    assert "--record-safe-transcript" in payload["commands"]["safe_transcript_record"]
+    assert "--from-live-monitor" in payload["commands"]["evidence_from_monitor_and_transcript"]
+    assert "--safe-transcript" in payload["commands"]["evidence_from_monitor_and_transcript"]
+    assert "--safe-transcript" in payload["commands"]["evidence_from_transcript"]
+    assert "--confirm-critical-replaced-stale-warning" in payload["commands"]["evidence_confirm"]
+    assert payload["commands"]["evidence_gate"].startswith("uv run python tools\\final_smoke_evidence_gate.py")
+    assert payload["runtime_focus_checks"][0]["id"] == "real_output_freshness"

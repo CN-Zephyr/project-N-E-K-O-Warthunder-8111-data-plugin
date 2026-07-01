@@ -8,8 +8,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import CRITICAL_RISK, BattleEvent, category_allowed
+from .contracts import CRITICAL_RISK, DEAD, BattleEvent, category_allowed
 from .safety_guard import SafetyGuard
+
+CONTINUOUS_WINDOW_EVENTS = frozenset(
+    {
+        "stall_risk",
+        "low_alt_danger",
+        "overspeed",
+        "overheat",
+        "low_fuel",
+        "ground_target_nearby",
+        "enemy_nearby",
+        "air_threat_nearby",
+        "enemy_on_six",
+        "tailing_risk",
+    }
+)
 
 
 class Arbiter:
@@ -40,6 +55,15 @@ class Arbiter:
         for c in candidates:
             allowed, gate_reason = _event_allowed(c, scenario)
             if not allowed:
+                if c.event_id == "you_killed" and scenario == DEAD and kill_coalesce_window > 0:
+                    if _recent_death_preempt(self._last_fired, now, kill_coalesce_window):
+                        trade_kill = _trade_kill_event(c, BattleEvent("you_died", level="critical", ts=now), now)
+                        self._fire(trade_kill, now, critical=False)
+                        chain.append(_rec(c, "spoken", "trade_kill_after_death"))
+                        return trade_kill, chain
+                    self._buffer_kill(c, now)
+                    chain.append(_rec(c, "buffered", "kill_deferred_dead"))
+                    continue
                 if c.event_id == "you_killed" and scenario == CRITICAL_RISK and kill_coalesce_window > 0:
                     self._buffer_kill(c, now)
                     chain.append(_rec(c, "buffered", "kill_deferred_critical_risk"))
@@ -64,8 +88,17 @@ class Arbiter:
             if crit_remaining > 0 and best.priority < 10:
                 chain.append(_rec(best, "suppressed", f"critical_cooldown({crit_remaining:.1f}s)"))
             else:
+                trade_kill = None
+                if best.event_id == "you_died" and self._kill_window is not None:
+                    trade_kill = _trade_kill_event(self._kill_window, best, now)
                 self._fire(best, now, critical=True)
                 self._window_best = None  # 抢占清空 warning 窗口（不补播）
+                if trade_kill is not None:
+                    self._fire(trade_kill, now, critical=False)
+                    chain.append(_rec(self._kill_window, "spoken", "trade_kill_preempt"))
+                    self._kill_window = None
+                    self._kill_window_started_at = 0.0
+                    return trade_kill, chain
                 if self._kill_window is not None:
                     chain.append(_rec(self._kill_window, "dropped", "lost_to_preempt"))
                     self._kill_window = None
@@ -102,6 +135,9 @@ class Arbiter:
             chosen = self._kill_window
             allowed, gate_reason = _event_allowed(chosen, scenario)
             if not allowed:
+                if chosen.event_id == "you_killed" and scenario == DEAD:
+                    chain.append(_rec(chosen, "buffered", "scenario_gated_deferred(DEAD)"))
+                    return None, chain
                 if chosen.event_id == "you_killed" and scenario == CRITICAL_RISK:
                     chain.append(_rec(chosen, "buffered", "scenario_gated_deferred(CRITICAL_RISK)"))
                     return None, chain
@@ -123,6 +159,7 @@ class Arbiter:
             if not allowed:
                 chain.append(_rec(chosen, "dropped", gate_reason.replace("scenario_gated", "scenario_gated_on_flush", 1)))
                 return None, chain
+            chosen = _refresh_window_event_ts(chosen, now)
             self._fire(chosen, now, critical=False)
             chain.append(_rec(chosen, "spoken", "window_flush"))
             return chosen, chain
@@ -172,6 +209,41 @@ def _rank(e: BattleEvent) -> tuple[int, int, float]:
 
 def _top(events: list[BattleEvent]) -> BattleEvent:
     return max(events, key=_rank)
+
+
+def _refresh_window_event_ts(event: BattleEvent, now: float) -> BattleEvent:
+    if event.event_id not in CONTINUOUS_WINDOW_EVENTS:
+        return event
+    return BattleEvent(
+        event.event_id,
+        edge=event.edge,
+        payload=dict(event.payload),
+        ts=now,
+        level=event.level,
+    )
+
+
+def _trade_kill_event(kill_event: BattleEvent, death_event: BattleEvent, now: float) -> BattleEvent:
+    payload = dict(kill_event.payload)
+    payload["trade_death"] = True
+    payload["death_event"] = death_event.event_id
+    if death_event.payload.get("domain") is not None and payload.get("domain") is None:
+        payload["domain"] = death_event.payload.get("domain")
+    if death_event.payload.get("cause") is not None:
+        payload["death_cause"] = death_event.payload.get("cause")
+    return BattleEvent(
+        kill_event.event_id,
+        edge=kill_event.edge,
+        payload=payload,
+        ts=now,
+        level=kill_event.level,
+    )
+
+
+def _recent_death_preempt(last_fired: dict[str, tuple[float, str]], now: float, window_seconds: float) -> bool:
+    last_at, _last_level = last_fired.get("you_died", (-1e9, ""))
+    grace = max(window_seconds * 2.0, 4.0)
+    return now - last_at <= grace
 
 
 def _event_allowed(event: BattleEvent, scenario: str) -> tuple[bool, str]:

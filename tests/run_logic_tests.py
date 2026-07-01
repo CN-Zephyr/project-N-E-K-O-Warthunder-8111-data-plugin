@@ -8,8 +8,12 @@
 from __future__ import annotations
 
 import importlib.util
+import asyncio
+import contextlib
+import inspect
 import pathlib
 import sys
+import tempfile
 import traceback
 import types
 
@@ -31,6 +35,23 @@ def _load(path: pathlib.Path) -> types.ModuleType:
     return mod
 
 
+def _run_test_function(fn) -> None:
+    signature = inspect.signature(fn)
+    with contextlib.ExitStack() as stack:
+        kwargs = {}
+        for param in signature.parameters.values():
+            if param.name == "tmp_path":
+                tmp_dir = stack.enter_context(tempfile.TemporaryDirectory())
+                kwargs[param.name] = pathlib.Path(tmp_dir)
+                continue
+            if param.default is not inspect.Parameter.empty:
+                continue
+            raise TypeError(f"unsupported test fixture: {param.name}")
+        result = fn(**kwargs)
+        if inspect.isawaitable(result):
+            asyncio.run(result)
+
+
 def main() -> int:
     results: list[tuple[str, str]] = []
     for f in sorted(_TESTS_DIR.glob("test_*.py")):
@@ -43,7 +64,7 @@ def main() -> int:
                 continue
             label = f"{f.stem}.{name}"
             try:
-                fn()
+                _run_test_function(fn)
                 results.append(("PASS", label))
             except Exception:
                 results.append(("FAIL", label))

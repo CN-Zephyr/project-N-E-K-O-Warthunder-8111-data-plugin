@@ -51,6 +51,18 @@ def test_real_output_backpressure_allows_higher_priority_event_to_preempt_queue_
     assert plugin.calls[-1]["metadata"]["event_id"] == "low_alt_danger"
 
 
+def test_real_output_backpressure_never_blocks_death_event():
+    plugin = FakePlugin()
+    dispatcher = NekoDispatcher(plugin, clock=_clock([100.0, 105.0]))
+
+    dispatcher.push_event(BattleEvent("you_died", level="critical"), dry_run=False)
+    result = dispatcher.push_event(BattleEvent("you_died", level="critical"), dry_run=False)
+
+    assert result.startswith("pushed(event=you_died/enter)")
+    assert len(plugin.calls) == 2
+    assert plugin.calls[-1]["metadata"]["interrupt_battle_event"] is True
+
+
 def test_real_event_pushes_use_battle_coalesce_key_to_replace_stale_host_queue():
     plugin = FakePlugin()
     dispatcher = NekoDispatcher(plugin, clock=_clock([100.0, 105.0]))
@@ -63,6 +75,9 @@ def test_real_event_pushes_use_battle_coalesce_key_to_replace_stale_host_queue()
     assert plugin.calls[1]["metadata"]["event_id"] == "you_died"
     assert plugin.calls[0]["coalesce_key"] == "neko_warthunder:battle_event"
     assert plugin.calls[1]["coalesce_key"] == "neko_warthunder:battle_event"
+    assert plugin.calls[0]["metadata"]["replace_pending"] is True
+    assert plugin.calls[1]["metadata"]["replace_pending"] is True
+    assert plugin.calls[1]["metadata"]["interrupt_battle_event"] is True
 
 
 def test_real_output_drops_expired_battle_event_before_push():
@@ -114,11 +129,62 @@ def test_real_event_push_metadata_requests_short_tts_output_contract():
     assert metadata["live_reply_contract"] == "short_tts_line"
     assert metadata["max_reply_chars"] == 28
     assert metadata["response_module_hint"] == "war_thunder_battle_event"
+    assert metadata["reply_style_contract"].startswith("Style: one short Chinese line")
     status = timeline.snapshot()["last_output_status"]
     assert status["battle_reply_contract"] == "short_tts_line"
     assert status["live_reply_contract"] == "short_tts_line"
     assert status["max_reply_chars"] == 28
     assert status["response_module_hint"] == "war_thunder_battle_event"
+    assert status["reply_style_contract"].startswith("Style: one short Chinese line")
+
+
+def test_real_event_push_metadata_reserves_generic_host_callback_contract():
+    plugin = FakePlugin()
+    plugin.cfg.target_lanlan = "Lanlan"
+    timeline = RuntimeTimeline(observability_enabled=True, max_events=10)
+    dispatcher = NekoDispatcher(plugin, timeline=timeline, clock=_clock([100.0]))
+
+    result = dispatcher.push_event(BattleEvent("low_alt_danger", level="critical", ts=99.0), dry_run=False)
+
+    assert result.startswith("pushed(")
+    metadata = plugin.calls[0]["metadata"]
+    contract = metadata["host_callback_contract"]
+    assert metadata["host_callback_contract_version"] == "neko.callback.v1"
+    assert metadata["interrupt_pending"] is True
+    assert metadata["reply_contract"] == "short_tts_line"
+    assert metadata["reply_max_chars"] == 28
+    assert metadata["quiet_window_policy"] == "suppress_non_urgent_during_user_input"
+    assert contract["version"] == "neko.callback.v1"
+    assert contract["kind"] == "realtime_cue"
+    assert contract["delivery"] == {
+        "coalesce_key": "neko_warthunder:battle_event",
+        "replace_pending": True,
+        "interrupt_pending": True,
+        "priority": 9,
+        "expires_at": 107.0,
+        "max_age_seconds": 8.0,
+    }
+    assert contract["reply"]["mode"] == "short_tts_line"
+    assert contract["reply"]["style"] == "short_line"
+    assert contract["reply"]["max_chars"] == 28
+    assert contract["reply"]["single_turn"] is True
+    assert contract["reply"]["drop_followup_chunks"] is True
+    assert contract["quiet_window"] == {
+        "policy": "suppress_non_urgent_during_user_input",
+        "bypass": True,
+    }
+    assert contract["freshness"]["event_age_seconds"] == 1.0
+    assert contract["target"] == {"lanlan": "Lanlan"}
+    status = timeline.snapshot()["last_output_status"]
+    assert status["host_callback_contract_version"] == "neko.callback.v1"
+    assert status["interrupt_pending"] is True
+
+
+def test_kill_prompt_requests_one_shot_non_repetitive_praise():
+    prompt = NekoDispatcher(None).build_prompt(BattleEvent("you_killed", payload={"kill_count": 2}))
+
+    assert "multi-kill once" in prompt
+    assert "no repeated praise" in prompt
 
 
 def test_real_event_push_uses_configured_target_lanlan():

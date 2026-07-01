@@ -36,7 +36,7 @@ from neko_warthunder.detectors.discrete.lifecycle import build_discrete_detector
 def discover_sample_files(root: str | pathlib.Path) -> list[pathlib.Path]:
     base = pathlib.Path(root)
     files = list(base.glob("captures/*/processed_8112.jsonl"))
-    files.extend(base.glob("records/*/frames*.jsonl.gz"))
+    files.extend(base.glob("records/*/frames*.jsonl*"))
     return sorted(files, key=lambda p: p.as_posix())
 
 
@@ -120,6 +120,16 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             "proximity_rear_close_live_events": 0,
             "proximity_raw_text_fields": 0,
             "situation_frames": 0,
+            "situation_air_items": 0,
+            "situation_air_live_items": 0,
+            "situation_air_close_items": 0,
+            "situation_air_close_live_items": 0,
+            "situation_rear_air_items": 0,
+            "situation_rear_air_live_items": 0,
+            "situation_rear_air_threat_items": 0,
+            "situation_rear_air_threat_live_items": 0,
+            "situation_rear_air_close_items": 0,
+            "situation_rear_air_close_live_items": 0,
             "ground_target_frames": 0,
             "ground_target_items": 0,
             "ground_target_live_items": 0,
@@ -131,8 +141,12 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
     prev = BattleState()
     now = 1000.0
     for path in files:
+        proximity_stream = _load_record_stream(path.parent, "proximity") if path.name.startswith("frames") else []
+        proximity_index = 0
         for row in _iter_jsonl(path):
             payload = _unwrap_payload(row)
+            if proximity_stream:
+                payload, proximity_index = _merge_proximity_events(payload, proximity_stream, proximity_index)
             cur = parse_telemetry(payload)
             _record_coverage(report["coverage"], payload)
             report["frames"] += 1
@@ -163,6 +177,41 @@ def replay_sample_root(root: str | pathlib.Path, *, player_name: str = "") -> di
             now += 1.0
 
     return _plain_report(report)
+
+
+def _load_record_stream(record_dir: pathlib.Path, name: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for path in sorted(record_dir.glob(f"{name}.jsonl*")):
+        rows.extend(_iter_jsonl(path))
+    return sorted(rows, key=lambda item: float(item.get("ts") or 0.0))
+
+
+def _merge_proximity_events(
+    payload: dict[str, Any],
+    events: list[dict[str, Any]],
+    index: int,
+) -> tuple[dict[str, Any], int]:
+    ts = _as_float(payload.get("timestamp"))
+    if ts is None:
+        return payload, index
+    new_events: list[dict[str, Any]] = []
+    while index < len(events):
+        event_ts = _as_float(events[index].get("ts"))
+        if event_ts is None or event_ts > ts:
+            break
+        new_events.append(events[index])
+        index += 1
+    if not new_events:
+        return payload, index
+    existing_proximity = payload.get("proximity") if isinstance(payload.get("proximity"), dict) else {}
+    existing_events = existing_proximity.get("events") if isinstance(existing_proximity.get("events"), list) else []
+    if existing_events:
+        return payload, index
+    merged = dict(payload)
+    proximity = dict(merged.get("proximity")) if isinstance(merged.get("proximity"), dict) else {}
+    proximity["events"] = new_events
+    merged["proximity"] = proximity
+    return merged, index
 
 
 def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
@@ -237,6 +286,32 @@ def _record_coverage(coverage: dict[str, Any], payload: dict[str, Any]) -> None:
     situation = payload.get("situation") if isinstance(payload.get("situation"), dict) else {}
     if situation:
         coverage["situation_frames"] += 1
+    enemies = situation.get("enemies") if isinstance(situation.get("enemies"), list) else []
+    for item in enemies:
+        if not isinstance(item, dict) or not _is_air_situation_item(item):
+            continue
+        distance = _as_float(item.get("distance_m"))
+        if distance is None:
+            continue
+        coverage["situation_air_items"] += 1
+        if payload.get("replay") is not True:
+            coverage["situation_air_live_items"] += 1
+        if distance <= 5000.0:
+            coverage["situation_air_close_items"] += 1
+            if payload.get("replay") is not True:
+                coverage["situation_air_close_live_items"] += 1
+        if _is_rear_proximity(item):
+            coverage["situation_rear_air_items"] += 1
+            if payload.get("replay") is not True:
+                coverage["situation_rear_air_live_items"] += 1
+            if distance <= 5000.0:
+                coverage["situation_rear_air_threat_items"] += 1
+                if payload.get("replay") is not True:
+                    coverage["situation_rear_air_threat_live_items"] += 1
+            if distance <= 1500.0:
+                coverage["situation_rear_air_close_items"] += 1
+                if payload.get("replay") is not True:
+                    coverage["situation_rear_air_close_live_items"] += 1
     ground_targets = situation.get("ground_targets") if isinstance(situation.get("ground_targets"), list) else []
     if ground_targets:
         coverage["ground_target_frames"] += 1
@@ -266,6 +341,18 @@ def _is_rear_proximity(item: dict[str, Any]) -> bool:
     except (TypeError, ValueError):
         rear_by_relative = False
     return rear_by_clock or rear_by_relative
+
+
+def _is_air_situation_item(item: dict[str, Any]) -> bool:
+    if item.get("is_air") is True:
+        return True
+    type_text = str(item.get("type") or "").strip().lower()
+    if type_text in {"aircraft", "air", "helicopter"}:
+        return True
+    icon = str(item.get("icon") or "").strip().lower()
+    if icon in {"fighter", "bomber", "assault", "attacker", "helicopter"}:
+        return True
+    return False
 
 
 def _as_float(value: Any) -> float | None:
@@ -422,6 +509,15 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     tailing_risk_events = sum(
         int(count) for key, count in events.items() if str(key).startswith("tailing_risk/")
     )
+    air_threat_observed = int(coverage.get("proximity_air_live_events", 0)) + int(
+        coverage.get("situation_air_close_live_items", 0)
+    )
+    rear_threat_observed = int(coverage.get("proximity_rear_live_events", 0)) + int(
+        coverage.get("situation_rear_air_threat_live_items", 0)
+    )
+    rear_close_observed = int(coverage.get("proximity_rear_close_live_events", 0)) + int(
+        coverage.get("situation_rear_air_close_live_items", 0)
+    )
 
     proximity_missing: list[str] = []
     enemy_nearby_events = sum(
@@ -436,15 +532,15 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
         proximity_missing.append("generic_enemy_proximity_events")
     elif enemy_nearby_events == 0:
         proximity_missing.append("enemy_nearby_trigger")
-    if int(coverage.get("proximity_air_live_events", 0)) == 0:
-        proximity_missing.append("proximity_air_events")
+    if air_threat_observed == 0:
+        proximity_missing.append("air_threat_candidates")
     elif air_threat_events == 0:
         proximity_missing.append("air_threat_nearby_trigger")
-    if int(coverage.get("proximity_rear_live_events", 0)) == 0:
-        proximity_missing.append("proximity_rear_events")
+    if rear_threat_observed == 0:
+        proximity_missing.append("rear_threat_candidates")
     elif enemy_on_six_events == 0:
         proximity_missing.append("enemy_on_six_trigger")
-    if int(coverage.get("proximity_rear_close_live_events", 0)) >= 2 and tailing_risk_events == 0:
+    if rear_close_observed >= 2 and tailing_risk_events == 0:
         proximity_missing.append("tailing_risk_trigger")
     if int(coverage.get("situation_frames", 0)) == 0:
         proximity_missing.append("situation")
@@ -504,6 +600,12 @@ def _validation_checks(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "air_events": int(coverage.get("proximity_air_events", 0)),
             "rear_events": int(coverage.get("proximity_rear_events", 0)),
             "rear_close_events": int(coverage.get("proximity_rear_close_events", 0)),
+            "situation_air_close_items": int(coverage.get("situation_air_close_items", 0)),
+            "situation_air_close_live_items": int(coverage.get("situation_air_close_live_items", 0)),
+            "situation_rear_air_threat_items": int(coverage.get("situation_rear_air_threat_items", 0)),
+            "situation_rear_air_threat_live_items": int(coverage.get("situation_rear_air_threat_live_items", 0)),
+            "situation_rear_air_close_items": int(coverage.get("situation_rear_air_close_items", 0)),
+            "situation_rear_air_close_live_items": int(coverage.get("situation_rear_air_close_live_items", 0)),
             "enemy_on_six_events": enemy_on_six_events,
             "tailing_risk_events": tailing_risk_events,
             "situation_frames": int(coverage.get("situation_frames", 0)),
@@ -523,6 +625,15 @@ def _v2_capability_evidence(coverage: dict[str, Any], events: dict[str, Any]) ->
     enemy_on_six_triggers = _event_count(events, "enemy_on_six")
     tailing_risk_triggers = _event_count(events, "tailing_risk")
     ground_target_triggers = _event_count(events, "ground_target_nearby")
+    air_threat_observed = int(coverage.get("proximity_air_live_events", 0)) + int(
+        coverage.get("situation_air_close_live_items", 0)
+    )
+    rear_threat_observed = int(coverage.get("proximity_rear_live_events", 0)) + int(
+        coverage.get("situation_rear_air_threat_live_items", 0)
+    )
+    rear_close_observed = int(coverage.get("proximity_rear_close_live_events", 0)) + int(
+        coverage.get("situation_rear_air_close_live_items", 0)
+    )
 
     return {
         "enemy_nearby": _capability_detail(
@@ -538,34 +649,34 @@ def _v2_capability_evidence(coverage: dict[str, Any], events: dict[str, Any]) ->
             ],
         ),
         "air_threat_nearby": _capability_detail(
-            observed_count=int(coverage.get("proximity_air_live_events", 0)),
+            observed_count=air_threat_observed,
             trigger_count=air_threat_triggers,
             missing_requirements=[
-                "proximity_air_events" if int(coverage.get("proximity_air_live_events", 0)) == 0 else "",
+                "air_threat_candidates" if air_threat_observed == 0 else "",
                 "air_threat_nearby_trigger"
-                if int(coverage.get("proximity_air_live_events", 0)) > 0 and air_threat_triggers == 0
+                if air_threat_observed > 0 and air_threat_triggers == 0
                 else "",
             ],
         ),
         "enemy_on_six": _capability_detail(
-            observed_count=int(coverage.get("proximity_rear_live_events", 0)),
+            observed_count=rear_threat_observed,
             trigger_count=enemy_on_six_triggers,
             missing_requirements=[
-                "proximity_rear_events" if int(coverage.get("proximity_rear_live_events", 0)) == 0 else "",
+                "rear_threat_candidates" if rear_threat_observed == 0 else "",
                 "enemy_on_six_trigger"
-                if int(coverage.get("proximity_rear_live_events", 0)) > 0 and enemy_on_six_triggers == 0
+                if rear_threat_observed > 0 and enemy_on_six_triggers == 0
                 else "",
             ],
         ),
         "tailing_risk": _capability_detail(
-            observed_count=int(coverage.get("proximity_rear_close_live_events", 0)),
+            observed_count=rear_close_observed,
             trigger_count=tailing_risk_triggers,
             missing_requirements=[
-                "proximity_rear_close_events"
-                if int(coverage.get("proximity_rear_close_live_events", 0)) < 2
+                "rear_close_threat_candidates"
+                if rear_close_observed < 2
                 else "",
                 "tailing_risk_trigger"
-                if int(coverage.get("proximity_rear_close_live_events", 0)) >= 2 and tailing_risk_triggers == 0
+                if rear_close_observed >= 2 and tailing_risk_triggers == 0
                 else "",
             ],
         ),
@@ -692,9 +803,9 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         if "proximity_events" in proximity_missing:
             actions.append("capture_proximity_sample")
         else:
-            if "proximity_air_events" in proximity_missing:
-                actions.append("capture_air_proximity_sample")
-            if "proximity_rear_events" in proximity_missing:
+            if "proximity_air_events" in proximity_missing or "air_threat_candidates" in proximity_missing:
+                actions.append("capture_air_threat_or_situation_sample")
+            if "proximity_rear_events" in proximity_missing or "rear_threat_candidates" in proximity_missing:
                 actions.append("capture_rear_threat_or_six_oclock_sample")
             if "tailing_risk_trigger" in proximity_missing:
                 actions.append("capture_sustained_close_rear_sample")
@@ -713,6 +824,7 @@ def _live_test_plan(checks: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
 
     add("runtime_output", "T-Output 真实开口背压", "needs_live_review", "P2", "verify_output_backpressure")
     add("runtime_output", "T-Kill-Coalesce 多杀合并", "needs_live_review", "P2", "verify_kill_coalescing")
+    add("runtime_output", "用户聊天干扰静默窗", "needs_live_review", "P2", "verify_user_chat_interference_quiet_window")
 
     return plan
 
@@ -732,8 +844,10 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
         "no_generic_enemy_proximity_events": "capture_generic_enemy_proximity_sample",
         "no_enemy_nearby_trigger": "capture_generic_enemy_proximity_sample",
         "no_proximity_air_events": "capture_air_proximity_sample",
+        "no_air_threat_candidates": "capture_air_threat_or_situation_sample",
         "no_air_threat_nearby_trigger": "capture_air_proximity_trigger_sample",
         "no_proximity_rear_events": "capture_rear_threat_or_six_oclock_sample",
+        "no_rear_threat_candidates": "capture_rear_threat_or_six_oclock_sample",
         "no_enemy_on_six_trigger": "capture_rear_threat_or_six_oclock_sample",
         "no_tailing_risk_trigger": "capture_sustained_close_rear_sample",
         "no_situation_frames": "capture_situation_sample",
@@ -746,7 +860,11 @@ def _next_steps_for_gaps(gaps: list[str]) -> list[str]:
 
 
 def _runtime_output_next_steps() -> list[str]:
-    return ["verify_output_backpressure", "verify_kill_coalescing"]
+    return [
+        "verify_output_backpressure",
+        "verify_kill_coalescing",
+        "verify_user_chat_interference_quiet_window",
+    ]
 
 
 def _dedupe(values: list[str]) -> list[str]:
@@ -804,18 +922,27 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         for key, count in (report.get("events") or {}).items()
         if str(key).startswith("enemy_on_six/")
     )
+    air_threat_observed = int(coverage.get("proximity_air_live_events", 0)) + int(
+        coverage.get("situation_air_close_live_items", 0)
+    )
+    rear_threat_observed = int(coverage.get("proximity_rear_live_events", 0)) + int(
+        coverage.get("situation_rear_air_threat_live_items", 0)
+    )
+    rear_close_observed = int(coverage.get("proximity_rear_close_live_events", 0)) + int(
+        coverage.get("situation_rear_air_close_live_items", 0)
+    )
     if coverage.get("proximity_live_events", 0) == 0:
         gaps.append("no_proximity_events")
     if coverage.get("proximity_generic_live_events", 0) == 0:
         gaps.append("no_generic_enemy_proximity_events")
     elif enemy_nearby_events == 0:
         gaps.append("no_enemy_nearby_trigger")
-    if coverage.get("proximity_air_live_events", 0) == 0:
-        gaps.append("no_proximity_air_events")
+    if air_threat_observed == 0:
+        gaps.append("no_air_threat_candidates")
     elif air_threat_events == 0:
         gaps.append("no_air_threat_nearby_trigger")
-    if coverage.get("proximity_rear_live_events", 0) == 0:
-        gaps.append("no_proximity_rear_events")
+    if rear_threat_observed == 0:
+        gaps.append("no_rear_threat_candidates")
     elif enemy_on_six_events == 0:
         gaps.append("no_enemy_on_six_trigger")
     tailing_risk_events = sum(
@@ -823,7 +950,7 @@ def _coverage_gaps(report: dict[str, Any]) -> list[str]:
         for key, count in (report.get("events") or {}).items()
         if str(key).startswith("tailing_risk/")
     )
-    if coverage.get("proximity_rear_close_live_events", 0) >= 2 and tailing_risk_events == 0:
+    if rear_close_observed >= 2 and tailing_risk_events == 0:
         gaps.append("no_tailing_risk_trigger")
     if coverage.get("situation_frames", 0) == 0:
         gaps.append("no_situation_frames")
@@ -906,6 +1033,12 @@ def _fmt_coverage(coverage: dict[str, Any]) -> str:
         "proximity_rear_close_events",
         "proximity_rear_close_live_events",
         "situation_frames",
+        "situation_air_close_items",
+        "situation_air_close_live_items",
+        "situation_rear_air_threat_items",
+        "situation_rear_air_threat_live_items",
+        "situation_rear_air_close_items",
+        "situation_rear_air_close_live_items",
         "ground_target_items",
         "ground_target_live_items",
         "ground_target_close_items",

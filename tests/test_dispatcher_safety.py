@@ -153,6 +153,16 @@ def test_proximity_prompt_uses_safe_generic_fact_without_raw_text():
     assert UNSAFE_NAME not in prompt
 
 
+def test_target_cue_prompt_keeps_soft_copilot_role_boundary():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent("air_threat_nearby", payload={"distance_m": 1200, "clock": 2})
+    )
+
+    assert "back-seater/WSO" in prompt
+    assert "Keep the pilot in control" in prompt
+    assert "prefer what is observed and where it is" in prompt
+
+
 def test_proximity_push_message_parts_text_excludes_unsafe_raw():
     plugin = FakePlugin()
     event = BattleEvent(
@@ -286,3 +296,13 @@ def test_free_text_activity_keeps_dry_run_observable_but_suppresses_real_push():
     assert output["stage"] == "dispatcher_suppressed"
     assert output["reason"] == "free_text_dry_run_only"
     assert output["event_id"] == "free_text_activity"
+
+
+def test_trade_kill_prompt_acknowledges_loss_but_still_praises_trade():
+    prompt = NekoDispatcher(None).build_prompt(
+        BattleEvent("you_killed", payload={"domain": "air", "trade_death": True})
+    )
+
+    assert "trade kill" in prompt
+    assert "vehicle was lost" in prompt
+    assert "not wasted" in prompt

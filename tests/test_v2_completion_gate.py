@@ -85,7 +85,7 @@ def test_v2_completion_gate_with_local_sample_keeps_live_gaps_explicit():
     assert payload["completion"]["offline_gate_complete"] is True
     assert payload["completion"]["live_evidence_complete"] is False
     assert "generic_enemy_proximity_events" in payload["live_evidence"]["missing"]
-    assert "proximity_rear_events" in payload["live_evidence"]["missing"]
+    assert "rear_threat_candidates" in payload["live_evidence"]["missing"]
     assert "ground_target_close_candidates" in payload["live_evidence"]["missing"]
     assert payload["matrix"]["summary"]["live_evidence_complete"] is False
     assert "unsafe raw proximity text" not in json.dumps(payload, ensure_ascii=False)

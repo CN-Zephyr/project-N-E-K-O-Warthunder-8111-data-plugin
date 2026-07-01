@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from neko_warthunder.adapters.neko_dispatcher import NekoDispatcher
 from neko_warthunder.core.arbiter import Arbiter
-from neko_warthunder.core.contracts import COMBAT_STRESS, CRITICAL_RISK, IN_FLIGHT, BattleEvent, WtConfig
+from neko_warthunder.core.contracts import COMBAT_STRESS, CRITICAL_RISK, DEAD, IN_FLIGHT, BattleEvent, WtConfig
 from neko_warthunder.core.safety_guard import SafetyGuard
 
 
@@ -62,6 +62,88 @@ def test_critical_preempt_clears_pending_kill_coalescing_window():
     assert any(item["event_id"] == "you_killed" and item["reason"] == "lost_to_preempt" for item in chain)
     assert later is None
     assert later_chain == []
+
+
+def test_death_preempt_keeps_pending_kill_as_trade_praise():
+    arb = _arbiter()
+
+    buffered, _ = arb.decide([BattleEvent("you_killed", payload={"victim": "A", "domain": "air"}, ts=100.0)], IN_FLIGHT, 100.0)
+    trade, chain = arb.decide(
+        [BattleEvent("you_died", level="critical", payload={"cause": "shot_down"}, ts=101.0)],
+        DEAD,
+        101.0,
+    )
+    later, later_chain = arb.decide([], IN_FLIGHT, 103.5)
+
+    assert buffered is None
+    assert trade is not None
+    assert trade.event_id == "you_killed"
+    assert trade.payload["trade_death"] is True
+    assert trade.payload["kill_count"] == 1
+    assert trade.payload["domain"] == "air"
+    assert trade.payload["death_cause"] == "shot_down"
+    assert trade.ts == 101.0
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "trade_kill_preempt" for item in chain)
+    assert later is None
+    assert later_chain == []
+
+
+def test_dead_scenario_kill_and_death_same_tick_becomes_trade_praise():
+    arb = _arbiter()
+
+    trade, chain = arb.decide(
+        [
+            BattleEvent("you_killed", payload={"victim": "A", "domain": "air"}, ts=100.0),
+            BattleEvent("you_died", level="critical", payload={"cause": "shot_down"}, ts=100.0),
+        ],
+        DEAD,
+        100.0,
+    )
+
+    assert trade is not None
+    assert trade.event_id == "you_killed"
+    assert trade.payload["trade_death"] is True
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "kill_deferred_dead" for item in chain)
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "trade_kill_preempt" for item in chain)
+
+
+def test_dead_scenario_late_kill_after_death_becomes_trade_praise():
+    arb = _arbiter()
+
+    death, _ = arb.decide(
+        [BattleEvent("you_died", level="critical", payload={"cause": "shot_down"}, ts=100.0)],
+        DEAD,
+        100.0,
+    )
+    trade, chain = arb.decide(
+        [BattleEvent("you_killed", payload={"victim": "A", "domain": "air"}, ts=101.5)],
+        DEAD,
+        101.5,
+    )
+
+    assert death is not None and death.event_id == "you_died"
+    assert trade is not None
+    assert trade.event_id == "you_killed"
+    assert trade.payload["trade_death"] is True
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "trade_kill_after_death" for item in chain)
+
+
+def test_dead_scenario_pending_kill_waits_for_late_death_confirmation():
+    arb = _arbiter()
+
+    first, _ = arb.decide([BattleEvent("you_killed", payload={"victim": "A"}, ts=100.0)], IN_FLIGHT, 100.0)
+    waiting, waiting_chain = arb.decide([], DEAD, 103.0)
+    trade, trade_chain = arb.decide([BattleEvent("you_died", level="critical", ts=120.0)], DEAD, 120.0)
+
+    assert first is None
+    assert waiting is None
+    assert any(
+        item["event_id"] == "you_killed" and item["reason"] == "scenario_gated_deferred(DEAD)"
+        for item in waiting_chain
+    )
+    assert trade is not None and trade.event_id == "you_killed"
+    assert trade.payload["trade_death"] is True
+    assert any(item["event_id"] == "you_killed" and item["reason"] == "trade_kill_preempt" for item in trade_chain)
 
 
 def test_dispatcher_prompt_uses_generic_multikill_summary_without_raw_names():

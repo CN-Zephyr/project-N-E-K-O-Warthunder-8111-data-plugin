@@ -123,9 +123,11 @@ def test_live_test_plan_includes_runtime_output_followups():
     actions = {step["action"] for step in payload["steps"]}
     assert "verify_output_backpressure" in actions
     assert "verify_kill_coalescing" in actions
+    assert "verify_user_chat_interference_quiet_window" in actions
     assert "output_backpressure" in text
     assert "event_expired" in text
     assert "kill_coalesced" in text
+    assert "用户聊天干扰静默窗" in text
 
 
 def test_live_test_plan_includes_ground_target_sample_action():

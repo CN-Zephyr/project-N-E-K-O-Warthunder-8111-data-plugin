@@ -27,8 +27,11 @@ def test_preflight_plan_contains_documented_checks():
             "logic self-check",
             "pytest",
             "release defaults gate",
+            "output freshness gate",
+            "host contract gate",
             "free-text release gate",
             "replay degrade gate",
+            "ownership replay gate",
             "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "V2 readiness summary",
@@ -37,6 +40,7 @@ def test_preflight_plan_contains_documented_checks():
             "V2 completion gate",
             "RC handoff report",
             "final smoke packet",
+            "host War Thunder contract tests",
             "plugin check",
             "runtime smoke",
             "synthetic replay",
@@ -53,28 +57,46 @@ def test_preflight_plan_contains_documented_checks():
         assert checks[0].cmd == ["uv", "run", "python", "tests/run_logic_tests.py"]
         assert checks[2].cmd == ["uv", "run", "python", "tools/release_defaults_gate.py"]
         assert "dry_run-first" in checks[2].review_hint
-        assert checks[3].cmd == ["uv", "run", "python", "tools/free_text_gate.py"]
-        assert "hudmsg" in checks[3].review_hint
-        assert "push_message" in checks[3].review_hint
-        assert checks[4].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
-        assert "replay=true" in checks[4].review_hint
-        assert "push_message" in checks[4].review_hint
-        assert checks[5].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
-        assert "powertrain_failure" in checks[5].review_hint
-        assert checks[6].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
-        assert "proximity.events" in checks[6].review_hint
-        assert checks[7].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
-        assert checks[8].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
-        assert checks[9].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
-        assert checks[10].cmd == ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"]
-        assert checks[11].cmd == ["uv", "run", "python", "tools/rc_handoff_report.py", "--no-sample"]
-        assert checks[12].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
-        assert checks[13].cwd == host_root.resolve()
-        assert checks[13].cmd[-1] == str(plugin_root.resolve())
-        assert checks[14].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
-        assert "dry_run" in checks[14].review_hint
-        assert "paused" in checks[14].review_hint
-        assert "8112" in checks[14].review_hint
+        assert checks[3].cmd == ["uv", "run", "python", "tools/output_freshness_gate.py"]
+        assert "coalesce" in checks[3].review_hint
+        assert "short-reply" in checks[3].review_hint
+        assert checks[4].cmd[:4] == ["uv", "run", "python", "tools/host_contract_gate.py"]
+        assert checks[4].cmd[-2] == "--host-root"
+        assert "quieting" in checks[4].review_hint
+        assert checks[5].cmd == ["uv", "run", "python", "tools/free_text_gate.py"]
+        assert "hudmsg" in checks[5].review_hint
+        assert "push_message" in checks[5].review_hint
+        assert checks[6].cmd == ["uv", "run", "python", "tools/replay_gate.py"]
+        assert "replay=true" in checks[6].review_hint
+        assert "push_message" in checks[6].review_hint
+        assert checks[7].cmd == ["uv", "run", "python", "tools/ownership_replay_gate.py"]
+        assert "interference unowned" in checks[7].review_hint
+        assert checks[8].cmd == ["uv", "run", "python", "tools/deferred_hud_gate.py"]
+        assert "powertrain_failure" in checks[8].review_hint
+        assert checks[9].cmd == ["uv", "run", "python", "tools/proximity_gate.py"]
+        assert "proximity.events" in checks[9].review_hint
+        assert checks[10].cmd == ["uv", "run", "python", "tools/v2_readiness.py", "--no-sample"]
+        assert checks[11].cmd == ["uv", "run", "python", "tools/v2_release_matrix.py", "--no-sample"]
+        assert checks[12].cmd == ["uv", "run", "python", "tools/v2_output_policy_gate.py"]
+        assert checks[13].cmd == ["uv", "run", "python", "tools/v2_completion_gate.py", "--no-sample"]
+        assert checks[14].cmd == ["uv", "run", "python", "tools/rc_handoff_report.py", "--no-sample"]
+        assert checks[15].cmd == ["uv", "run", "python", "tools/final_smoke_packet.py"]
+        assert checks[16].cwd == host_root.resolve()
+        assert checks[16].cmd == [
+            "uv",
+            "run",
+            "pytest",
+            "tests/unit/test_core_game_route_memory_contract.py",
+            "tests/unit/test_callback_instruction_origin.py",
+            "tests/unit/test_proactive_sm_integration.py",
+            "-q",
+        ]
+        assert checks[17].cwd == host_root.resolve()
+        assert checks[17].cmd[-1] == str(plugin_root.resolve())
+        assert checks[18].cmd == ["uv", "run", "python", "tools/live_monitor.py", "--count", "1"]
+        assert "dry_run" in checks[18].review_hint
+        assert "paused" in checks[18].review_hint
+        assert "8112" in checks[18].review_hint
         assert checks[-1].cmd == [
             "uv",
             "run",
@@ -153,6 +175,7 @@ def test_preflight_plan_skips_optional_sample_when_missing():
         names = [check.name for check in checks]
 
         assert "plugin check" not in names
+        assert "host War Thunder contract tests" not in names
         assert "local sample replay" not in names
         assert "offline readiness report" not in names
         assert "rc gap summary" not in names
@@ -161,8 +184,11 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "logic self-check",
             "pytest",
             "release defaults gate",
+            "output freshness gate",
+            "host contract gate",
             "free-text release gate",
             "replay degrade gate",
+            "ownership replay gate",
             "deferred HUD notice gate",
             "proximity/objective awareness gate",
             "V2 readiness summary",
@@ -174,6 +200,31 @@ def test_preflight_plan_skips_optional_sample_when_missing():
             "runtime smoke",
             "synthetic replay",
         ]
+
+
+def test_preflight_can_include_final_smoke_evidence_gate_explicitly():
+    from neko_warthunder.tools import preflight
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        evidence = root / "local_test_logs" / "final_smoke_evidence.json"
+        checks = preflight.build_checks(
+            plugin_root=root,
+            host_root=root / "missing-host",
+            final_smoke_evidence=evidence,
+        )
+        names = [check.name for check in checks]
+
+    assert "final smoke evidence gate" in names
+    evidence_check = next(check for check in checks if check.name == "final smoke evidence gate")
+    assert evidence_check.cmd == [
+        "uv",
+        "run",
+        "python",
+        "tools/final_smoke_evidence_gate.py",
+        str(evidence),
+    ]
+    assert "post-smoke P1 evidence" in evidence_check.review_hint
 
 
 def test_preflight_dry_run_prints_commands_without_running():
@@ -188,10 +239,13 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert rc == 0
         assert "# neko_warthunder offline preflight" in text
         assert "## Quick read" in text
-        assert "baseline: logic self-check should report 256/256 passed" in text
+        assert "baseline: logic self-check should report 312/312 passed" in text
         assert "release defaults gate must keep dry_run-first" in text
+        assert "output freshness gate must prove battle pushes are fresh" in text
+        assert "host War Thunder contract tests should pass" in text
         assert "free-text release gate must pass" in text
         assert "replay degrade gate must pass" in text
+        assert "ownership replay gate must keep" in text
         assert "deferred HUD notice gate must pass" in text
         assert "proximity/objective awareness gate must pass" in text
         assert "V2 readiness summary must separate offline-complete code" in text
@@ -200,6 +254,7 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "V2 completion gate must prove" in text
         assert "RC handoff report must summarize" in text
         assert "final smoke packet must summarize go/no-go" in text
+        assert "final smoke evidence gate is optional" in text
         assert "if this passes: keep dry_run=true and follow the live test plan" in text
         assert "if this fails: stop before real-machine testing" in text
         assert "watch live_monitor Summary first" in text
@@ -207,10 +262,14 @@ def test_preflight_dry_run_prints_commands_without_running():
         assert "uv run pytest -c tests/pytest.ini tests -q" in text
         assert "release defaults gate" in text
         assert "uv run python tools/release_defaults_gate.py" in text
+        assert "output freshness gate" in text
+        assert "uv run python tools/output_freshness_gate.py" in text
         assert "free-text release gate" in text
         assert "uv run python tools/free_text_gate.py" in text
         assert "replay degrade gate" in text
         assert "uv run python tools/replay_gate.py" in text
+        assert "ownership replay gate" in text
+        assert "uv run python tools/ownership_replay_gate.py" in text
         assert "deferred HUD notice gate" in text
         assert "uv run python tools/deferred_hud_gate.py" in text
         assert "proximity/objective awareness gate" in text

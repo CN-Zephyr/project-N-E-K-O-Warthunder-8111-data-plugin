@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 from pathlib import Path
 
@@ -35,9 +37,17 @@ def _fake_fetcher(url: str):
                         "dry_run": True,
                     },
                     "last_output_status": {
+                        "event_id": "low_alt_danger",
                         "stage": "dispatcher_dry_run",
                         "outcome": "dry_run",
                         "reason": "dry_run_enabled",
+                        "event_age_seconds": 2.5,
+                        "event_expires_at": 10.0,
+                        "coalesce_key": "neko_warthunder:battle_event",
+                        "target_lanlan": "Lanlan",
+                        "battle_reply_contract": "short_tts_line",
+                        "live_reply_contract": "short_tts_line",
+                        "max_reply_chars": 28,
                     },
                 },
             }
@@ -332,6 +342,13 @@ def test_live_monitor_once_summarizes_runtime_without_raw_text():
     assert report["logs"]["Traceback"] == 1
     assert report["logs"]["dry_run"] == 1
     assert report["logs"]["TTS/tts"] == 1
+    output = report["context"]["observe"]["last_output_status"]
+    assert output["event_age_seconds"] == 2.5
+    assert output["coalesce_key"] == "neko_warthunder:battle_event"
+    assert output["target_lanlan"] == "Lanlan"
+    assert output["battle_reply_contract"] == "short_tts_line"
+    assert output["live_reply_contract"] == "short_tts_line"
+    assert output["max_reply_chars"] == 28
     assert "RawVictim" not in encoded
     assert "unsafe hud text" not in encoded
     assert "unsafe award text" not in encoded
@@ -379,7 +396,7 @@ def test_live_monitor_render_text_is_short_and_actionable():
     text = render_text_report(report)
 
     assert "Hosted UI: ok" in text
-    assert "Summary: health=ok, battle=in_battle/COMBAT_STRESS, free_text=dry_run_only, replay=clear, output=dispatcher_dry_run/dry_run, issues=action_failed+traceback+error+tts" in text
+    assert "Summary: health=ok, battle=in_battle/COMBAT_STRESS, free_text=dry_run_only, replay=clear, output=dispatcher_dry_run/dry_run[age=2.5s,target=Lanlan,tts=short_tts_line/28], issues=action_failed+traceback+error+tts" in text
     assert "in_battle=True" in text
     assert "scenario=COMBAT_STRESS" in text
     assert "flags=altitude_low, overspeed_warn" in text
@@ -473,3 +490,26 @@ def test_live_monitor_render_text_reports_replay_degrade_without_raw_text():
     assert "replay=suppressed(detector_suppressed/replay)" in text
     assert "output_blocked=True" in text
     assert "RawReplayVictim" not in text
+
+
+def test_live_monitor_cli_output_writes_safe_json(tmp_path):
+    from neko_warthunder.tools import live_monitor
+
+    report = live_monitor.monitor_once(fetcher=_fake_fetcher, log_reader=lambda _paths: [])
+    original_monitor_once = live_monitor.monitor_once
+    live_monitor.monitor_once = lambda *, root=None: report
+    output = tmp_path / "local_test_logs" / "live_monitor_final.json"
+    stdout = io.StringIO()
+
+    try:
+        with contextlib.redirect_stdout(stdout):
+            rc = live_monitor.main(["--json", "--output", str(output)])
+    finally:
+        live_monitor.monitor_once = original_monitor_once
+
+    written = json.loads(output.read_text(encoding="utf-8"))
+    printed = json.loads(stdout.getvalue())
+    assert rc == 0
+    assert written == printed
+    assert written["context"]["observe"]["last_output_status"]["target_lanlan"] == "Lanlan"
+    assert "RawVictim" not in output.read_text(encoding="utf-8")

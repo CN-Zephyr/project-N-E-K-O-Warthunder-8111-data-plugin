@@ -146,6 +146,14 @@ class RuntimeTimeline:
                     "live_reply_contract": metadata.get("live_reply_contract"),
                     "max_reply_chars": metadata.get("max_reply_chars"),
                     "response_module_hint": metadata.get("response_module_hint"),
+                    "replace_pending": metadata.get("replace_pending"),
+                    "interrupt_battle_event": metadata.get("interrupt_battle_event"),
+                    "interrupt_pending": metadata.get("interrupt_pending"),
+                    "reply_style_contract": metadata.get("reply_style_contract"),
+                    "reply_contract": metadata.get("reply_contract"),
+                    "reply_max_chars": metadata.get("reply_max_chars"),
+                    "quiet_window_policy": metadata.get("quiet_window_policy"),
+                    "host_callback_contract_version": metadata.get("host_callback_contract_version"),
                     "message": safe_summary,
                 }
             )
@@ -183,6 +191,14 @@ class RuntimeTimeline:
                         "live_reply_contract",
                         "max_reply_chars",
                         "response_module_hint",
+                        "replace_pending",
+                        "interrupt_battle_event",
+                        "interrupt_pending",
+                        "reply_style_contract",
+                        "reply_contract",
+                        "reply_max_chars",
+                        "quiet_window_policy",
+                        "host_callback_contract_version",
                     ):
                         if record.get(key) is not None:
                             self._last_output_status[key] = record.get(key)

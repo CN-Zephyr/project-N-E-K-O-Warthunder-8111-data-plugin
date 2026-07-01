@@ -41,6 +41,7 @@ def build_checks(
     host_root: str | pathlib.Path | None = None,
     sample_rel: str = "local_samples/data_process_20260620",
     include_local_sample: bool = False,
+    final_smoke_evidence: str | pathlib.Path | None = None,
 ) -> list[Check]:
     plugin = pathlib.Path(plugin_root).resolve()
     host = pathlib.Path(host_root).resolve() if host_root is not None else plugin.parent / "N.E.K.O"
@@ -62,6 +63,27 @@ def build_checks(
             review_hint="release defaults must stay dry_run-first with unverified real output closed",
         ),
         Check(
+            "output freshness gate",
+            plugin,
+            ["uv", "run", "python", "tools/output_freshness_gate.py"],
+            review_hint="real battle push must carry coalesce/freshness/target/short-reply metadata and drop expired cues",
+        ),
+        Check(
+            "host contract gate",
+            plugin,
+            [
+                "uv",
+                "run",
+                "python",
+                "tools/host_contract_gate.py",
+                "--plugin-root",
+                str(plugin),
+                "--host-root",
+                str(host),
+            ],
+            review_hint="local host, when present, must consume short-reply metadata and apply War Thunder user-chat quieting",
+        ),
+        Check(
             "free-text release gate",
             plugin,
             ["uv", "run", "python", "tools/free_text_gate.py"],
@@ -72,6 +94,12 @@ def build_checks(
             plugin,
             ["uv", "run", "python", "tools/replay_gate.py"],
             review_hint="replay=true must not emit candidates, prompts, or push_message output",
+        ),
+        Check(
+            "ownership replay gate",
+            plugin,
+            ["uv", "run", "python", "tools/ownership_replay_gate.py"],
+            review_hint="legacy third-party samples must require explicit identity inference and keep interference unowned",
         ),
         Check(
             "deferred HUD notice gate",
@@ -118,6 +146,22 @@ def build_checks(
         Check("synthetic replay", plugin, ["uv", "run", "python", "tools/replay.py"]),
     ]
     if host.exists():
+        checks.append(
+            Check(
+                "host War Thunder contract tests",
+                host,
+                [
+                    "uv",
+                    "run",
+                    "pytest",
+                    "tests/unit/test_core_game_route_memory_contract.py",
+                    "tests/unit/test_callback_instruction_origin.py",
+                    "tests/unit/test_proactive_sm_integration.py",
+                    "-q",
+                ],
+                review_hint="host behavior must consume short battle replies and quiet ordinary War Thunder cues during user chat",
+            )
+        )
         checks.append(
             Check(
                 "plugin check",
@@ -196,6 +240,21 @@ def build_checks(
             review_hint="single safe handoff packet for final dry_run live smoke",
         )
     )
+    if final_smoke_evidence is not None:
+        checks.append(
+            Check(
+                "final smoke evidence gate",
+                plugin,
+                [
+                    "uv",
+                    "run",
+                    "python",
+                    "tools/final_smoke_evidence_gate.py",
+                    str(final_smoke_evidence),
+                ],
+                review_hint="post-smoke P1 evidence must pass without raw chat/HUD/combat/award text",
+            )
+        )
     return checks
 
 
@@ -208,14 +267,20 @@ def run_checks(checks: Sequence[Check], *, stream_output: bool = True) -> dict[s
             capture_output=not stream_output,
             text=not stream_output,
         )
-        results.append(
-            {
-                "name": check.name,
-                "returncode": completed.returncode,
-                "blocking": check.blocking,
-                "cmd": " ".join(check.cmd),
-            }
-        )
+        item = {
+            "name": check.name,
+            "returncode": completed.returncode,
+            "blocking": check.blocking,
+            "cmd": " ".join(check.cmd),
+        }
+        if not stream_output:
+            stdout = _compact_process_output(getattr(completed, "stdout", "") or "")
+            stderr = _compact_process_output(getattr(completed, "stderr", "") or "")
+            if stdout:
+                item["stdout"] = stdout
+            if stderr:
+                item["stderr"] = stderr
+        results.append(item)
         if check.blocking and completed.returncode != 0:
             return {
                 "status": "fail",
@@ -257,6 +322,13 @@ def plan_payload(
         "release_scope": release_scope,
         "handoff": build_handoff(release_scope, v2_summary or build_v2_readiness(sample_root=None)),
     }
+
+
+def _compact_process_output(text: str, *, max_chars: int = 2000) -> str:
+    cleaned = str(text or "").strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return "..." + cleaned[-max_chars:]
 
 
 def build_release_scope(sample_summary: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -401,13 +473,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--host-root",
         default=str(_BASE.parent / "N.E.K.O"),
-        help="N.E.K.O host repository root for optional plugin check.",
+        help="N.E.K.O host repository root for optional host contract tests and plugin check.",
     )
     parser.add_argument("--run", action="store_true", help="Execute checks instead of printing the plan.")
     parser.add_argument(
         "--include-local-sample",
         action="store_true",
         help="Also run local sample reports when local_samples/data_process_20260620 exists.",
+    )
+    parser.add_argument(
+        "--final-smoke-evidence",
+        help="Optional post-smoke evidence JSON to validate with final_smoke_evidence_gate.",
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args(argv)
@@ -416,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         plugin_root=args.plugin_root,
         host_root=args.host_root,
         include_local_sample=args.include_local_sample,
+        final_smoke_evidence=args.final_smoke_evidence,
     )
     sample_summary = (
         _load_sample_summary(args.plugin_root, "local_samples/data_process_20260620")

@@ -18,3 +18,4 @@ Thumbs.db
 data_layer/data process/maps/
 data_layer/data process/_*.py
 local_samples/
+local_test_logs/

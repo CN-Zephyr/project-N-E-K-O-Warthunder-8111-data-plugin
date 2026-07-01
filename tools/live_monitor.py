@@ -214,7 +214,22 @@ def _summarize_context(data: dict[str, Any]) -> dict[str, Any]:
             ),
             "last_output_status": _safe_fields(
                 observe.get("last_output_status"),
-                ["ts", "event_id", "stage", "outcome", "reason", "dry_run", "elapsed_ms"],
+                [
+                    "ts",
+                    "event_id",
+                    "stage",
+                    "outcome",
+                    "reason",
+                    "dry_run",
+                    "elapsed_ms",
+                    "event_age_seconds",
+                    "event_expires_at",
+                    "coalesce_key",
+                    "target_lanlan",
+                    "battle_reply_contract",
+                    "live_reply_contract",
+                    "max_reply_chars",
+                ],
             ),
         },
     }
@@ -432,7 +447,28 @@ def _format_output_summary(output: dict[str, Any]) -> str:
     reason = output.get("reason")
     if reason in {"event_expired", "output_backpressure"}:
         text += f"({reason})"
+    meta = _format_output_freshness_meta(output)
+    if meta:
+        text += f"[{meta}]"
     return text
+
+
+def _format_output_freshness_meta(output: dict[str, Any]) -> str:
+    parts: list[str] = []
+    age = output.get("event_age_seconds")
+    if isinstance(age, (int, float)):
+        parts.append(f"age={age:g}s")
+    target = str(output.get("target_lanlan") or "").strip()
+    if target:
+        parts.append(f"target={target}")
+    contract = str(output.get("live_reply_contract") or output.get("battle_reply_contract") or "").strip()
+    max_chars = output.get("max_reply_chars")
+    if contract:
+        text = contract
+        if isinstance(max_chars, int):
+            text += f"/{max_chars}"
+        parts.append(f"tts={text}")
+    return ",".join(parts)
 
 
 def _format_reason_detail(reason: Any, *, kind: str) -> str:
@@ -523,23 +559,35 @@ def _ok_text(value: Any) -> str:
     return "ok" if isinstance(value, dict) and value.get("ok") else "fail"
 
 
+def _write_output(path: str | pathlib.Path, chunks: list[str]) -> None:
+    output_path = pathlib.Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("".join(chunks), encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Print a safe neko_warthunder live monitor summary.")
     parser.add_argument("--json", action="store_true", help="Print safe JSON instead of the text summary.")
     parser.add_argument("--root", default=str(_BASE.parent), help="Directory containing runtime log files.")
     parser.add_argument("--count", type=int, default=1, help="Number of samples to print.")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between samples when --count > 1.")
+    parser.add_argument("--output", help="Optional file path to save the safe monitor output.")
     args = parser.parse_args(argv)
 
     count = max(1, args.count)
+    chunks: list[str] = []
     for index in range(count):
         report = monitor_once(root=args.root)
         if args.json:
-            print(json.dumps(report, ensure_ascii=False, sort_keys=True))
+            chunk = json.dumps(report, ensure_ascii=False, sort_keys=True) + "\n"
         else:
-            print(render_text_report(report), end="")
+            chunk = render_text_report(report)
+        chunks.append(chunk)
+        print(chunk, end="")
         if index + 1 < count:
             time.sleep(max(0.1, args.interval))
+    if args.output:
+        _write_output(args.output, chunks)
     return 0
 
 
